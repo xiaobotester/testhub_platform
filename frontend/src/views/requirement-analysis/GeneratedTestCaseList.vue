@@ -381,7 +381,7 @@
 
 <script>
 import api from '@/utils/api'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 export default {
   name: 'GeneratedTestCaseList',
@@ -545,7 +545,18 @@ export default {
         return
       }
 
-      if (!confirm(`确定要删除选中的 ${this.selectedTasks.length} 个任务吗？此操作不可恢复。`)) {
+      try {
+        await ElMessageBox.confirm(
+          `确定要删除选中的 ${this.selectedTasks.length} 个任务吗？此操作不可恢复。`,
+          '确认删除',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning',
+            confirmButtonClass: 'el-button--danger'
+          }
+        )
+      } catch {
         return
       }
 
@@ -707,14 +718,23 @@ export default {
     },
 
     async batchAdoptTask(task) {
-      if (!confirm(`确定要一键采纳任务"${task.title}"的所有测试用例吗？`)) {
+      try {
+        await ElMessageBox.confirm(
+          `确定要一键采纳任务"${task.title}"的所有测试用例吗？`,
+          '确认采纳',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'success'
+          }
+        )
+      } catch {
         return
       }
-      
+
       try {
         // 调用后端API批量采纳该任务的所有测试用例
-        // await api.post(`/requirement-analysis/api/testcase-generation/${task.task_id}/batch-adopt/`)
-        await api.post(`/requirement-analysis/api/testcase-generation/${task.task_id}/batch_adopt/`)
+        await api.post(`/requirement-analysis/api/testcase-generation/${task.task_id}/batch-adopt/`)
         ElMessage.success('一键采纳成功！所有测试用例已导入到测试用例列表')
         this.loadTasks()
       } catch (error) {
@@ -724,14 +744,24 @@ export default {
     },
 
     async batchDiscardTask(task) {
-      if (!confirm(`确定要一键弃用任务"${task.title}"的所有测试用例吗？此操作不可恢复。`)) {
+      try {
+        await ElMessageBox.confirm(
+          `确定要一键弃用任务"${task.title}"的所有测试用例吗？此操作不可恢复。`,
+          '确认弃用',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning',
+            confirmButtonClass: 'el-button--danger'
+          }
+        )
+      } catch {
         return
       }
-      
+
       try {
         // 调用后端API批量删除该任务的所有测试用例
-        // await api.post(`/requirement-analysis/api/testcase-generation/${task.task_id}/batch-discard/`)
-        await api.post(`/requirement-analysis/api/testcase-generation/${task.task_id}/batch_discard/`)
+        await api.post(`/requirement-analysis/api/testcase-generation/${task.task_id}/batch-discard/`)
         ElMessage.success('一键弃用成功！该任务的所有测试用例已删除')
         this.loadTasks()
       } catch (error) {
@@ -835,61 +865,61 @@ export default {
     async confirmAdopt() {
       // 必填项验证
       if (!this.adoptForm.project_id) {
-        alert('请选择归属项目')
+        ElMessage.warning('请选择归属项目')
         return
       }
-      
+
       if (!this.adoptForm.version_id) {
-        alert('请选择关联版本')
+        ElMessage.warning('请选择关联版本')
         return
       }
-      
+
       if (!this.adoptForm.title.trim()) {
-        alert('请输入用例标题')
+        ElMessage.warning('请输入用例标题')
         return
       }
-      
+
       if (!this.adoptForm.expected_result.trim()) {
-        alert('请输入预期结果')
+        ElMessage.warning('请输入预期结果')
         return
       }
-      
+
       this.isAdopting = true
-      
+
       try {
         // 准备提交的数据，将单选版本转换为数组格式（如果API需要）
         const submitData = { ...this.adoptForm }
-        
+
         // 确保优先级有默认值
         if (!submitData.priority) {
           submitData.priority = 'low'
         }
-        
+
         if (submitData.version_id) {
           submitData.version_ids = [submitData.version_id]
         }
         delete submitData.version_id
-        
+
         // 调用API创建测试用例
         await api.post('/testcases/', submitData)
-        
+
         // 将AI生成的用例状态更新为"已采纳"
         try {
-          await api.patch(`/requirement-analysis/api/test-cases/${this.currentAdoptingTestCase.id}/`, {
+          await api.patch(`/requirement-analysis/test-cases/${this.currentAdoptingTestCase.id}/`, {
             status: 'adopted'
           })
         } catch (updateError) {
           console.warn('更新AI用例状态失败:', updateError)
           // 即使状态更新失败，用例已成功导入，仍然提示成功
         }
-        
-        alert('用例采纳成功！已导入到测试用例列表')
+
+        ElMessage.success('用例采纳成功！已导入到测试用例列表')
         this.closeAdoptModal()
         this.loadTestCases() // 重新加载列表
-        
+
       } catch (error) {
         console.error('采纳用例失败:', error)
-        alert('采纳用例失败，请重试')
+        ElMessage.error('采纳用例失败，请重试')
       } finally {
         this.isAdopting = false
       }
@@ -897,20 +927,31 @@ export default {
 
     // 弃用测试用例
     async discardTestCase(testCase) {
-      if (!confirm(`确定要弃用测试用例"${testCase.title}"吗？此操作不可恢复。`)) {
+      try {
+        await ElMessageBox.confirm(
+          `确定要弃用测试用例"${testCase.title}"吗？此操作不可恢复。`,
+          '确认弃用',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning',
+            confirmButtonClass: 'el-button--danger'
+          }
+        )
+      } catch {
         return
       }
-      
+
       try {
         // 将状态更新为"已弃用"
-        await api.patch(`/requirement-analysis/api/test-cases/${testCase.id}/`, {
+        await api.patch(`/requirement-analysis/test-cases/${testCase.id}/`, {
           status: 'discarded'
         })
-        alert('用例已弃用')
+        ElMessage.success('用例已弃用')
         this.loadTestCases() // 重新加载列表，已弃用的用例会被过滤掉
       } catch (error) {
         console.error('弃用用例失败:', error)
-        alert('弃用用例失败，请重试')
+        ElMessage.error('弃用用例失败，请重试')
       }
     },
 
@@ -947,7 +988,7 @@ export default {
         this.jumpPage = ''
         this.loadTasks()
       } else {
-        alert(`请输入 1-${this.totalPages} 之间的页码`)
+        ElMessage.warning(`请输入 1-${this.totalPages} 之间的页码`)
       }
     },
 

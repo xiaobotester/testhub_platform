@@ -396,7 +396,7 @@ export default {
       
       try {
         if (this.isEditing) {
-          await api.patch(`/requirement-analysis/api/prompts/${this.editingConfigId}/`, this.configForm)
+          await api.patch(`/requirement-analysis/prompts/${this.editingConfigId}/`, this.configForm)
           ElMessage.success('配置更新成功')
         } else {
           await api.post('/requirement-analysis/api/prompts/', this.configForm)
@@ -419,7 +419,7 @@ export default {
       }
 
       try {
-        await api.delete(`/requirement-analysis/api/prompts/${configId}/`)
+        await api.delete(`/requirement-analysis/prompts/${configId}/`)
         ElMessage.success('配置删除成功')
         this.loadConfigs()
       } catch (error) {

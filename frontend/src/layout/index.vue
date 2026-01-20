@@ -162,10 +162,24 @@
 
           <!-- 配置中心模块菜单 -->
           <template v-else-if="currentModule === 'configuration'">
-            <el-menu-item index="/configuration/ai-model">
-              <el-icon><Cpu /></el-icon>
-              <span>AI用例生成模型配置</span>
-            </el-menu-item>
+            <el-sub-menu index="ai-case-generation">
+              <template #title>
+                <el-icon><MagicStick /></el-icon>
+                <span>AI用例生成配置</span>
+              </template>
+              <el-menu-item index="/configuration/ai-model">
+                <el-icon><Cpu /></el-icon>
+                <span>用例模型配置</span>
+              </el-menu-item>
+              <el-menu-item index="/configuration/prompt-config">
+                <el-icon><Edit /></el-icon>
+                <span>提示词配置</span>
+              </el-menu-item>
+              <el-menu-item index="/configuration/generation-config">
+                <el-icon><Setting /></el-icon>
+                <span>生成行为配置</span>
+              </el-menu-item>
+            </el-sub-menu>
             <el-menu-item index="/configuration/ui-env">
               <el-icon><Monitor /></el-icon>
               <span>UI环境配置</span>
@@ -306,7 +320,13 @@ const breadcrumbTitle = computed(() => {
 
     
     // 配置中心
+<<<<<<< Updated upstream
     '/configuration/ai-model': 'AI用例生成模型配置',
+=======
+    '/configuration/ai-model': '用例模型配置',
+    '/configuration/prompt-config': '提示词配置',
+    '/configuration/generation-config': '生成行为配置',
+>>>>>>> Stashed changes
     '/configuration/ui-env': 'UI环境配置',
     '/configuration/ai-mode': 'AI智能模式配置',
     '/configuration/scheduled-task': '定时任务配置',
