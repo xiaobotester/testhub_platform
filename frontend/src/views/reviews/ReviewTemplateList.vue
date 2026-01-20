@@ -114,7 +114,11 @@
     <!-- 模板表单对话框 -->
     <el-dialog 
       v-model="templateDialogVisible" 
-      :title="isEdit ? '编辑模板' : '创建模板'" 
+      :title="isEdit ? '编辑模板' : '创建模板'"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :modal="true"
+      :destroy-on-close="false"
       width="800px"
     >
       <el-form :model="templateForm" :rules="templateRules" ref="templateFormRef" label-width="120px">

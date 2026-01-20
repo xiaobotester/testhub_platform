@@ -77,7 +77,7 @@
     </div>
 
     <!-- 查看详情对话框 -->
-    <el-dialog v-model="showDetailDialog" title="脚本详情" width="70%">
+    <el-dialog v-model="showDetailDialog" title="脚本详情" :close-on-click-modal="false" width="70%">
       <div v-if="currentScript" class="script-detail">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="脚本名称" :span="2">{{ currentScript.name }}</el-descriptions-item>
@@ -101,7 +101,7 @@
     </el-dialog>
 
     <!-- 重命名对话框 -->
-    <el-dialog v-model="showRenameDialog" title="重命名脚本" width="400px">
+    <el-dialog v-model="showRenameDialog" title="重命名脚本" :close-on-click-modal="false" width="400px">
       <el-form :model="renameForm" label-width="80px">
         <el-form-item label="新名称">
           <el-input v-model="renameForm.newName" placeholder="请输入新的脚本名称" />
@@ -114,7 +114,7 @@
     </el-dialog>
 
     <!-- 编辑对话框 -->
-    <el-dialog v-model="showEditDialog" title="编辑脚本" width="80%" :close-on-click-modal="false">
+    <el-dialog v-model="showEditDialog" title="编辑脚本" width="80%" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false">
       <div v-if="editingScript" class="script-editor">
         <div class="editor-header">
           <span class="script-name">{{ editingScript.name }}</span>

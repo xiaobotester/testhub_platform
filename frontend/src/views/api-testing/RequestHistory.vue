@@ -62,6 +62,10 @@
     <el-dialog
       v-model="showDetailDialog"
       title="请求详情"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :modal="true"
+      :destroy-on-close="false"
       width="80%"
       :top="'5vh'"
     >

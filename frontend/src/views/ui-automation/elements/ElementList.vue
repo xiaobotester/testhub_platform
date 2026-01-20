@@ -90,7 +90,7 @@
     </div>
     
     <!-- 创建元素对话框 -->
-    <el-dialog v-model="showCreateDialog" title="新增UI元素" width="600px">
+    <el-dialog v-model="showCreateDialog" title="新增UI元素" :close-on-click-modal="false" width="600px">
       <el-form ref="createFormRef" :model="createForm" :rules="formRules" label-width="100px">
         <el-form-item label="元素名称" prop="name">
           <el-input v-model="createForm.name" placeholder="请输入元素名称" />
@@ -134,7 +134,7 @@
     </el-dialog>
     
     <!-- 编辑元素对话框 -->
-    <el-dialog v-model="showEditDialog" title="编辑UI元素" width="600px">
+    <el-dialog v-model="showEditDialog" title="编辑UI元素" :close-on-click-modal="false" width="600px">
       <el-form ref="editFormRef" :model="editForm" :rules="formRules" label-width="100px">
         <el-form-item label="元素名称" prop="name">
           <el-input v-model="editForm.name" placeholder="请输入元素名称" />
@@ -178,7 +178,7 @@
     </el-dialog>
     
     <!-- 元素详情对话框 -->
-    <el-dialog v-model="showDetailDialog" title="元素详情" width="600px">
+    <el-dialog v-model="showDetailDialog" title="元素详情" :close-on-click-modal="false" width="600px">
       <div v-if="Object.keys(currentElementDetail).length > 0" class="element-detail">
         <el-descriptions border column="2" :column="{ xs: 1, sm: 2 }">
           <el-descriptions-item label="元素名称">{{ currentElementDetail.name }}</el-descriptions-item>

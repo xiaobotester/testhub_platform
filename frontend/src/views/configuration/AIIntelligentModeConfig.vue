@@ -73,7 +73,7 @@
     </div>
 
     <!-- 添加/编辑配置弹窗 -->
-    <div v-show="shouldShowModal" :class="['config-modal', { hidden: !shouldShowModal }]" @click="closeModals" @keydown.esc="closeModals">
+    <div v-show="shouldShowModal" :class="['config-modal', { hidden: !shouldShowModal }]" @keydown.esc="closeModals">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h3>{{ isEditing ? '编辑' : '添加' }}AI智能模式配置</h3>
@@ -172,7 +172,7 @@
     </div>
 
     <!-- 连接测试结果弹窗 -->
-    <div v-if="showTestResult" class="test-result-modal" @click="closeTestResult">
+    <div v-if="showTestResult" class="test-result-modal" @keydown.esc="closeTestResult">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h3>连接测试结果</h3>

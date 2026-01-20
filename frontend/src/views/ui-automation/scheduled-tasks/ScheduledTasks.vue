@@ -136,6 +136,10 @@
     <el-dialog
       v-model="showCreateDialog"
       :title="editingTask ? '编辑定时任务' : '新建定时任务'"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :modal="true"
+      :destroy-on-close="false"
       width="800px"
       @close="resetTaskForm"
     >

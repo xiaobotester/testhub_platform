@@ -226,6 +226,10 @@
     <el-dialog
       v-model="showDetailDialog"
       title="通知详情"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :modal="true"
+      :destroy-on-close="false"
       width="600px"
     >
       <div v-if="currentNotification" class="notification-detail">
@@ -266,6 +270,7 @@
     <el-dialog
       v-model="showRecipientDialog"
       title="新增收件人"
+      :close-on-click-modal="false"
       width="400px"
     >
       <el-form :model="newRecipient" label-width="80px">
@@ -286,6 +291,7 @@
     <el-dialog
       v-model="showWebhookDialog"
       title="新增Webhook机器人"
+      :close-on-click-modal="false"
       width="500px"
     >
       <el-form :model="newWebhook" label-width="100px">

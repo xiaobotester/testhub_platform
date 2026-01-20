@@ -170,7 +170,12 @@
     <!-- 历史记录对话框 -->
     <el-dialog 
       title="执行历史记录" 
-      v-model="historyDialogVisible" 
+      v-model="historyDialogVisible"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :modal="true"
+      :destroy-on-close="false"
+      @close="handleDialogClose"
       width="80%">
       <el-table :data="currentCaseHistory" style="width: 100%">
         <el-table-column prop="status" label="状态" width="100">
@@ -255,6 +260,10 @@ const viewCaseHistory = async (runCase) => {
   } catch (error) {
     ElMessage.error('获取历史记录失败')
   }
+}
+
+const handleDialogClose = () => {
+  historyDialogVisible.value = false
 }
 
 // 处理选择变化

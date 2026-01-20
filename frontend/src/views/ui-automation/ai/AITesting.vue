@@ -116,7 +116,7 @@
     </div>
 
     <!-- 保存为用例对话框 -->
-    <el-dialog v-model="showSaveDialog" title="保存为 AI 用例" width="500px">
+    <el-dialog v-model="showSaveDialog" title="保存为 AI 用例" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="500px">
       <el-form :model="saveForm" :rules="saveRules" ref="saveFormRef" label-width="80px">
         <el-form-item label="用例名称" prop="name">
           <el-input v-model="saveForm.name" placeholder="请输入用例名称" />

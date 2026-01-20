@@ -61,6 +61,10 @@
     <el-dialog
       v-model="showCreateDialog"
       :title="editingProject ? '编辑项目' : '新建项目'"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :modal="true"
+      :destroy-on-close="false"
       width="600px"
       @close="resetForm"
     >
@@ -156,6 +160,7 @@
     <el-dialog
       v-model="showViewDialog"
       title="项目详情"
+      :close-on-click-modal="false"
       width="600px"
     >
       <el-descriptions :column="1" border>

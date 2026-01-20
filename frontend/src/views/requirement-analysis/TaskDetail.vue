@@ -159,7 +159,7 @@
     </div>
 
     <!-- 用例详情弹窗 -->
-    <div v-if="showCaseDetail" class="case-detail-modal" @click="closeCaseDetail">
+    <div v-if="showCaseDetail" class="case-detail-modal" @keydown.esc="closeCaseDetail">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h3>{{ isEditing ? '编辑测试用例' : '测试用例详情' }}</h3>

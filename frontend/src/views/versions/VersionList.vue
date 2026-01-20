@@ -122,7 +122,11 @@
     <!-- 版本表单对话框 -->
     <el-dialog 
       v-model="versionDialogVisible" 
-      :title="isEdit ? '编辑版本' : '创建版本'" 
+      :title="isEdit ? '编辑版本' : '创建版本'"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :modal="true"
+      :destroy-on-close="false"
       width="600px"
     >
       <el-form :model="versionForm" :rules="versionRules" ref="versionFormRef" label-width="120px">

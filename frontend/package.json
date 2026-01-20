@@ -1,6 +1,6 @@
 {
   "name": "testhub-frontend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "TestHub前端应用",
   "scripts": {
     "dev": "vite",
@@ -30,6 +30,6 @@
     "eslint-plugin-vue": "^9.15.1",
     "prettier": "^3.0.0",
     "sass": "^1.64.1",
-    "vite": "^4.4.5"
+    "vite": "^7.3.1"
   }
 }

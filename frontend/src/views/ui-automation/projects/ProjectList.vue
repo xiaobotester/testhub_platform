@@ -83,7 +83,7 @@
     </div>
     
     <!-- 创建项目对话框 -->
-    <el-dialog v-model="showCreateDialog" title="新建UI自动化项目" width="500px">
+    <el-dialog v-model="showCreateDialog" title="新建UI自动化项目" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="500px">
       <el-form ref="createFormRef" :model="createForm" :rules="formRules" label-width="80px">
         <el-form-item label="项目名称" prop="name">
           <el-input v-model="createForm.name" placeholder="请输入项目名称" />
@@ -117,7 +117,7 @@
     </el-dialog>
     
     <!-- 编辑项目对话框 -->
-    <el-dialog v-model="showEditDialog" title="编辑UI自动化项目" width="500px">
+    <el-dialog v-model="showEditDialog" title="编辑UI自动化项目" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="500px">
       <el-form ref="editFormRef" :model="editForm" :rules="formRules" label-width="80px">
         <el-form-item label="项目名称" prop="name">
           <el-input v-model="editForm.name" placeholder="请输入项目名称" />
@@ -151,7 +151,7 @@
     </el-dialog>
     
     <!-- 项目详情弹框 -->
-    <el-dialog v-model="showDetailDialog" title="项目详情" width="600px">
+    <el-dialog v-model="showDetailDialog" title="项目详情" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="600px">
       <div v-if="currentProjectDetail" class="project-detail">
         <el-descriptions bordered column="1">
           <el-descriptions-item label="项目名称">{{ currentProjectDetail.name }}</el-descriptions-item>

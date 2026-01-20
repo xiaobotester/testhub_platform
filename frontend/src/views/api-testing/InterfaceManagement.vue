@@ -523,7 +523,7 @@
     </div>
 
     <!-- 创建集合对话框 -->
-    <el-dialog v-model="showCreateCollectionDialog" title="创建集合" width="500px">
+    <el-dialog v-model="showCreateCollectionDialog" title="创建集合" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="500px">
       <el-form ref="collectionFormRef" :model="collectionForm" :rules="collectionRules" label-width="80px">
         <el-form-item label="集合名称" prop="name">
           <el-input v-model="collectionForm.name" placeholder="请输入集合名称" />
@@ -550,7 +550,7 @@
     </el-dialog>
 
     <!-- 编辑集合对话框 -->
-    <el-dialog v-model="showEditCollectionDialog" title="编辑集合" width="500px">
+    <el-dialog v-model="showEditCollectionDialog" title="编辑集合" :close-on-click-modal="false" width="500px">
       <el-form ref="editCollectionFormRef" :model="editCollectionForm" :rules="collectionRules" label-width="80px">
         <el-form-item label="集合名称" prop="name">
           <el-input v-model="editCollectionForm.name" placeholder="请输入集合名称" />

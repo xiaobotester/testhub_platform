@@ -280,7 +280,7 @@ npm run build
 
 ### 访问应用
 
-- **前端**: http://localhost:5173
+- **前端**: http://localhost:3000
 - **后端 API**: http://localhost:8000
 - **API 文档**: http://localhost:8000/api/docs/
 - **Admin 后台**: http://localhost:8000/admin/

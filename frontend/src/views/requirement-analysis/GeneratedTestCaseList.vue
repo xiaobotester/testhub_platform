@@ -204,7 +204,7 @@
     </div>
 
     <!-- 测试用例详情弹窗 -->
-    <div v-if="selectedTestCaseDetail" class="testcase-detail-modal" @click="closeTestCaseDetail">
+    <div v-if="selectedTestCaseDetail" class="testcase-detail-modal" @keydown.esc="closeTestCaseDetail">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h3>{{ selectedTestCaseDetail.title }}</h3>
@@ -264,7 +264,7 @@
     </div>
 
     <!-- 采纳用例编辑弹框 -->
-    <div v-if="showAdoptModal" class="testcase-detail-modal" @click="closeAdoptModal">
+    <div v-if="showAdoptModal" class="testcase-detail-modal" @keydown.esc="closeAdoptModal">
       <div class="modal-content large-modal" @click.stop>
         <div class="modal-header">
           <h3>采纳测试用例</h3>

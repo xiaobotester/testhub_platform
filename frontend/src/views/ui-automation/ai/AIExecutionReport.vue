@@ -4,6 +4,9 @@
     :title="`AI测试执行报告 - ${reportTypeDisplay}`"
     width="1000px"
     :close-on-click-modal="false"
+    :close-on-press-escape="false"
+    :modal="true"
+    :destroy-on-close="false"
     @close="handleClose"
   >
     <div v-if="loading" class="report-loading">
@@ -236,7 +239,7 @@
     </template>
 
     <!-- GIF回放对话框 -->
-    <el-dialog v-model="showGifDialog" title="GIF回放" width="800px" append-to-body>
+    <el-dialog v-model="showGifDialog" title="GIF回放" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="800px" append-to-body>
       <div v-if="reportData && reportData.gif_path" class="gif-container">
         <img :src="gifUrl" alt="Execution GIF" class="gif-image" />
       </div>

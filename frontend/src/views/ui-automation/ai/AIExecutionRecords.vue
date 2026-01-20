@@ -71,7 +71,7 @@
     </div>
 
     <!-- 详情对话框 -->
-    <el-dialog v-model="showDetailDialog" title="执行详情" width="800px">
+    <el-dialog v-model="showDetailDialog" title="执行详情" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="800px">
       <div v-if="currentRecord" class="record-detail">
         <div class="detail-item">
           <span class="label">用例名称:</span>

@@ -125,6 +125,10 @@
     <el-dialog
       v-model="showCreateDialog"
       :title="editingTask ? '编辑定时任务' : '新建定时任务'"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :modal="true"
+      :destroy-on-close="false"
       width="800px"
       @close="resetTaskForm"
     >
@@ -266,7 +270,7 @@
     </el-dialog>
 
     <!-- 执行日志对话框 -->
-    <el-dialog v-model="showLogsDialog" title="任务执行日志" width="1000px">
+    <el-dialog v-model="showLogsDialog" title="任务执行日志" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="1000px">
       <el-table :data="executionLogs" v-loading="logsLoading">
         <el-table-column prop="start_time" label="开始时间" width="180">
           <template #default="scope">

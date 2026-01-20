@@ -52,6 +52,10 @@
     <el-dialog
       v-model="showCreateDialog"
       :title="editingEnvironment ? '编辑环境' : '新建环境'"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :modal="true"
+      :destroy-on-close="false"
       width="800px"
       @close="resetForm"
     >
@@ -162,6 +166,7 @@
     <el-dialog
       v-model="showViewDialog"
       title="环境变量详情"
+      :close-on-click-modal="false"
       width="600px"
     >
       <div v-if="viewingEnvironment" class="view-variables">

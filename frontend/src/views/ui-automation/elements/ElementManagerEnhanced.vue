@@ -194,7 +194,7 @@
     </div>
 
     <!-- 创建页面对话框 -->
-    <el-dialog v-model="showCreatePageDialog" title="创建页面" width="500px">
+    <el-dialog v-model="showCreatePageDialog" title="创建页面" :close-on-click-modal="false" width="500px">
       <el-form ref="pageFormRef" :model="pageForm" :rules="pageRules" label-width="100px">
         <el-form-item label="页面名称" prop="name">
           <el-input v-model="pageForm.name" placeholder="请输入页面名称" />
@@ -229,7 +229,7 @@
     </ul>
 
     <!-- 编辑页面对话框 -->
-    <el-dialog v-model="showEditPageDialog" title="编辑页面" width="500px">
+    <el-dialog v-model="showEditPageDialog" title="编辑页面" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="500px">
       <el-form ref="editPageFormRef" :model="editPageForm" :rules="pageRules" label-width="100px">
         <el-form-item label="页面名称" prop="name">
           <el-input v-model="editPageForm.name" placeholder="请输入页面名称" />

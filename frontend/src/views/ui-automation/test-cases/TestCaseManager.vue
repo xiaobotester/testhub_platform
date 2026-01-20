@@ -383,6 +383,7 @@
     <el-dialog
       v-model="showCreateDialog"
       :title="editingTestCase ? '编辑测试用例' : '新建测试用例'"
+      :close-on-click-modal="false"
       width="500px"
     >
       <el-form :model="testCaseForm" label-width="100px">
@@ -418,7 +419,10 @@
       v-model="showScreenshotPreview"
       title="失败截图预览"
       width="80%"
-      :close-on-click-modal="true"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :modal="true"
+      :destroy-on-close="false"
     >
       <div v-if="currentScreenshot" class="screenshot-preview">
         <div class="preview-info">
@@ -434,8 +438,12 @@
 
     <!-- 变量助手对话框 -->
     <el-dialog
+      :close-on-press-escape="false"
+      :modal="true"
+      :destroy-on-close="false"
       v-model="showVariableHelper"
       title="变量助手 (点击插入)"
+      :close-on-click-modal="false"
       width="800px"
     >
       <el-tabs tab-position="left" style="height: 400px">

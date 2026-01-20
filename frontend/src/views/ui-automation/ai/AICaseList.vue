@@ -56,7 +56,7 @@
     </div>
 
     <!-- 编辑对话框 -->
-    <el-dialog v-model="showEditDialog" title="编辑 AI 用例" width="600px">
+    <el-dialog v-model="showEditDialog" title="编辑 AI 用例" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="600px">
       <el-form :model="editForm" :rules="formRules" ref="editFormRef" label-width="100px">
         <el-form-item label="用例名称" prop="name">
           <el-input v-model="editForm.name" placeholder="请输入用例名称" />

@@ -11,10 +11,9 @@ import App from './App.vue'
 import router from './router'
 import './assets/css/global.scss'
 
-// Axios aÃ¥ÂÂºÃ§Â½Â®
 axios.defaults.xsrfCookieName = 'csrftoken';
 axios.defaults.xsrfHeaderName = 'X-CSRFToken';
-axios.defaults.withCredentials = true; // Ã¥ÂÂÃ¨Â®Â¸Ã¨Â·Â¨Ã¨Â¯Â·Ã¥Â¸Â¦ Cookie
+axios.defaults.withCredentials = true;
 
 const app = createApp(App)
 

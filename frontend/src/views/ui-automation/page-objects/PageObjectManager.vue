@@ -233,7 +233,7 @@
     </div>
 
     <!-- 新增页面对象对话框 -->
-    <el-dialog v-model="showCreateDialog" title="新增页面对象" width="600px">
+    <el-dialog v-model="showCreateDialog" title="新增页面对象" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="600px">
       <el-form ref="createFormRef" :model="createForm" :rules="formRules" label-width="120px">
         <el-form-item label="页面对象名称" prop="name">
           <el-input v-model="createForm.name" placeholder="请输入页面对象名称" />
@@ -262,7 +262,7 @@
     </el-dialog>
 
     <!-- 添加元素对话框 -->
-    <el-dialog v-model="showAddElementDialog" title="添加元素到页面对象" width="600px">
+    <el-dialog v-model="showAddElementDialog" title="添加元素到页面对象" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="600px">
       <el-form ref="addElementFormRef" :model="addElementForm" :rules="addElementRules" label-width="120px">
         <el-form-item label="选择元素" prop="element_id">
           <el-select v-model="addElementForm.element_id" placeholder="请选择元素" filterable>

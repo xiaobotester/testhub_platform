@@ -218,7 +218,7 @@
     </el-dialog>
 
     <!-- 运行配置对话框 -->
-    <el-dialog v-model="showRunDialog" title="执行测试套件" width="600px">
+    <el-dialog v-model="showRunDialog" title="执行测试套件" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="600px">
       <el-form :model="runConfig" label-width="120px">
         <el-form-item label="测试引擎">
           <el-select v-model="runConfig.engine" placeholder="请选择测试引擎">

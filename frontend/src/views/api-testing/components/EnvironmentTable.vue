@@ -60,6 +60,7 @@
     <el-dialog
       v-model="showViewDialog"
       title="环境变量"
+      :close-on-click-modal="false"
       width="600px"
     >
       <div v-if="viewingEnvironment" class="variables-view">

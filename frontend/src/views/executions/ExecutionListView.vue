@@ -110,7 +110,7 @@
     </div>
 
     <!-- 创建测试计划对话框 -->
-    <el-dialog title="新建测试计划" v-model="isCreatePlanDialogOpen" width="600px">
+    <el-dialog title="新建测试计划" v-model="isCreatePlanDialogOpen" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="600px">
       <el-form :model="newPlanForm" :rules="planRules" ref="planFormRef" label-width="100px">
         <el-form-item label="计划名称" prop="name">
           <el-input v-model="newPlanForm.name" placeholder="请输入计划名称"></el-input>
@@ -168,7 +168,7 @@
     </el-dialog>
 
     <!-- 编辑测试计划对话框 -->
-    <el-dialog title="编辑测试计划" v-model="isEditPlanDialogOpen" width="600px">
+    <el-dialog title="编辑测试计划" v-model="isEditPlanDialogOpen" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="600px">
       <el-form :model="editPlanForm" :rules="planRules" ref="editPlanFormRef" label-width="100px">
         <el-form-item label="计划名称" prop="name">
           <el-input v-model="editPlanForm.name" placeholder="请输入计划名称"></el-input>

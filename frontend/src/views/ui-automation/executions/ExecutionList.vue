@@ -146,7 +146,7 @@
     </div>
 
     <!-- 执行详情对话框 -->
-    <el-dialog v-model="showDetailDialog" title="执行详情" width="900px">
+    <el-dialog v-model="showDetailDialog" title="执行详情" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="900px">
       <div v-if="currentExecution" class="execution-detail">
         <!-- 基本信息 -->
         <el-descriptions :column="2" border>
@@ -230,7 +230,7 @@
     </el-dialog>
 
     <!-- 重跑测试用例对话框 -->
-    <el-dialog v-model="showRerunDialogVisible" title="重跑测试用例" width="500px">
+    <el-dialog v-model="showRerunDialogVisible" title="重跑测试用例" :close-on-click-modal="false" width="500px">
       <el-form :model="rerunFormData" label-width="100px">
         <el-form-item label="测试引擎">
           <el-radio-group v-model="rerunFormData.engine">

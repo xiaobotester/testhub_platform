@@ -203,6 +203,7 @@
     <el-dialog
       v-model="showCreateSuiteDialog"
       :title="editingSuite ? '编辑测试套件' : '新建测试套件'"
+      :close-on-click-modal="false"
       width="600px"
       @close="resetSuiteForm"
     >
@@ -260,6 +261,7 @@
     <el-dialog
       v-model="showAddRequestDialog"
       title="添加请求到测试套件"
+      :close-on-click-modal="false"
       width="800px"
     >
       <div class="add-request-content">
@@ -303,6 +305,7 @@
     <el-dialog
       v-model="showExecutionDialog"
       title="测试执行结果"
+      :close-on-click-modal="false"
       width="80%"
       :top="'5vh'"
     >
