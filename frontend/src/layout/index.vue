@@ -22,7 +22,6 @@
               </template>
               <el-menu-item index="/ai-generation/requirement-analysis">AI用例生成</el-menu-item>
               <el-menu-item index="/ai-generation/generated-testcases">AI生成用例记录</el-menu-item>
-              <el-menu-item index="/ai-generation/prompt-config">提示词配置</el-menu-item>
             </el-sub-menu>
             <el-menu-item index="/ai-generation/projects">
               <el-icon><Folder /></el-icon>
@@ -320,13 +319,9 @@ const breadcrumbTitle = computed(() => {
 
     
     // 配置中心
-<<<<<<< Updated upstream
-    '/configuration/ai-model': 'AI用例生成模型配置',
-=======
     '/configuration/ai-model': '用例模型配置',
     '/configuration/prompt-config': '提示词配置',
     '/configuration/generation-config': '生成行为配置',
->>>>>>> Stashed changes
     '/configuration/ui-env': 'UI环境配置',
     '/configuration/ai-mode': 'AI智能模式配置',
     '/configuration/scheduled-task': '定时任务配置',
