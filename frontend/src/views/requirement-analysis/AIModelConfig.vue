@@ -96,7 +96,6 @@
     <div
       v-show="shouldShowModal"
       :class="['config-modal', { hidden: !shouldShowModal }]"
-      @click="closeModals"
       @keydown.esc="closeModals">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
@@ -246,7 +245,7 @@
     </div>
 
     <!-- 连接测试结果弹窗 -->
-    <div v-if="showTestResult" class="test-result-modal" @click="closeTestResult">
+    <div v-if="showTestResult" class="test-result-modal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h3>{{ $t('configuration.aiModel.testResult') }}</h3>

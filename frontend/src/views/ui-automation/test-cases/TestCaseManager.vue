@@ -404,6 +404,7 @@
       v-model="showCreateDialog"
       :title="editingTestCase ? $t('uiAutomation.testCase.editTestCase') : $t('uiAutomation.testCase.createTestCase')"
       width="500px"
+      :close-on-click-modal="false"
     >
       <el-form :model="testCaseForm" label-width="100px">
         <el-form-item :label="$t('uiAutomation.testCase.caseName')" required>

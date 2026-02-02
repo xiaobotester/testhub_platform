@@ -164,7 +164,7 @@
     </div>
 
     <!-- 用例详情弹窗 -->
-    <div v-if="showCaseDetail" class="case-detail-modal" @click="closeCaseDetail">
+    <div v-if="showCaseDetail" class="case-detail-modal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h3>{{ isEditing ? $t('taskDetail.modalEditTitle') : $t('taskDetail.modalViewTitle') }}</h3>

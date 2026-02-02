@@ -267,6 +267,7 @@
       v-model="showRecipientDialog"
       :title="$t('apiTesting.notification.addRecipient')"
       width="400px"
+      :close-on-click-modal="false"
     >
       <el-form :model="newRecipient" label-width="80px">
         <el-form-item :label="$t('apiTesting.notification.recipientName')" required>
@@ -287,6 +288,7 @@
       v-model="showWebhookDialog"
       :title="$t('apiTesting.notification.addWebhook')"
       width="500px"
+      :close-on-click-modal="false"
     >
       <el-form :model="newWebhook" label-width="100px">
         <el-form-item :label="$t('apiTesting.common.name')" required>

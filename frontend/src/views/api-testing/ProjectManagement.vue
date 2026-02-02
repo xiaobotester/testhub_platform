@@ -62,6 +62,7 @@
       v-model="showCreateDialog"
       :title="editingProject ? $t('apiTesting.project.editProject') : $t('apiTesting.project.createProject')"
       width="600px"
+      :close-on-click-modal="false"
       @close="resetForm"
     >
       <el-form

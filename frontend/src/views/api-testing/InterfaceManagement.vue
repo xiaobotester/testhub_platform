@@ -523,7 +523,7 @@
     </div>
 
     <!-- 创建集合对话框 -->
-    <el-dialog v-model="showCreateCollectionDialog" :title="$t('apiTesting.interface.createCollection')" width="500px">
+    <el-dialog v-model="showCreateCollectionDialog" :title="$t('apiTesting.interface.createCollection')" width="500px" :close-on-click-modal="false">
       <el-form ref="collectionFormRef" :model="collectionForm" :rules="collectionRules" label-width="80px">
         <el-form-item :label="$t('apiTesting.interface.collectionName')" prop="name">
           <el-input v-model="collectionForm.name" :placeholder="$t('apiTesting.interface.inputCollectionName')" />
@@ -550,7 +550,7 @@
     </el-dialog>
 
     <!-- 编辑集合对话框 -->
-    <el-dialog v-model="showEditCollectionDialog" :title="$t('apiTesting.common.edit')" width="500px">
+    <el-dialog v-model="showEditCollectionDialog" :title="$t('apiTesting.common.edit')" width="500px" :close-on-click-modal="false">
       <el-form ref="editCollectionFormRef" :model="editCollectionForm" :rules="collectionRules" label-width="80px">
         <el-form-item :label="$t('apiTesting.interface.collectionName')" prop="name">
           <el-input v-model="editCollectionForm.name" :placeholder="$t('apiTesting.interface.inputCollectionName')" />

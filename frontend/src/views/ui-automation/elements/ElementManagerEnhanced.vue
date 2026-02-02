@@ -194,7 +194,7 @@
     </div>
 
     <!-- 创建页面对话框 -->
-    <el-dialog v-model="showCreatePageDialog" :title="$t('uiAutomation.element.createPageTitle')" width="500px">
+    <el-dialog v-model="showCreatePageDialog" :title="$t('uiAutomation.element.createPageTitle')" width="500px" :close-on-click-modal="false">
       <el-form ref="pageFormRef" :model="pageForm" :rules="pageRules" label-width="100px">
         <el-form-item :label="$t('uiAutomation.element.pageName')" prop="name">
           <el-input v-model="pageForm.name" :placeholder="$t('uiAutomation.element.pageNamePlaceholder')" />
@@ -229,7 +229,7 @@
     </ul>
 
     <!-- 编辑页面对话框 -->
-    <el-dialog v-model="showEditPageDialog" :title="$t('uiAutomation.element.editPageTitle')" width="500px">
+    <el-dialog v-model="showEditPageDialog" :title="$t('uiAutomation.element.editPageTitle')" width="500px" :close-on-click-modal="false">
       <el-form ref="editPageFormRef" :model="editPageForm" :rules="pageRules" label-width="100px">
         <el-form-item :label="$t('uiAutomation.element.pageName')" prop="name">
           <el-input v-model="editPageForm.name" :placeholder="$t('uiAutomation.element.pageNamePlaceholder')" />

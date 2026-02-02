@@ -83,7 +83,7 @@
     </div>
 
     <!-- 添加/编辑配置弹窗 -->
-    <div v-if="showAddModal || showEditModal" class="config-modal" @click="closeModals">
+    <div v-if="showAddModal || showEditModal" class="config-modal">
       <div class="modal-content large" @click.stop>
         <div class="modal-header">
           <h3>{{ isEditing ? $t('promptConfig.editConfig') : $t('promptConfig.addConfig') }}</h3>

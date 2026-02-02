@@ -243,6 +243,11 @@ const routes = [
         component: () => import('@/views/ui-automation/scripts/ScriptEditorEnhanced.vue')
       },
       {
+        path: 'scripts/editor',
+        name: 'UiScriptEditor',
+        component: () => import('@/views/ui-automation/scripts/ScriptEditorEnhanced.vue')
+      },
+      {
         path: 'scripts',
         name: 'UiScripts',
         component: () => import('@/views/ui-automation/scripts/ScriptList.vue')

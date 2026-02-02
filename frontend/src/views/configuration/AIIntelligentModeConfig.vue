@@ -71,7 +71,7 @@
     </div>
 
     <!-- 添加/编辑配置弹窗 -->
-    <div v-show="shouldShowModal" :class="['config-modal', { hidden: !shouldShowModal }]" @click="closeModals" @keydown.esc="closeModals">
+    <div v-show="shouldShowModal" :class="['config-modal', { hidden: !shouldShowModal }]" @keydown.esc="closeModals">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h3>{{ isEditing ? $t('configuration.aiMode.editConfig') : $t('configuration.aiMode.addConfigTitle') }}</h3>

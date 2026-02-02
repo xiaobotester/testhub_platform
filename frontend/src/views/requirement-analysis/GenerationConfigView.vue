@@ -91,7 +91,7 @@
     </div>
 
     <!-- 添加/编辑配置弹窗 -->
-    <div v-if="showAddModal || showEditModal" class="config-modal" @click="closeModals">
+    <div v-if="showAddModal || showEditModal" class="config-modal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h3>{{ isEditing ? $t('generationConfig.editTitle') : $t('generationConfig.addTitle') }}{{ $t('generationConfig.formTitle') }}</h3>

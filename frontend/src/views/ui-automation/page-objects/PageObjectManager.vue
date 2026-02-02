@@ -233,7 +233,7 @@
     </div>
 
     <!-- 新增页面对象对话框 -->
-    <el-dialog v-model="showCreateDialog" :title="$t('uiAutomation.pageObject.createPageObject')" width="600px">
+    <el-dialog v-model="showCreateDialog" :title="$t('uiAutomation.pageObject.createPageObject')" width="600px" :close-on-click-modal="false">
       <el-form ref="createFormRef" :model="createForm" :rules="formRules" label-width="120px">
         <el-form-item :label="$t('uiAutomation.pageObject.pageObjectName')" prop="name">
           <el-input v-model="createForm.name" :placeholder="$t('uiAutomation.pageObject.rules.nameRequired')" />

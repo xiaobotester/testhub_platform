@@ -204,6 +204,7 @@
       v-model="showCreateSuiteDialog"
       :title="editingSuite ? $t('apiTesting.automation.editSuite') : $t('apiTesting.automation.createSuite')"
       width="600px"
+      :close-on-click-modal="false"
       @close="resetSuiteForm"
     >
       <el-form
@@ -261,6 +262,7 @@
       v-model="showAddRequestDialog"
       :title="$t('apiTesting.automation.addRequestToSuite')"
       width="800px"
+      :close-on-click-modal="false"
     >
       <div class="add-request-content">
         <div class="request-selector">

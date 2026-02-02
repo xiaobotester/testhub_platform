@@ -53,6 +53,7 @@
       v-model="showCreateDialog"
       :title="editingEnvironment ? $t('apiTesting.environment.editEnvironment') : $t('apiTesting.environment.createEnvironment')"
       width="800px"
+      :close-on-click-modal="false"
       @close="resetForm"
     >
       <el-form

@@ -218,7 +218,7 @@
     </el-dialog>
 
     <!-- 运行配置对话框 -->
-    <el-dialog v-model="showRunDialog" :title="$t('uiAutomation.suite.runConfig')" width="600px">
+    <el-dialog v-model="showRunDialog" :title="$t('uiAutomation.suite.runConfig')" width="600px" :close-on-click-modal="false">
       <el-form :model="runConfig" label-width="120px">
         <el-form-item :label="$t('uiAutomation.suite.testEngine')">
           <el-select v-model="runConfig.engine" :placeholder="$t('uiAutomation.suite.testEngine')">

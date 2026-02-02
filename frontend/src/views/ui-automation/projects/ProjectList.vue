@@ -83,7 +83,7 @@
     </div>
     
     <!-- 创建项目对话框 -->
-    <el-dialog v-model="showCreateDialog" :title="$t('uiAutomation.project.createProject')" width="500px">
+    <el-dialog v-model="showCreateDialog" :title="$t('uiAutomation.project.createProject')" width="500px" :close-on-click-modal="false">
       <el-form ref="createFormRef" :model="createForm" :rules="formRules" label-width="80px">
         <el-form-item :label="$t('uiAutomation.project.projectName')" prop="name">
           <el-input v-model="createForm.name" :placeholder="$t('uiAutomation.project.rules.nameRequired')" />
@@ -117,7 +117,7 @@
     </el-dialog>
     
     <!-- 编辑项目对话框 -->
-    <el-dialog v-model="showEditDialog" :title="$t('uiAutomation.project.editProject')" width="500px">
+    <el-dialog v-model="showEditDialog" :title="$t('uiAutomation.project.editProject')" width="500px" :close-on-click-modal="false">
       <el-form ref="editFormRef" :model="editForm" :rules="formRules" label-width="80px">
         <el-form-item :label="$t('uiAutomation.project.projectName')" prop="name">
           <el-input v-model="editForm.name" :placeholder="$t('uiAutomation.project.rules.nameRequired')" />

@@ -126,6 +126,7 @@
       v-model="showCreateDialog"
       :title="editingTask ? $t('apiTesting.scheduledTask.editTask') : $t('apiTesting.scheduledTask.createTask')"
       width="800px"
+      :close-on-click-modal="false"
       @close="resetTaskForm"
     >
       <el-form :model="taskForm" label-width="120px">
