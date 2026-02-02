@@ -67,7 +67,7 @@ def extract_step_info(s, step_index):
                     if isinstance(value, str):
                         attrs[key] = value
                     elif callable(value):
-                       attrs[key] = getattr(value, '__name__', str(value))
+                        attrs[key] = getattr(value, '__name__', str(value))
                     else:
                         attrs[key] = str(value)
             if attrs:
@@ -113,6 +113,7 @@ def extract_step_info(s, step_index):
 
 
 from rest_framework.pagination import PageNumberPagination
+
 
 class StandardPagination(PageNumberPagination):
     page_size = 20
@@ -367,7 +368,9 @@ class ElementGroupViewSet(viewsets.ModelViewSet):
         accessible_projects = UiProject.objects.filter(
             models.Q(owner=user) | models.Q(members=user)
         ).distinct()
-        return ElementGroup.objects.filter(project__in=accessible_projects).select_related('project', 'parent_group').order_by('order', 'name')
+        return ElementGroup.objects.filter(project__in=accessible_projects).select_related('project',
+                                                                                           'parent_group').order_by(
+            'order', 'name')
 
     @action(detail=False, methods=['get'])
     def tree(self, request):
@@ -843,52 +846,6 @@ class TestExecutionViewSet(viewsets.ModelViewSet):
             return TestExecutionCreateSerializer
         return TestExecutionSerializer
 
-
-
-    @action(detail=True, methods=['post'])
-    def run(self, request, pk=None):
-        """运行测试执行"""
-        execution = self.get_object()
-        execution.status = 'RUNNING'
-        execution.started_at = timezone.now()
-        execution.save()
-        
-        # 这里应该有实际的测试运行逻辑，这里只是模拟
-        # 在实际实现中，这里可能会启动一个异步任务来执行测试
-        
-        # 模拟测试运行结果
-        import time
-        time.sleep(2)  # 模拟测试执行时间
-        
-        execution.status = 'SUCCESS'  # 假设测试成功
-        execution.finished_at = timezone.now()
-        execution.result_data = {
-            'steps': [
-                {'name': 'Step 1', 'status': 'PASS', 'duration': 1.2},
-                {'name': 'Step 2', 'status': 'PASS', 'duration': 0.8},
-                {'name': 'Step 3', 'status': 'PASS', 'duration': 1.5},
-            ],
-            'total_steps': 3,
-            'passed_steps': 3,
-            'failed_steps': 0,
-            'duration': 3.5
-        }
-        execution.save()
-        
-        serializer = TestExecutionSerializer(execution)
-        return Response(serializer.data)
-
-    @action(detail=True, methods=['post'])
-    def abort(self, request, pk=None):
-        """中止测试执行"""
-        execution = self.get_object()
-        if execution.status == 'RUNNING':
-            execution.status = 'ABORTED'
-            execution.finished_at = timezone.now()
-            execution.save()
-            return Response(TestExecutionSerializer(execution).data)
-        return Response({'error': '测试执行未在运行中'}, status=status.HTTP_400_BAD_REQUEST)
-
     def perform_destroy(self, instance):
         # 记录操作（删除测试报告）
         suite_name = instance.test_suite.name if instance.test_suite else f"执行记录#{instance.id}"
@@ -930,6 +887,7 @@ class TestCaseViewSet(viewsets.ModelViewSet):
         accessible_projects = UiProject.objects.filter(
             models.Q(owner=user) | models.Q(members=user)
         ).distinct()
+
     def get_queryset(self):
         # 只显示用户有权限访问的项目的测试用例
         user = self.request.user
@@ -984,7 +942,7 @@ class TestCaseViewSet(viewsets.ModelViewSet):
                     )
                     created_count += 1
                 except Exception as e:
-                    logger.error(f"创建步骤 {i+1} 失败: {str(e)}")
+                    logger.error(f"创建步骤 {i + 1} 失败: {str(e)}")
                     logger.error(f"步骤数据: {step_data}")
 
             logger.info(f"成功创建了 {created_count} 个新步骤")
@@ -993,7 +951,7 @@ class TestCaseViewSet(viewsets.ModelViewSet):
     def copy_case(self, request, pk=None):
         """复制测试用例"""
         test_case = self.get_object()
-        
+
         try:
             # 1. 复制测试用例基本信息
             new_case = TestCase.objects.create(
@@ -1004,7 +962,7 @@ class TestCaseViewSet(viewsets.ModelViewSet):
                 status=test_case.status,
                 created_by=request.user
             )
-            
+
             # 2. 复制测试步骤
             steps = test_case.steps.all().order_by('step_number')
             new_steps = []
@@ -1020,16 +978,16 @@ class TestCaseViewSet(viewsets.ModelViewSet):
                     assert_value=step.assert_value,
                     description=step.description
                 ))
-            
+
             if new_steps:
                 TestCaseStep.objects.bulk_create(new_steps)
-            
+
             # 记录操作
             log_operation('create', 'test_case', new_case.id, new_case.name, request.user)
-            
+
             serializer = self.get_serializer(new_case)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-            
+
         except Exception as e:
             logger.error(f"复制测试用例失败: {str(e)}")
             return Response({'error': f"复制失败: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -1085,7 +1043,7 @@ class TestCaseViewSet(viewsets.ModelViewSet):
                     )
                     created_count += 1
                 except Exception as e:
-                    logger.error(f"创建步骤 {i+1} 失败: {str(e)}")
+                    logger.error(f"创建步骤 {i + 1} 失败: {str(e)}")
                     logger.error(f"步骤数据: {step_data}")
 
             logger.info(f"成功创建了 {created_count} 个新步骤")
@@ -1139,7 +1097,7 @@ class TestCaseViewSet(viewsets.ModelViewSet):
         elif step.action_type == 'waitFor':
             log_parts.append(f"等待元素 '{element_name}' 出现")
             log_parts.append(f"- 使用定位器: {locator_info}")
-            log_parts.append(f"- 超时时间: {step.wait_time/1000}秒")
+            log_parts.append(f"- 超时时间: {step.wait_time / 1000}秒")
             if step_result == 'success':
                 log_parts.append(f"- 元素在 {execution_time}s 后出现")
             else:
@@ -1185,7 +1143,7 @@ class TestCaseViewSet(viewsets.ModelViewSet):
 
         elif step.action_type == 'wait':
             log_parts.append(f"固定等待")
-            log_parts.append(f"- 等待时间: {step.wait_time/1000}秒")
+            log_parts.append(f"- 等待时间: {step.wait_time / 1000}秒")
             log_parts.append(f"- 等待完成")
 
         else:
@@ -1237,12 +1195,12 @@ class TestCaseViewSet(viewsets.ModelViewSet):
             draw.text((40, info_y), f"失败步骤: 步骤 {step_number}", fill=(50, 50, 50), font=font_text)
             draw.text((40, info_y + 40), f"步骤说明: {step_description}", fill=(50, 50, 50), font=font_text)
             draw.text((40, info_y + 80), f"失败时间: {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}",
-                     fill=(50, 50, 50), font=font_text)
+                      fill=(50, 50, 50), font=font_text)
 
             # 绘制一个模拟的浏览器窗口
             browser_y = info_y + 140
-            draw.rectangle([40, browser_y, width-40, height-40], outline=(200, 200, 200), width=2)
-            draw.rectangle([40, browser_y, width-40, browser_y + 40], fill=(200, 200, 200))
+            draw.rectangle([40, browser_y, width - 40, height - 40], outline=(200, 200, 200), width=2)
+            draw.rectangle([40, browser_y, width - 40, browser_y + 40], fill=(200, 200, 200))
             draw.text((60, browser_y + 10), "模拟浏览器页面 - 失败截图", fill=(80, 80, 80), font=font_text)
 
             # 在浏览器窗口中绘制错误提示
@@ -1391,7 +1349,8 @@ class TestCaseViewSet(viewsets.ModelViewSet):
                         try:
                             engine.start()
                             mode_text = "无头模式" if headless else "有头模式"
-                            execution_logs.append(f"✓ {browser_type.capitalize()} 浏览器启动成功 (Selenium, {mode_text})")
+                            execution_logs.append(
+                                f"✓ {browser_type.capitalize()} 浏览器启动成功 (Selenium, {mode_text})")
                             execution_logs.append("")
                         except Exception as browser_error:
                             # 浏览器启动失败
@@ -1399,7 +1358,8 @@ class TestCaseViewSet(viewsets.ModelViewSet):
                             execution_logs.append(f"  错误: {str(browser_error)}")
                             execution_logs.append("")
                             execution_result['status'] = 'failed'
-                            execution_result['error_message'] = f"{browser_type.capitalize()} 浏览器启动失败: {str(browser_error)}"
+                            execution_result[
+                                'error_message'] = f"{browser_type.capitalize()} 浏览器启动失败: {str(browser_error)}"
 
                             # 添加详细错误信息
                             detailed_errors.append({
@@ -1449,7 +1409,8 @@ class TestCaseViewSet(viewsets.ModelViewSet):
 
                                 if element_data:
                                     execution_logs.append(f"  元素: {element_data['name']}")
-                                    execution_logs.append(f"  定位器: {element_data['locator_strategy']}={element_data['locator_value']}")
+                                    execution_logs.append(
+                                        f"  定位器: {element_data['locator_strategy']}={element_data['locator_value']}")
                                 else:
                                     execution_logs.append(f"  (此步骤不需要元素)")
 
@@ -1572,6 +1533,7 @@ class TestCaseViewSet(viewsets.ModelViewSet):
                 # Playwright异步执行
                 def run_test_in_thread():
                     """在独立线程中运行异步测试"""
+
                     async def run_test():
                         """异步执行测试"""
                         # 根据浏览器类型选择
@@ -1591,7 +1553,8 @@ class TestCaseViewSet(viewsets.ModelViewSet):
                             execution_logs.append("========== 初始化浏览器 ==========")
                             await engine.start()
                             mode_text = "无头模式" if headless else "有头模式"
-                            execution_logs.append(f"✓ {browser_type.capitalize()} 浏览器启动成功 (Playwright, {mode_text})")
+                            execution_logs.append(
+                                f"✓ {browser_type.capitalize()} 浏览器启动成功 (Playwright, {mode_text})")
                             execution_logs.append("")
 
                             # 导航到项目基础URL
@@ -1632,14 +1595,16 @@ class TestCaseViewSet(viewsets.ModelViewSet):
 
                                     if element_data:
                                         execution_logs.append(f"  元素: {element_data['name']}")
-                                        execution_logs.append(f"  定位器: {element_data['locator_strategy']}={element_data['locator_value']}")
+                                        execution_logs.append(
+                                            f"  定位器: {element_data['locator_strategy']}={element_data['locator_value']}")
                                     else:
                                         execution_logs.append(f"  (此步骤不需要元素)")
 
                                     # 执行步骤
                                     try:
                                         execution_logs.append(f"  [调试] 准备执行步骤...")
-                                        success, step_log, screenshot_base64 = await engine.execute_step(step, element_data or {})
+                                        success, step_log, screenshot_base64 = await engine.execute_step(step,
+                                                                                                         element_data or {})
                                         execution_logs.append(f"  [调试] 步骤执行完成, success={success}")
 
                                         execution_logs.append(f"  {step_log}")
@@ -1941,17 +1906,35 @@ class TestCaseExecutionViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='batch-delete')
     def batch_delete(self, request):
         """批量删除执行记录"""
-        ids = request.data.get('ids', [])
-        if not ids:
-            return Response({'error': '未提供要删除的记录ID'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # 确保只能删除有权限的记录
-        queryset = self.get_queryset()
-        deleted_count, _ = queryset.filter(id__in=ids).delete()
-        
-        return Response({'message': f'成功删除 {deleted_count} 条记录'})
+        try:
+            ids = request.data.get('ids', [])
 
+            # 验证ids参数
+            if not ids:
+                return Response({'error': '未提供要删除的记录ID'}, status=status.HTTP_400_BAD_REQUEST)
 
+            # 确保ids是列表
+            if not isinstance(ids, list):
+                return Response({'error': 'ids参数格式错误，应为数组'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 确保只能删除有权限的记录
+            queryset = self.get_queryset()
+            records_to_delete = queryset.filter(id__in=ids)
+
+            # 检查是否有记录可删除
+            if not records_to_delete.exists():
+                return Response({'error': '未找到可删除的记录或没有权限删除'}, status=status.HTTP_404_NOT_FOUND)
+
+            # 获取可删除记录的ID列表，避免对带select_related的queryset调用delete()可能出现的问题
+            deletable_ids = list(records_to_delete.values_list('id', flat=True))
+
+            # 使用ID列表直接删除
+            deleted_count = TestCaseExecution.objects.filter(id__in=deletable_ids).delete()[0]
+
+            return Response({'message': f'成功删除 {deleted_count} 条记录', 'deleted_count': deleted_count})
+        except Exception as e:
+            logger.error(f"批量删除测试用例执行记录失败: {str(e)}", exc_info=True)
+            return Response({'error': f'批量删除失败: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class OperationRecordViewSet(viewsets.ReadOnlyModelViewSet):
@@ -2244,7 +2227,8 @@ class UiScheduledTaskViewSet(viewsets.ModelViewSet):
                                             action_type = step_info['action_type']
                                             element_data = step_info['element_data']
 
-                                            success, step_log, screenshot_base64 = engine.execute_step(step, element_data or {})
+                                            success, step_log, screenshot_base64 = engine.execute_step(step,
+                                                                                                       element_data or {})
 
                                             step_results.append({
                                                 'step_number': i,
@@ -2320,7 +2304,8 @@ class UiScheduledTaskViewSet(viewsets.ModelViewSet):
                                                 action_type = step_info['action_type']
                                                 element_data = step_info['element_data']
 
-                                                success, step_log, screenshot_base64 = await engine.execute_step(step, element_data or {})
+                                                success, step_log, screenshot_base64 = await engine.execute_step(step,
+                                                                                                                 element_data or {})
 
                                                 step_results.append({
                                                     'step_number': i,
@@ -2559,7 +2544,8 @@ class UiScheduledTaskViewSet(viewsets.ModelViewSet):
 
                 # 构造详细内容
                 # 转换执行时间到本地时区
-                local_run_time = timezone.localtime(task.last_run_time).strftime('%Y-%m-%d %H:%M:%S') if task.last_run_time else '未知'
+                local_run_time = timezone.localtime(task.last_run_time).strftime(
+                    '%Y-%m-%d %H:%M:%S') if task.last_run_time else '未知'
                 detail_content = f"""任务名称: {task.name}
 
 执行状态: {status_text}
@@ -2747,7 +2733,8 @@ class UiScheduledTaskViewSet(viewsets.ModelViewSet):
             result_message = last_result.get('message', '')
 
             # 转换执行时间到本地时区
-            local_run_time = timezone.localtime(task.last_run_time).strftime('%Y-%m-%d %H:%M:%S') if task.last_run_time else '未知'
+            local_run_time = timezone.localtime(task.last_run_time).strftime(
+                '%Y-%m-%d %H:%M:%S') if task.last_run_time else '未知'
 
             message = f"""
 任务名称: {task.name}
@@ -2888,15 +2875,55 @@ class AICaseViewSet(viewsets.ModelViewSet):
             executed_by=request.user,
             logs="正在分析任务...\n"
         )
-        
+
         # 异步执行
         import threading
+        import os
         from asgiref.sync import sync_to_async
+        from django.db import connection, DatabaseError
         from .ai_agent import run_full_process_sync
-        
+
         def run_task():
             # 注册停止信号
             STOP_SIGNALS[execution_record.id] = False
+
+            # 关键修复：关闭旧连接，避免子线程共享主线程的连接
+            try:
+                connection.close()
+            except:
+                pass
+
+            # 设置环境变量，允许在后台线程中使用同步 ORM
+            os.environ['DJANGO_ALLOW_ASYNC_UNSAFE'] = 'true'
+
+            def safe_save(record, update_fields=None, max_retries=3):
+                """安全的保存方法，带有重试机制"""
+                for attempt in range(max_retries):
+                    try:
+                        record.save(update_fields=update_fields)
+                        return True
+                    except (DatabaseError, Exception) as e:
+                        error_str = str(e)
+                        # 检查是否是MySQL连接错误
+                        if '2006' in error_str or 'MySQL server has gone away' in error_str or '0' == error_str:
+                            if attempt < max_retries - 1:
+                                logger.warning(f"数据库连接失败 (尝试 {attempt + 1}/{max_retries}): {e}")
+                                # 关闭旧连接并重试
+                                try:
+                                    connection.close()
+                                except:
+                                    pass
+                                import time
+                                time.sleep(0.5)  # 等待一下再重试
+                                continue
+                            else:
+                                logger.error(f"数据库保存失败，已达最大重试次数: {e}")
+                                raise
+                        else:
+                            # 其他错误直接抛出
+                            logger.error(f"数据库保存失败: {e}")
+                            raise
+                return False
 
             try:
                 def should_stop():
@@ -2905,8 +2932,8 @@ class AICaseViewSet(viewsets.ModelViewSet):
                 async def on_analysis_complete(planned_tasks):
                     execution_record.planned_tasks = planned_tasks
                     execution_record.logs += "任务分析完成，开始执行...\n"
-                    await sync_to_async(execution_record.save)()
-                    
+                    await sync_to_async(safe_save)(execution_record, update_fields=['planned_tasks', 'logs'])
+
                 async def on_step_update(step_info):
                     try:
                         # 处理日志
@@ -2914,7 +2941,7 @@ class AICaseViewSet(viewsets.ModelViewSet):
                             content = step_info.get('content')
                             if content:
                                 execution_record.logs += content
-                                await sync_to_async(execution_record.save)()
+                                await sync_to_async(safe_save)(execution_record, update_fields=['logs'])
                             return
 
                         # 处理任务状态
@@ -2928,17 +2955,17 @@ class AICaseViewSet(viewsets.ModelViewSet):
                                     updated = True
                                     break
                             if updated:
-                                await sync_to_async(execution_record.save)()
+                                await sync_to_async(safe_save)(execution_record, update_fields=['planned_tasks'])
                     except Exception as e:
-                        print(f"更新步骤状态失败: {e}")
+                        logger.error(f"更新步骤状态失败: {e}")
 
                 history = run_full_process_sync(
-                    ai_case.task_description, 
-                    analysis_callback=on_analysis_complete, 
+                    ai_case.task_description,
+                    analysis_callback=on_analysis_complete,
                     step_callback=on_step_update,
                     should_stop=should_stop
                 )
-                
+
                 # 检查是否是手动停止
                 if should_stop():
                     execution_record.status = 'stopped'
@@ -2951,13 +2978,15 @@ class AICaseViewSet(viewsets.ModelViewSet):
                     # 记录任务完成统计信息
                     if execution_record.planned_tasks:
                         total_tasks = len(execution_record.planned_tasks)
-                        completed_tasks = len([t for t in execution_record.planned_tasks if t.get('status') == 'completed'])
+                        completed_tasks = len(
+                            [t for t in execution_record.planned_tasks if t.get('status') == 'completed'])
                         pending_tasks = len([t for t in execution_record.planned_tasks if t.get('status') == 'pending'])
-                        logger.info(f"🏁 Task completion summary: {completed_tasks}/{total_tasks} tasks completed, {pending_tasks} pending")
-                
+                        logger.info(
+                            f"🏁 Task completion summary: {completed_tasks}/{total_tasks} tasks completed, {pending_tasks} pending")
+
                 execution_record.end_time = timezone.now()
                 execution_record.duration = (execution_record.end_time - execution_record.start_time).total_seconds()
-                
+
                 # 格式化 history 为日志 (如果不是停止状态)
                 steps = []
                 if history:
@@ -2973,14 +3002,19 @@ class AICaseViewSet(viewsets.ModelViewSet):
                 # 处理GIF录制文件
                 self._process_gif_recording(execution_record, history)
 
-                execution_record.save()
+                safe_save(execution_record)
 
             except Exception as e:
                 execution_record.status = 'failed'
                 execution_record.end_time = timezone.now()
                 execution_record.duration = (execution_record.end_time - execution_record.start_time).total_seconds()
                 execution_record.logs += f"\n执行出错: {str(e)}"
-                execution_record.save()
+                try:
+                    safe_save(execution_record)
+                except:
+                    # 如果保存失败，至少尝试保存基本信息
+                    logger.error(f"保存失败状态时出错: {e}")
+                    pass
             finally:
                 # 清理停止信号
                 if execution_record.id in STOP_SIGNALS:
@@ -2989,7 +3023,7 @@ class AICaseViewSet(viewsets.ModelViewSet):
         thread = threading.Thread(target=run_task)
         thread.daemon = True
         thread.start()
-        
+
         return Response({
             'message': 'AI 用例开始执行',
             'execution_id': execution_record.id
@@ -3019,15 +3053,16 @@ class AICaseViewSet(viewsets.ModelViewSet):
                 # 生成新的文件名：用例名称+年月日时分秒
                 timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
                 # 清理用例名称中的非法字符
-                safe_case_name = "".join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in execution_record.case_name])
+                safe_case_name = "".join(
+                    [c if c.isalnum() or c in (' ', '_', '-') else '_' for c in execution_record.case_name])
                 new_gif_filename = f"{safe_case_name}_{timestamp}.gif"
                 new_gif_path = os.path.join(gif_dir, new_gif_filename)
 
                 # 移动并重命名文件
                 shutil.move(default_gif_path, new_gif_path)
 
-                # 保存相对路径到数据库
-                relative_path = os.path.join('media', 'ai_recording', new_gif_filename)
+                # 保存相对路径到数据库（使用正斜杠，确保跨平台兼容）
+                relative_path = f'media/ai_recording/{new_gif_filename}'
                 execution_record.gif_path = relative_path
 
                 logger.info(f"✅ GIF recording saved to: {relative_path}")
@@ -3074,6 +3109,7 @@ class AICaseViewSet(viewsets.ModelViewSet):
 # 全局停止信号字典 {execution_id: bool}
 STOP_SIGNALS = {}
 
+
 class AIExecutionRecordViewSet(viewsets.ModelViewSet):
     """AI执行记录视图集"""
     queryset = AIExecutionRecord.objects.all()
@@ -3099,22 +3135,35 @@ class AIExecutionRecordViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def batch_delete(self, request):
         """批量删除AI执行记录"""
-        ids = request.data.get('ids', [])
-        if not ids:
-            return Response({'error': '请选择要删除的记录'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            ids = request.data.get('ids', [])
 
-        # 确保只能删除有权限的记录，重新构建查询以避免 distinct() 限制
-        user = self.request.user
-        accessible_projects = UiProject.objects.filter(
-            models.Q(owner=user) | models.Q(members=user)
-        )
-        deleted_count, _ = AIExecutionRecord.objects.filter(
-            id__in=ids
-        ).filter(
-            models.Q(project__in=accessible_projects) | models.Q(project__isnull=True)
-        ).delete()
+            # 验证ids参数
+            if not ids:
+                return Response({'error': '请选择要删除的记录'}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({'message': f'成功删除 {deleted_count} 条记录'})
+            # 确保ids是列表
+            if not isinstance(ids, list):
+                return Response({'error': 'ids参数格式错误，应为数组'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 只能删除自己有权限的项目下的记录
+            queryset = self.get_queryset()
+            records_to_delete = queryset.filter(id__in=ids)
+
+            # 检查是否有权限删除这些记录
+            if not records_to_delete.exists():
+                return Response({'error': '未找到可删除的记录或没有权限删除'}, status=status.HTTP_404_NOT_FOUND)
+
+            # 获取可删除记录的ID列表，避免对distinct()后的queryset调用delete()
+            deletable_ids = list(records_to_delete.values_list('id', flat=True))
+
+            # 使用ID列表直接删除，避免distinct()的问题
+            deleted_count = AIExecutionRecord.objects.filter(id__in=deletable_ids).delete()[0]
+
+            return Response({'message': f'成功删除 {deleted_count} 条记录', 'deleted_count': deleted_count})
+        except Exception as e:
+            logger.error(f"批量删除AI执行记录失败: {str(e)}", exc_info=True)
+            return Response({'error': f'批量删除失败: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'], url_path='run_adhoc')
     def run_adhoc(self, request):
@@ -3148,12 +3197,52 @@ class AIExecutionRecordViewSet(viewsets.ModelViewSet):
 
         # 异步执行
         import threading
+        import os
         from asgiref.sync import sync_to_async
+        from django.db import connection, DatabaseError
         from .ai_agent import run_full_process_sync
 
         def run_task():
             # 注册停止信号
             STOP_SIGNALS[execution_record.id] = False
+
+            # 关键修复：关闭旧连接，避免子线程共享主线程的连接
+            try:
+                connection.close()
+            except:
+                pass
+
+            # 设置环境变量，允许在后台线程中使用同步 ORM
+            os.environ['DJANGO_ALLOW_ASYNC_UNSAFE'] = 'true'
+
+            def safe_save(record, update_fields=None, max_retries=3):
+                """安全的保存方法，带有重试机制"""
+                for attempt in range(max_retries):
+                    try:
+                        record.save(update_fields=update_fields)
+                        return True
+                    except (DatabaseError, Exception) as e:
+                        error_str = str(e)
+                        # 检查是否是MySQL连接错误
+                        if '2006' in error_str or 'MySQL server has gone away' in error_str or '0' == error_str:
+                            if attempt < max_retries - 1:
+                                logger.warning(f"数据库连接失败 (尝试 {attempt + 1}/{max_retries}): {e}")
+                                # 关闭旧连接并重试
+                                try:
+                                    connection.close()
+                                except:
+                                    pass
+                                import time
+                                time.sleep(0.5)  # 等待一下再重试
+                                continue
+                            else:
+                                logger.error(f"数据库保存失败，已达最大重试次数: {e}")
+                                raise
+                        else:
+                            # 其他错误直接抛出
+                            logger.error(f"数据库保存失败: {e}")
+                            raise
+                return False
 
             try:
                 # 定义异步安全的 should_stop
@@ -3175,8 +3264,8 @@ class AIExecutionRecordViewSet(viewsets.ModelViewSet):
                 async def on_analysis_complete(planned_tasks):
                     execution_record.planned_tasks = planned_tasks
                     execution_record.logs += "任务分析完成，开始执行...\n"
-                    await sync_to_async(execution_record.save)()
-                    
+                    await sync_to_async(safe_save)(execution_record, update_fields=['planned_tasks', 'logs'])
+
                 async def on_step_update(step_info):
                     try:
                         # 处理日志
@@ -3185,14 +3274,14 @@ class AIExecutionRecordViewSet(viewsets.ModelViewSet):
                             if content:
                                 execution_record.logs += content
                                 # 立即保存到数据库，确保前端轮询能看到最新日志
-                                await sync_to_async(execution_record.save)(update_fields=['logs'])
+                                await sync_to_async(safe_save)(execution_record, update_fields=['logs'])
                             return
 
                         # 处理任务状态
                         task_id = step_info.get('task_id')
                         status = step_info.get('status')
                         logger.info(f"DEBUG: on_step_update received: task_id={task_id}, status={status}")
-                        
+
                         if task_id and status:
                             updated = False
                             if execution_record.planned_tasks:
@@ -3206,9 +3295,10 @@ class AIExecutionRecordViewSet(viewsets.ModelViewSet):
                                         break
                             if updated:
                                 # 立即保存到数据库，确保前端轮询能看到最新状态
-                                await sync_to_async(execution_record.save)(update_fields=['planned_tasks'])
+                                await sync_to_async(safe_save)(execution_record, update_fields=['planned_tasks'])
                             else:
-                                logger.warning(f"DEBUG: Task ID {task_id} not found in planned_tasks: {execution_record.planned_tasks}")
+                                logger.warning(
+                                    f"DEBUG: Task ID {task_id} not found in planned_tasks: {execution_record.planned_tasks}")
                     except Exception as e:
                         logger.error(f"更新步骤状态失败: {e}", exc_info=True)
 
@@ -3216,7 +3306,7 @@ class AIExecutionRecordViewSet(viewsets.ModelViewSet):
                     task_description,
                     analysis_callback=on_analysis_complete,
                     step_callback=on_step_update,
-                    should_stop=should_stop_async, # 传递异步版本
+                    should_stop=should_stop_async,  # 传递异步版本
                     execution_mode=execution_mode,
                     enable_gif=enable_gif,  # 传递GIF录制开关
                     case_name=task_description[:50] if task_description else "Adhoc Task"  # 传递用例名称用于GIF文件命名
@@ -3234,13 +3324,15 @@ class AIExecutionRecordViewSet(viewsets.ModelViewSet):
                     # 记录任务完成统计信息
                     if execution_record.planned_tasks:
                         total_tasks = len(execution_record.planned_tasks)
-                        completed_tasks = len([t for t in execution_record.planned_tasks if t.get('status') == 'completed'])
+                        completed_tasks = len(
+                            [t for t in execution_record.planned_tasks if t.get('status') == 'completed'])
                         pending_tasks = len([t for t in execution_record.planned_tasks if t.get('status') == 'pending'])
-                        logger.info(f"🏁 Task completion summary: {completed_tasks}/{total_tasks} tasks completed, {pending_tasks} pending")
-                
+                        logger.info(
+                            f"🏁 Task completion summary: {completed_tasks}/{total_tasks} tasks completed, {pending_tasks} pending")
+
                 execution_record.end_time = timezone.now()
                 execution_record.duration = (execution_record.end_time - execution_record.start_time).total_seconds()
-                
+
                 # 格式化 history 为日志 (如果不是停止状态)
                 steps = []
                 if history:
@@ -3256,14 +3348,19 @@ class AIExecutionRecordViewSet(viewsets.ModelViewSet):
                 # 处理GIF录制文件
                 self._process_gif_recording(execution_record, history)
 
-                execution_record.save()
+                safe_save(execution_record)
 
             except Exception as e:
                 execution_record.status = 'failed'
                 execution_record.end_time = timezone.now()
                 execution_record.duration = (execution_record.end_time - execution_record.start_time).total_seconds()
                 execution_record.logs += f"\n执行出错: {str(e)}"
-                execution_record.save()
+                try:
+                    safe_save(execution_record)
+                except:
+                    # 如果保存失败，至少尝试保存基本信息
+                    logger.error(f"保存失败状态时出错: {e}")
+                    pass
             finally:
                 # 清理停止信号
                 if execution_record.id in STOP_SIGNALS:
@@ -3272,12 +3369,11 @@ class AIExecutionRecordViewSet(viewsets.ModelViewSet):
         thread = threading.Thread(target=run_task)
         thread.daemon = True
         thread.start()
-        
+
         return Response({
             'message': 'AI 任务开始执行',
             'execution_id': execution_record.id
         })
-
 
     @action(detail=True, methods=['post'], url_path='stop')
     def stop_task(self, request, pk=None):
@@ -3325,15 +3421,16 @@ class AIExecutionRecordViewSet(viewsets.ModelViewSet):
                 # 生成新的文件名：用例名称+年月日时分秒
                 timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
                 # 清理用例名称中的非法字符
-                safe_case_name = "".join([c if c.isalnum() or c in (' ', '_', '-') else '_' for c in execution_record.case_name])
+                safe_case_name = "".join(
+                    [c if c.isalnum() or c in (' ', '_', '-') else '_' for c in execution_record.case_name])
                 new_gif_filename = f"{safe_case_name}_{timestamp}.gif"
                 new_gif_path = os.path.join(gif_dir, new_gif_filename)
 
                 # 移动并重命名文件
                 shutil.move(default_gif_path, new_gif_path)
 
-                # 保存相对路径到数据库
-                relative_path = os.path.join('media', 'ai_recording', new_gif_filename)
+                # 保存相对路径到数据库（使用正斜杠，确保跨平台兼容）
+                relative_path = f'media/ai_recording/{new_gif_filename}'
                 execution_record.gif_path = relative_path
 
                 logger.info(f"✅ GIF recording saved to: {relative_path}")
@@ -3488,7 +3585,7 @@ class UiDashboardViewSet(viewsets.ViewSet):
     def stats(self, request):
         """获取仪表盘统计数据"""
         user = request.user
-        
+
         # 获取用户可访问的项目ID列表
         accessible_projects = UiProject.objects.filter(
             models.Q(owner=user) | models.Q(members=user)
@@ -3497,13 +3594,13 @@ class UiDashboardViewSet(viewsets.ViewSet):
 
         # 统计数据
         project_count = accessible_projects.count()
-        
+
         # 测试用例数量
         test_case_count = TestCase.objects.filter(project_id__in=project_ids).count()
-        
+
         # 测试套件数量（包含用例总数）
         suite_count = TestSuite.objects.filter(project_id__in=project_ids).count()
-        
+
         from .models import TestSuiteTestCase
         suite_test_case_count = TestSuiteTestCase.objects.filter(
             test_suite__project_id__in=project_ids

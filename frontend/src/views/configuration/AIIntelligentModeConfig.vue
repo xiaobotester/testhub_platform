@@ -1,17 +1,17 @@
 <template>
   <div class="ai-mode-config">
     <div class="page-header">
-      <h1>🧠 AI智能模式配置</h1>
-      <p>配置Browser-use执行时的智能模式与模型参数</p>
+      <h1>{{ $t('configuration.aiMode.title') }}</h1>
+      <p>{{ $t('configuration.aiMode.description') }}</p>
     </div>
 
     <div class="main-content">
       <!-- 配置列表 -->
       <div class="configs-section">
         <div class="section-header">
-          <h2>配置列表</h2>
+          <h2>{{ $t('configuration.aiMode.configList') }}</h2>
           <button class="add-config-btn" @click="openAddModal">
-            ➕ 添加配置
+            {{ $t('configuration.aiMode.addConfig') }}
           </button>
         </div>
 
@@ -19,14 +19,14 @@
           <div v-for="config in configs" :key="config.id" class="config-card">
             <div class="config-header">
               <div class="config-title">
-                <h3>{{ config.name || '未命名配置' }}</h3>
+                <h3>{{ config.name || $t('configuration.common.unnamed') }}</h3>
                 <div class="config-badges">
                   <span class="provider-badge" :class="config.model_type">
                     {{ getProviderLabel(config.model_type) }}
                   </span>
                   <span class="model-name-badge">{{ config.model_name }}</span>
                   <span class="status-badge" :class="{ active: config.is_active }">
-                    {{ config.is_active ? '已启用' : '已禁用' }}
+                    {{ config.is_active ? $t('configuration.common.enabled') : $t('configuration.common.disabled') }}
                   </span>
                 </div>
               </div>
@@ -34,14 +34,12 @@
                 <el-switch
                   v-model="config.is_active"
                   @change="toggleActive(config)"
-                  active-text="启用"
-                  inactive-text="禁用"
+                  :active-text="$t('configuration.common.enabled')"
+                  :inactive-text="$t('configuration.common.disabled')"
                   :loading="config.toggling"
                 />
                 <button class="test-btn" @click="testConnection(config)" :disabled="config.testing">
-                  <span v-if="config.testing">🔄</span>
-                  <span v-else>🔗</span>
-                  测试连接
+                  {{ $t('configuration.aiMode.testConnection') }}
                 </button>
                 <button class="edit-btn" @click="editConfig(config)">✏️</button>
                 <button class="delete-btn" @click="deleteConfig(config.id)">🗑️</button>
@@ -50,11 +48,11 @@
 
             <div class="config-details">
               <div class="detail-item">
-                <label>Base URL:</label>
-                <span>{{ config.base_url || '未设置' }}</span>
+                <label>{{ $t('configuration.aiMode.baseUrl') }}:</label>
+                <span>{{ config.base_url || $t('configuration.common.notSet') }}</span>
               </div>
               <div class="detail-item">
-                <label>创建时间:</label>
+                <label>{{ $t('configuration.common.createdAt') }}:</label>
                 <span>{{ formatDateTime(config.created_at) }}</span>
               </div>
             </div>
@@ -62,11 +60,11 @@
         </div>
 
         <div v-if="configs.length === 0" class="empty-state">
-          <div class="empty-icon">🧠</div>
-          <h3>暂无AI智能模式配置</h3>
-          <p>请添加您的AI模型配置以开始使用智能模式</p>
+          <div class="empty-icon"></div>
+          <h3>{{ $t('configuration.aiMode.emptyTitle') }}</h3>
+          <p>{{ $t('configuration.aiMode.emptyDescription') }}</p>
           <button class="add-first-config-btn" @click="openAddModal">
-            ➕ 添加第一个配置
+            {{ $t('configuration.aiMode.addFirstConfig') }}
           </button>
         </div>
       </div>
@@ -76,71 +74,72 @@
     <div v-show="shouldShowModal" :class="['config-modal', { hidden: !shouldShowModal }]" @keydown.esc="closeModals">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>{{ isEditing ? '编辑' : '添加' }}AI智能模式配置</h3>
+          <h3>{{ isEditing ? $t('configuration.aiMode.editConfig') : $t('configuration.aiMode.addConfigTitle') }}</h3>
           <button class="close-btn" @click.stop="closeModals" type="button">×</button>
         </div>
         <div class="modal-body">
           <form @submit.prevent="saveConfig">
             <div class="form-group">
-              <label>配置名称 <span class="required">*</span></label>
+              <label>{{ $t('configuration.aiMode.configName') }} <span class="required">*</span></label>
               <input
                 v-model="configForm.name"
                 type="text"
                 class="form-input"
-                placeholder="例如：OpenAI智能模式"
+                :placeholder="$t('configuration.aiMode.configNamePlaceholder')"
                 required>
             </div>
 
             <div class="form-group">
-              <label>模型提供商 <span class="required">*</span></label>
+              <label>{{ $t('configuration.aiMode.modelProvider') }} <span class="required">*</span></label>
               <select
                 v-model="configForm.model_type"
                 class="form-select"
                 required
                 @change="onModelTypeChange">
-                <option value="">请选择提供商</option>
-                <option value="openai">OpenAI</option>
-                <option value="azure_openai">Azure OpenAI</option>
-                <option value="anthropic">Anthropic</option>
-                <option value="google_gemini">Google Gemini</option>
-                <option value="deepseek">DeepSeek</option>
-                <option value="siliconflow">硅基流动 (SiliconFlow)</option>
-                <option value="other">其他 (Other)</option>
+                <option value="">{{ $t('configuration.aiMode.selectProvider') }}</option>
+                <option value="openai">{{ $t('configuration.aiMode.providers.openai') }}</option>
+                <option value="azure_openai">{{ $t('configuration.aiMode.providers.azure_openai') }}</option>
+                <option value="anthropic">{{ $t('configuration.aiMode.providers.anthropic') }}</option>
+                <option value="google_gemini">{{ $t('configuration.aiMode.providers.google_gemini') }}</option>
+                <option value="deepseek">{{ $t('configuration.aiMode.providers.deepseek') }}</option>
+                <option value="siliconflow">{{ $t('configuration.aiMode.providers.siliconflow') }}</option>
+                <option value="zhipu">{{ $t('configuration.aiMode.providers.zhipu') }}</option>
+                <option value="other">{{ $t('configuration.aiMode.providers.other') }}</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label>模型名称 <span class="required">*</span></label>
+              <label>{{ $t('configuration.aiMode.modelName') }} <span class="required">*</span></label>
               <input
                 v-model="configForm.model_name"
                 type="text"
                 class="form-input"
-                placeholder="例如: gpt-4o, claude-3-5-sonnet"
+                :placeholder="$t('configuration.aiMode.modelNamePlaceholder')"
                 required>
             </div>
 
             <div class="form-group">
-              <label>API Key <span class="required">*</span></label>
+              <label>{{ $t('configuration.aiMode.apiKey') }} <span class="required">*</span></label>
               <input
                 v-model="configForm.api_key"
                 type="password"
                 class="form-input"
-                :placeholder="isEditing ? '不修改请保持原值不变，填写新值则更新' : '输入您的API Key'"
+                :placeholder="isEditing ? $t('configuration.aiMode.apiKeyPlaceholderEdit') : $t('configuration.aiMode.apiKeyPlaceholder')"
                 :required="!isEditing">
               <small v-if="isEditing && configForm.api_key && configForm.api_key.includes('*')" class="form-hint">
-                当前显示的是掩码格式。如需修改请输入新的API Key，如不修改可直接点击"测试连接"测试现有配置
+                {{ $t('configuration.aiMode.apiKeyMaskHint') }}
               </small>
             </div>
 
             <div class="form-group">
-              <label>Base URL</label>
+              <label>{{ $t('configuration.aiMode.baseUrl') }}</label>
               <input
                 v-model="configForm.base_url"
                 type="url"
                 class="form-input"
-                placeholder="可选，例如: https://api.openai.com/v1">
+                :placeholder="$t('configuration.aiMode.baseUrlPlaceholder')">
               <small class="form-hint">
-                选择提供商后会自动填充对应的API地址，您可以根据需要修改
+                {{ $t('configuration.aiMode.baseUrlHint') }}
               </small>
             </div>
 
@@ -148,22 +147,22 @@
               <label class="checkbox-label">
                 <input v-model="configForm.is_active" type="checkbox">
                 <span class="checkmark"></span>
-                启用此配置
+                {{ $t('configuration.aiMode.enableConfig') }}
               </label>
               <small class="form-hint">
-                启用后，其他已启用的配置将自动禁用
+                {{ $t('configuration.aiMode.enableConfigHint') }}
               </small>
             </div>
 
             <div class="modal-actions">
-              <button type="button" class="cancel-btn" @click="closeModals">取消</button>
+              <button type="button" class="cancel-btn" @click="closeModals">{{ $t('configuration.common.cancel') }}</button>
               <button type="button" class="test-btn-form" @click="testConnectionInModal">
-                <span v-if="isTestingInModal">🔄 测试中...</span>
-                <span v-else>🔗 测试连接</span>
+                <span v-if="isTestingInModal">{{ $t('configuration.aiMode.testing') }}</span>
+                <span v-else>{{ $t('configuration.aiMode.testConnection') }}</span>
               </button>
               <button type="submit" class="confirm-btn" :disabled="isSaving">
-                <span v-if="isSaving">🔄 保存中...</span>
-                <span v-else>💾 保存配置</span>
+                <span v-if="isSaving">{{ $t('configuration.aiMode.saving') }}</span>
+                <span v-else>{{ $t('configuration.aiMode.saveConfig') }}</span>
               </button>
             </div>
           </form>
@@ -175,16 +174,16 @@
     <div v-if="showTestResult" class="test-result-modal" @keydown.esc="closeTestResult">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>连接测试结果</h3>
+          <h3>{{ $t('configuration.aiMode.testResult') }}</h3>
           <button class="close-btn" @click="closeTestResult">×</button>
         </div>
         <div class="modal-body">
           <div class="test-result" :class="{ success: testResult.success, error: !testResult.success }">
             <div class="result-icon">
-              {{ testResult.success ? '✅' : '❌' }}
+              {{ testResult.success ? '' : '' }}
             </div>
             <div class="result-content">
-              <h4>{{ testResult.success ? '连接成功' : '连接失败' }}</h4>
+              <h4>{{ testResult.success ? $t('configuration.aiMode.connectionSuccess') : $t('configuration.aiMode.connectionFailed') }}</h4>
               <p>{{ testResult.message }}</p>
             </div>
           </div>
@@ -196,8 +195,11 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import api from '@/utils/api'
+
+const { t } = useI18n()
 
 const configs = ref([])
 const showAddModal = ref(false)
@@ -229,22 +231,17 @@ const modelBaseUrlMap = {
   google_gemini: '',
   deepseek: 'https://api.deepseek.com',
   siliconflow: 'https://api.siliconflow.cn/v1',
+  zhipu: 'https://open.bigmodel.cn/api/paas/v4',
   other: ''
 }
 
 const shouldShowModal = computed(() => showAddModal.value || showEditModal.value)
 
 const getProviderLabel = (modelType) => {
-  const labels = {
-    openai: 'OpenAI',
-    azure_openai: 'Azure OpenAI',
-    anthropic: 'Anthropic',
-    google_gemini: 'Google Gemini',
-    deepseek: 'DeepSeek',
-    siliconflow: '硅基流动',
-    other: '其他'
-  }
-  return labels[modelType] || modelType
+  const key = `configuration.aiMode.providers.${modelType}`
+  const translated = t(key)
+  // 如果翻译key存在则返回翻译，否则返回原值
+  return translated !== key ? translated : modelType
 }
 
 const loadConfigs = async () => {
@@ -258,8 +255,8 @@ const loadConfigs = async () => {
       }))
     }
   } catch (error) {
-    console.error('加载配置失败:', error)
-    ElMessage.error('加载配置失败')
+    console.error('Load config failed:', error)
+    ElMessage.error(t('configuration.aiMode.messages.loadFailed'))
   }
 }
 
@@ -304,17 +301,6 @@ const onModelTypeChange = () => {
   if (modelBaseUrlMap[configForm.value.model_type]) {
     configForm.value.base_url = modelBaseUrlMap[configForm.value.model_type]
   }
-
-  // 根据提供商自动填充模型名称建议
-  if (configForm.value.model_type === 'openai' && !configForm.value.model_name) {
-    configForm.value.model_name = 'gpt-4o'
-  } else if (configForm.value.model_type === 'anthropic' && !configForm.value.model_name) {
-    configForm.value.model_name = 'claude-3-5-sonnet-20241022'
-  } else if (configForm.value.model_type === 'deepseek' && !configForm.value.model_name) {
-    configForm.value.model_name = 'deepseek-chat'
-  } else if (configForm.value.model_type === 'siliconflow' && !configForm.value.model_name) {
-    configForm.value.model_name = 'Qwen/Qwen2.5-7B-Instruct'
-  }
 }
 
 const saveConfig = async () => {
@@ -328,7 +314,7 @@ const saveConfig = async () => {
   const emptyFields = requiredFields.filter(field => !field.value || (typeof field.value === 'string' && field.value.trim() === ''))
 
   if (emptyFields.length > 0) {
-    ElMessage.error(`请填写以下必填字段: ${emptyFields.map(f => f.name).join(', ')}`)
+    ElMessage.error(`${t('configuration.aiMode.messages.fillRequired')}: ${emptyFields.map(f => f.name).join(', ')}`)
     return
   }
 
@@ -348,10 +334,10 @@ const saveConfig = async () => {
       // 检查是否禁用了其他配置
       if (response.data.disabled_configs && response.data.disabled_configs.length > 0) {
         ElMessage.success(
-          `配置"${configForm.value.name}"已启用，已自动禁用以下配置:\n${response.data.disabled_configs.join('、')}`
+          t('configuration.aiMode.messages.configEnabled', { name: configForm.value.name, configs: response.data.disabled_configs.join(', ') })
         )
       } else {
-        ElMessage.success('配置更新成功')
+        ElMessage.success(t('configuration.aiMode.messages.updateSuccess'))
       }
     } else {
       // 新增配置
@@ -360,35 +346,45 @@ const saveConfig = async () => {
       // 检查是否禁用了其他配置
       if (response.data.disabled_configs && response.data.disabled_configs.length > 0) {
         ElMessage.success(
-          `配置"${configForm.value.name}"已添加并启用，已自动禁用以下配置:\n${response.data.disabled_configs.join('、')}`
+          t('configuration.aiMode.messages.configAdded', { name: configForm.value.name, configs: response.data.disabled_configs.join(', ') })
         )
       } else {
-        ElMessage.success('配置添加成功')
+        ElMessage.success(t('configuration.aiMode.messages.saveSuccess'))
       }
     }
 
     closeModals()
     await loadConfigs()
   } catch (error) {
-    console.error('保存配置失败:', error)
-    ElMessage.error('保存失败: ' + (error.response?.data?.error || error.message))
+    console.error('Save config failed:', error)
+    ElMessage.error(t('configuration.aiMode.messages.saveFailed') + ': ' + (error.response?.data?.error || error.message))
   } finally {
     isSaving.value = false
   }
 }
 
 const deleteConfig = async (configId) => {
-  if (!confirm('确定要删除此配置吗？')) {
+  try {
+    await ElMessageBox.confirm(
+      t('configuration.aiMode.messages.deleteConfirm'),
+      t('configuration.common.confirm'),
+      {
+        confirmButtonText: t('configuration.common.confirm'),
+        cancelButtonText: t('configuration.common.cancel'),
+        type: 'warning'
+      }
+    )
+  } catch {
     return
   }
 
   try {
     await api.delete(`/ui-automation/ai-models/${configId}/`)
-    ElMessage.success('配置删除成功')
+    ElMessage.success(t('configuration.aiMode.messages.deleteSuccess'))
     await loadConfigs()
   } catch (error) {
-    console.error('删除配置失败:', error)
-    ElMessage.error('删除失败: ' + (error.response?.data?.error || error.message))
+    console.error('Delete config failed:', error)
+    ElMessage.error(t('configuration.aiMode.messages.deleteFailed') + ': ' + (error.response?.data?.error || error.message))
   }
 }
 
@@ -397,11 +393,18 @@ const toggleActive = async (config) => {
   if (config.is_active) {
     const activeConfigs = configs.value.filter(c => c.id !== config.id && c.is_active)
     if (activeConfigs.length > 0) {
-      const activeConfigNames = activeConfigs.map(c => c.name).join('、')
-      const confirmed = confirm(
-        `启用"${config.name}"将会自动禁用以下已启用的配置:\n\n${activeConfigNames}\n\n确定要继续吗?`
-      )
-      if (!confirmed) {
+      const activeConfigNames = activeConfigs.map(c => c.name).join(', ')
+      try {
+        await ElMessageBox.confirm(
+          t('configuration.aiMode.messages.toggleConfirm', { name: config.name, configs: activeConfigNames }),
+          t('configuration.common.confirm'),
+          {
+            confirmButtonText: t('configuration.common.confirm'),
+            cancelButtonText: t('configuration.common.cancel'),
+            type: 'warning'
+          }
+        )
+      } catch {
         // 恢复开关状态
         config.is_active = false
         return
@@ -416,11 +419,11 @@ const toggleActive = async (config) => {
       is_active: config.is_active
     })
 
-    ElMessage.success(config.is_active ? '配置已启用' : '配置已禁用')
+    ElMessage.success(t('configuration.aiMode.messages.toggleSuccess', { status: config.is_active ? t('configuration.common.enabled') : t('configuration.common.disabled') }))
     await loadConfigs()
   } catch (error) {
-    console.error('切换状态失败:', error)
-    ElMessage.error('操作失败: ' + (error.response?.data?.error || error.message))
+    console.error('Toggle status failed:', error)
+    ElMessage.error(t('configuration.aiMode.messages.toggleFailed') + ': ' + (error.response?.data?.error || error.message))
     // 回滚状态
     config.is_active = !config.is_active
   } finally {
@@ -440,14 +443,14 @@ const testConnection = async (config) => {
     )
     testResult.value = {
       success: true,
-      message: '连接成功！模型配置正常工作。'
+      message: t('configuration.aiMode.connectionSuccessMsg')
     }
     showTestResult.value = true
   } catch (error) {
-    console.error('测试连接失败:', error)
+    console.error('Test connection failed:', error)
     testResult.value = {
       success: false,
-      message: error.response?.data?.error || error.message || '连接测试失败'
+      message: error.response?.data?.error || error.message || t('configuration.aiMode.connectionFailed')
     }
     showTestResult.value = true
   } finally {
@@ -458,12 +461,12 @@ const testConnection = async (config) => {
 const testConnectionInModal = async () => {
   // 验证必填字段
   if (!configForm.value.api_key) {
-    ElMessage.warning('请先输入API Key')
+    ElMessage.warning(t('configuration.aiMode.messages.enterApiKey'))
     return
   }
 
   if (!configForm.value.model_type || !configForm.value.model_name) {
-    ElMessage.warning('请先选择模型提供商和模型名称')
+    ElMessage.warning(t('configuration.aiMode.messages.selectProviderModel'))
     return
   }
 
@@ -480,14 +483,14 @@ const testConnectionInModal = async () => {
 
       testResult.value = {
         success: true,
-        message: '连接成功！模型配置正常工作。'
+        message: t('configuration.aiMode.connectionSuccessMsg')
       }
       showTestResult.value = true
     } catch (error) {
-      console.error('测试连接失败:', error)
+      console.error('Test connection failed:', error)
       testResult.value = {
         success: false,
-        message: error.response?.data?.error || error.message || '连接测试失败'
+        message: error.response?.data?.error || error.message || t('configuration.aiMode.connectionFailed')
       }
       showTestResult.value = true
     } finally {
@@ -514,14 +517,14 @@ const testConnectionInModal = async () => {
 
     testResult.value = {
       success: true,
-      message: '连接成功！模型配置正常工作。'
+      message: t('configuration.aiMode.connectionSuccessMsg')
     }
     showTestResult.value = true
   } catch (error) {
-    console.error('测试连接失败:', error)
+    console.error('Test connection failed:', error)
     testResult.value = {
       success: false,
-      message: error.response?.data?.error || error.message || '连接测试失败'
+      message: error.response?.data?.error || error.message || t('configuration.aiMode.connectionFailed')
     }
     showTestResult.value = true
   } finally {
@@ -544,7 +547,8 @@ const closeTestResult = () => {
 const formatDateTime = (dateString) => {
   if (!dateString) return ''
   const date = new Date(dateString)
-  return date.toLocaleString('zh-CN', {
+  const locale = t('configuration.common.locale') || 'zh-CN'
+  return date.toLocaleString(locale, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -673,6 +677,11 @@ onMounted(() => {
 .provider-badge.siliconflow {
   background: #e0f7fa;
   color: #006064;
+}
+
+.provider-badge.zhipu {
+  background: #f3e5f5;
+  color: #7b1fa2;
 }
 
 .provider-badge.other {

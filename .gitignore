@@ -3,6 +3,7 @@
 .idea/
 .claude/
 .vscode/
+.trae/
 __pycache__/
 .DS_Store
 .pytest_cache
@@ -13,7 +14,9 @@ logs/*
 !logs/.gitkeep
 # 忽略.env
 .env
+.sql
 
+.bak
 # 忽略所有 app/*/migrations/ 目录下的所有内容 (包括文件和子目录)
 apps/*/migrations/*
 # 使用否定模式，例外地跟踪 __init__.py 文件
@@ -33,3 +36,13 @@ media/ai_recording/*
 frontend/node_modules/
 frontend/.DS_Store
 frontend/*.log
+frontend/dist/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+nginx.conf
+.env.example
+Makefile
+build-multiplatform.sh

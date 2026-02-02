@@ -1,20 +1,20 @@
 <template>
   <div class="ai-model-config">
     <div class="page-header">
-      <h1>🤖 AI用例生成模型配置</h1>
-      <p>配置用于测试用例生成和评审的AI模型</p>
+      <h1>{{ $t('configuration.aiModel.title') }}</h1>
+      <p>{{ $t('configuration.aiModel.description') }}</p>
     </div>
 
     <div class="main-content">
       <!-- 配置列表 -->
       <div class="configs-section">
         <div class="section-header">
-          <h2>模型配置列表</h2>
-          <button 
-            class="add-config-btn" 
+          <h2>{{ $t('configuration.aiModel.configList') }}</h2>
+          <button
+            class="add-config-btn"
             @click.stop="openAddModal"
             type="button">
-            ➕ 添加配置
+            {{ $t('configuration.aiModel.addConfig') }}
           </button>
         </div>
 
@@ -23,56 +23,54 @@
             <div v-if="config && config.id" class="config-card">
               <div class="config-header">
                 <div class="config-title">
-                  <h3>{{ config.name || '未命名配置' }}</h3>
+                  <h3>{{ config.name || $t('configuration.common.unnamed') }}</h3>
                   <div class="config-badges">
                     <span class="model-badge" :class="config.model_type">
-                      {{ config.model_type_display || config.model_type }}
+                      {{ $t('configuration.aiModel.modelTypes.' + config.model_type) }}
                     </span>
                     <span class="role-badge" :class="config.role">
-                      {{ config.role_display || config.role }}
+                      {{ $t('configuration.aiModel.roles.' + config.role) }}
                     </span>
                     <span class="status-badge" :class="{ active: config.is_active }">
-                      {{ config.is_active ? '启用' : '禁用' }}
+                      {{ config.is_active ? $t('configuration.common.enabled') : $t('configuration.common.disabled') }}
                     </span>
                   </div>
                 </div>
                 <div class="config-actions">
-                  <button 
-                    class="test-btn" 
+                  <button
+                    class="test-btn"
                     @click="testConnection(config)"
                     :disabled="isTestingConnection">
-                    <span v-if="isTestingConnection && testingConfigId === config.id">🔄</span>
-                    <span v-else>🔗</span>
-                    测试连接
+                    {{ $t('configuration.aiModel.testConnection') }}
                   </button>
-                  <button class="edit-btn" @click="editConfig(config)">✏️</button>
-                  <button class="delete-btn" @click="deleteConfig(config.id)">🗑️</button>
+                  <button class="edit-btn" @click="editConfig(config)">{{ $t('configuration.common.edit') }}</button>
+                  <button class="delete-btn" @click="deleteConfig(config.id)">{{ $t('configuration.common.delete') }}</button>
                 </div>
               </div>
-              
+
               <div class="config-details">
               <div class="detail-item">
-                <label>API Base URL:</label>
+                <label>{{ $t('configuration.aiModel.baseUrl') }}:</label>
                 <span>{{ config.base_url }}</span>
               </div>
               <div class="detail-item">
-                <label>模型名称:</label>
+                <label>{{ $t('configuration.aiModel.modelName') }}:</label>
                 <span>{{ config.model_name }}</span>
               </div>
               <div class="detail-item">
-                <label>最大Token数:</label>
+                <label>{{ $t('configuration.aiModel.maxTokens') }}:</label>
                 <span>{{ config.max_tokens }}</span>
               </div>
               <div class="detail-item">
-                <label>温度参数:</label>
+                <label>{{ $t('configuration.aiModel.temperature') }}:</label>
                 <span>{{ config.temperature }}</span>
               </div>
               <div class="detail-item">
-                <label>Top P参数:</label>
+                <label>{{ $t('configuration.aiModel.topP') }}:</label>
                 <span>{{ config.top_p }}</span>
               </div>
               <div class="detail-item">
-                <label>创建时间:</label>
+                <label>{{ $t('configuration.common.createdAt') }}:</label>
                 <span>{{ formatDateTime(config.created_at) }}</span>
               </div>
               </div>
@@ -81,114 +79,112 @@
         </div>
 
         <div v-if="configs.length === 0" class="empty-state">
-          <div class="empty-icon">🤖</div>
-          <h3>暂无AI模型配置</h3>
-          <p>请添加您的AI模型配置以开始使用自动化测试用例生成功能</p>
-          <button 
-            class="add-first-config-btn" 
+          <div class="empty-icon"></div>
+          <h3>{{ $t('configuration.aiModel.emptyTitle') }}</h3>
+          <p>{{ $t('configuration.aiModel.emptyDescription') }}</p>
+          <button
+            class="add-first-config-btn"
             @click.stop="openAddModal"
             type="button">
-            ➕ 添加第一个配置
+            {{ $t('configuration.aiModel.addFirstConfig') }}
           </button>
         </div>
       </div>
     </div>
 
     <!-- 添加/编辑配置弹窗 -->
-    <div 
+    <div
       v-show="shouldShowModal"
       :class="['config-modal', { hidden: !shouldShowModal }]"
-      @click="closeModals" 
       @keydown.esc="closeModals">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>{{ isEditing ? '编辑' : '添加' }}AI模型配置</h3>
-          <button class="close-btn" @click.stop="closeModals" type="button">×</button>
+          <h3>{{ isEditing ? $t('configuration.aiModel.editConfig') : $t('configuration.aiModel.addConfigTitle') }}</h3>
+          <button class="close-btn" @click.stop="closeModals" type="button">x</button>
         </div>
         <div class="modal-body">
           <form @submit.prevent="saveConfig">
             <div class="form-group">
-              <label>配置名称 <span class="required">*</span></label>
-              <input 
-                v-model="configForm.name" 
-                type="text" 
+              <label>{{ $t('configuration.aiModel.configName') }} <span class="required">*</span></label>
+              <input
+                v-model="configForm.name"
+                type="text"
                 class="form-input"
-                placeholder="例如：DeepSeek测试用例编写"
-                required
-                @input="console.log('Name input:', $event.target.value, 'Form value:', configForm.name)">
+                :placeholder="$t('configuration.aiModel.configNamePlaceholder')"
+                required>
             </div>
 
             <div class="form-group">
-              <label>模型类型 <span class="required">*</span></label>
+              <label>{{ $t('configuration.aiModel.modelType') }} <span class="required">*</span></label>
               <select
                 v-model="configForm.model_type"
                 class="form-select"
                 required
                 @change="onModelTypeChange(configForm.model_type)">
-                <option value="">请选择模型类型</option>
-                <option value="deepseek">DeepSeek</option>
-                <option value="qwen">通义千问</option>
-                <option value="siliconflow">硅基流动</option>
-                <option value="other">其他</option>
+                <option value="">{{ $t('configuration.aiModel.selectModelType') }}</option>
+                <option value="deepseek">{{ $t('configuration.aiModel.modelTypes.deepseek') }}</option>
+                <option value="qwen">{{ $t('configuration.aiModel.modelTypes.qwen') }}</option>
+                <option value="siliconflow">{{ $t('configuration.aiModel.modelTypes.siliconflow') }}</option>
+                <option value="zhipu">{{ $t('configuration.aiModel.modelTypes.zhipu') }}</option>
+                <option value="other">{{ $t('configuration.aiModel.modelTypes.other') }}</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label>角色 <span class="required">*</span></label>
-              <select 
-                v-model="configForm.role" 
-                class="form-select" 
+              <label>{{ $t('configuration.aiModel.role') }} <span class="required">*</span></label>
+              <select
+                v-model="configForm.role"
+                class="form-select"
                 required
                 @change="console.log('Role changed to:', configForm.role)">
-                <option value="">请选择角色</option>
-                <option value="writer">测试用例编写专家</option>
-                <option value="reviewer">测试评审专家</option>
+                <option value="">{{ $t('configuration.aiModel.selectRole') }}</option>
+                <option value="writer">{{ $t('configuration.aiModel.roles.writer') }}</option>
+                <option value="reviewer">{{ $t('configuration.aiModel.roles.reviewer') }}</option>
               </select>
             </div>
 
             <div class="form-group">
-              <label>API Key <span class="required">*</span></label>
-              <input 
-                v-model="configForm.api_key" 
-                type="password" 
+              <label>{{ $t('configuration.aiModel.apiKey') }} <span class="required">*</span></label>
+              <input
+                v-model="configForm.api_key"
+                type="password"
                 class="form-input"
-                :placeholder="isEditing ? '不修改请保持原值不变，填写新值则更新' : '输入您的API Key'"
-                :required="!isEditing"
-                @input="console.log('API Key input:', $event.target.value, 'Form value:', configForm.api_key)">
+                :placeholder="isEditing ? $t('configuration.aiModel.apiKeyPlaceholderEdit') : $t('configuration.aiModel.apiKeyPlaceholder')"
+                :required="!isEditing">
               <small v-if="isEditing && configForm.api_key && configForm.api_key.includes('*')" class="form-hint">
-                当前显示的是掩码格式，如需修改请输入新的API Key
+                {{ $t('configuration.aiModel.apiKeyMaskHint') }}
               </small>
             </div>
 
             <div class="form-group">
-              <label>API Base URL <span class="required">*</span></label>
+              <label>{{ $t('configuration.aiModel.baseUrl') }} <span class="required">*</span></label>
               <input
                 v-model="configForm.base_url"
                 type="url"
                 class="form-input"
-                placeholder="选择模型类型后将自动填充，也可手动修改"
+                :placeholder="$t('configuration.aiModel.baseUrlPlaceholder')"
                 required>
               <small class="form-hint">
-                选择模型类型后会自动填充对应的API地址，您可以根据需要修改
+                {{ $t('configuration.aiModel.baseUrlHint') }}
               </small>
             </div>
 
             <div class="form-group">
-              <label>模型名称 <span class="required">*</span></label>
+              <label>{{ $t('configuration.aiModel.modelName') }} <span class="required">*</span></label>
               <input
                 v-model="configForm.model_name"
                 type="text"
                 class="form-input"
-                placeholder="选择模型类型后将自动填充推荐模型，也可手动修改"
+                :placeholder="$t('configuration.aiModel.modelNamePlaceholder')"
                 required>
               <small class="form-hint">
-                选择模型类型后会自动填充推荐模型名称，您可以根据需要修改
+                {{ $t('configuration.aiModel.modelNameHint') }}
               </small>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>最大Token数</label>
+                <label>{{ $t('configuration.aiModel.maxTokens') }}</label>
                 <input
                   v-model.number="configForm.max_tokens"
                   type="number"
@@ -199,7 +195,7 @@
               </div>
 
               <div class="form-group">
-                <label>温度参数</label>
+                <label>{{ $t('configuration.aiModel.temperature') }}</label>
                 <input
                   v-model.number="configForm.temperature"
                   type="number"
@@ -211,7 +207,7 @@
               </div>
 
               <div class="form-group">
-                <label>Top P参数</label>
+                <label>{{ $t('configuration.aiModel.topP') }}</label>
                 <input
                   v-model.number="configForm.top_p"
                   type="number"
@@ -229,18 +225,18 @@
                   v-model="configForm.is_active"
                   type="checkbox">
                 <span class="checkmark"></span>
-                启用此配置
+                {{ $t('configuration.aiModel.enableConfig') }}
               </label>
             </div>
 
             <div class="modal-actions">
-              <button type="button" class="cancel-btn" @click="closeModals">取消</button>
-              <button 
-                type="submit" 
+              <button type="button" class="cancel-btn" @click="closeModals">{{ $t('configuration.common.cancel') }}</button>
+              <button
+                type="submit"
                 class="confirm-btn"
                 :disabled="isSaving">
-                <span v-if="isSaving">🔄 保存中...</span>
-                <span v-else>💾 保存配置</span>
+                <span v-if="isSaving">{{ $t('configuration.aiModel.saving') }}</span>
+                <span v-else>{{ $t('configuration.aiModel.saveConfig') }}</span>
               </button>
             </div>
           </form>
@@ -249,11 +245,11 @@
     </div>
 
     <!-- 连接测试结果弹窗 -->
-    <div v-if="showTestResult" class="test-result-modal" @click="closeTestResult">
+    <div v-if="showTestResult" class="test-result-modal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>连接测试结果</h3>
-          <button class="close-btn" @click="closeTestResult">×</button>
+          <h3>{{ $t('configuration.aiModel.testResult') }}</h3>
+          <button class="close-btn" @click="closeTestResult">x</button>
         </div>
         <div class="modal-body">
           <div class="test-result" :class="{ success: testResult.success, error: !testResult.success }">
@@ -261,10 +257,10 @@
               {{ testResult.success ? '✅' : '❌' }}
             </div>
             <div class="result-content">
-              <h4>{{ testResult.success ? '连接成功' : '连接失败' }}</h4>
+              <h4>{{ testResult.success ? $t('configuration.aiModel.connectionSuccess') : $t('configuration.aiModel.connectionFailed') }}</h4>
               <p>{{ testResult.message }}</p>
               <div v-if="testResult.response" class="api-response">
-                <label>AI回复:</label>
+                <label>{{ $t('configuration.aiModel.aiResponse') }}:</label>
                 <p>{{ testResult.response }}</p>
               </div>
             </div>
@@ -277,10 +273,15 @@
 
 <script>
 import api from '@/utils/api'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 
 export default {
   name: 'AIModelConfig',
+  setup() {
+    const { t } = useI18n()
+    return { t }
+  },
   data() {
     return {
       configs: [], // 确保初始化为空数组
@@ -309,6 +310,7 @@ export default {
         deepseek: 'https://api.deepseek.com',
         qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
         siliconflow: 'https://api.siliconflow.cn/v1',
+        zhipu: 'https://open.bigmodel.cn/api/paas/v4',
         other: ''
       },
       testResult: {
@@ -364,15 +366,6 @@ export default {
         this.configForm.base_url = this.modelBaseUrlMap[modelType]
         console.log('Auto-filled base_url:', this.configForm.base_url)
       }
-
-      // 根据模型类型自动填充模型名称建议
-      if (modelType === 'deepseek' && !this.configForm.model_name) {
-        this.configForm.model_name = 'deepseek-chat'
-      } else if (modelType === 'qwen' && !this.configForm.model_name) {
-        this.configForm.model_name = 'qwen-plus'
-      } else if (modelType === 'siliconflow' && !this.configForm.model_name) {
-        this.configForm.model_name = 'Qwen/Qwen2.5-7B-Instruct'
-      }
     },
 
     initializeComponent() {
@@ -413,13 +406,13 @@ export default {
         
         console.log('Final configs count:', this.configs.length)
       } catch (error) {
-        console.error('加载配置失败:', error)
+        console.error('Failed to load configs:', error)
         this.configs = [] // 确保configs始终是数组
-        
+
         if (error.response?.status === 401) {
-          ElMessage.error('请先登录')
+          ElMessage.error(this.t('configuration.aiModel.messages.pleaseLogin'))
         } else {
-          ElMessage.error('加载配置失败: ' + (error.response?.data?.error || error.message))
+          ElMessage.error(this.t('configuration.aiModel.messages.loadFailedDetail', { error: error.response?.data?.error || error.message }))
         }
       }
     },
@@ -504,7 +497,7 @@ export default {
       
       if (emptyFields.length > 0) {
         console.log('Empty fields:', emptyFields)
-        ElMessage.error(`请填写以下必填字段: ${emptyFields.map(f => f.name).join(', ')}`)
+        ElMessage.error(this.t('configuration.aiModel.messages.fillRequired', { fields: emptyFields.map(f => f.name).join(', ') }))
         return
       }
       
@@ -517,7 +510,7 @@ export default {
         )
         
         if (existingConfig) {
-          ElMessage.error(`已存在相同的活跃配置：${existingConfig.name}。请选择不同的模型类型或角色，或先禁用现有配置。`)
+          ElMessage.error(this.t('configuration.aiModel.messages.duplicateConfig', { name: existingConfig.name }))
           return
         }
       }
@@ -534,11 +527,11 @@ export default {
           
           console.log('Updating with data:', updateData)
           await api.patch(`/requirement-analysis/ai-models/${this.editingConfigId}/`, updateData)
-          ElMessage.success('配置更新成功')
+          ElMessage.success(this.t('configuration.aiModel.messages.updateSuccess'))
         } else {
           console.log('Creating with data:', this.configForm)
           await api.post('/requirement-analysis/ai-models/', this.configForm)
-          ElMessage.success('配置添加成功')
+          ElMessage.success(this.t('configuration.aiModel.messages.saveSuccess'))
         }
         
         this.closeModals()
@@ -552,20 +545,20 @@ export default {
         
         console.log('Config saved and list refreshed, total configs:', this.configs.length)
       } catch (error) {
-        console.error('保存配置失败:', error)
+        console.error('Failed to save config:', error)
         console.error('Error response:', error.response?.data)
-        
+
         if (error.response?.data) {
           const errors = error.response.data
-          let errorMessage = '保存失败: '
-          
+          let errorMessage = this.t('configuration.aiModel.messages.saveFailed') + ': '
+
           // 处理唯一约束错误
           if (errors.non_field_errors) {
-            const uniqueConstraintError = errors.non_field_errors.find(err => 
+            const uniqueConstraintError = errors.non_field_errors.find(err =>
               err.includes('唯一集合') || err.includes('unique')
             )
             if (uniqueConstraintError) {
-              errorMessage = '配置冲突：已存在相同的模型类型和角色组合的活跃配置。请选择不同的模型类型或角色，或先禁用现有配置。'
+              errorMessage = this.t('configuration.aiModel.messages.conflictError')
             } else {
               errorMessage += errors.non_field_errors.join(', ')
             }
@@ -579,10 +572,10 @@ export default {
               }
             })
           }
-          
+
           ElMessage.error(errorMessage)
         } else {
-          ElMessage.error('保存失败: ' + error.message)
+          ElMessage.error(this.t('configuration.aiModel.messages.saveFailedDetail', { error: error.message }))
         }
       } finally {
         this.isSaving = false
@@ -590,17 +583,27 @@ export default {
     },
 
     async deleteConfig(configId) {
-      if (!confirm('确定要删除此配置吗？')) {
+      try {
+        await ElMessageBox.confirm(
+          this.t('configuration.aiModel.messages.deleteConfirm'),
+          this.t('configuration.aiModel.messages.deleteTitle'),
+          {
+            confirmButtonText: this.t('configuration.common.confirm'),
+            cancelButtonText: this.t('configuration.common.cancel'),
+            type: 'warning'
+          }
+        )
+      } catch {
         return
       }
 
       try {
         await api.delete(`/requirement-analysis/ai-models/${configId}/`)
-        ElMessage.success('配置删除成功')
+        ElMessage.success(this.t('configuration.aiModel.messages.deleteSuccess'))
         this.loadConfigs()
       } catch (error) {
-        console.error('删除配置失败:', error)
-        ElMessage.error('删除失败: ' + (error.response?.data?.error || error.message))
+        console.error('Failed to delete config:', error)
+        ElMessage.error(this.t('configuration.aiModel.messages.deleteFailedDetail', { error: error.response?.data?.error || error.message }))
       }
     },
 
@@ -609,16 +612,11 @@ export default {
       this.testingConfigId = config.id
 
       try {
-        // 测试连接需要更长的超时时间（90秒），因为大模型响应较慢
-        const response = await api.post(
-          `/requirement-analysis/ai-models/${config.id}/test_connection/`,
-          {},
-          { timeout: 90000 }  // 90秒超时
-        )
+        const response = await api.post(`/requirement-analysis/ai-models/${config.id}/test_connection/`)
         this.testResult = response.data
         this.showTestResult = true
       } catch (error) {
-        console.error('测试连接失败:', error)
+        console.error('Failed to test connection:', error)
         this.testResult = {
           success: false,
           message: error.response?.data?.message || error.message,
@@ -1016,17 +1014,6 @@ export default {
   color: #666;
   font-size: 0.85rem;
   font-style: italic;
-}
-
-.form-section-title {
-  margin: 25px 0 15px 0;
-  padding: 10px 15px;
-  background: #f8f9fa;
-  border-left: 4px solid #3498db;
-  font-weight: 600;
-  color: #2c3e50;
-  font-size: 1rem;
-  border-radius: 4px;
 }
 
 .modal-actions {

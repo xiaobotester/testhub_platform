@@ -86,7 +86,7 @@ class TestCaseComment(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='评论者')
     content = models.TextField(verbose_name='评论内容')
     created_at = models.DateTimeField(default=timezone.now, verbose_name='评论时间')
-    
+
     class Meta:
         db_table = 'testcase_comments'
         verbose_name = '测试用例评论'
