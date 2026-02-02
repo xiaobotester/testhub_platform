@@ -195,6 +195,7 @@ class AIModelConfig(models.Model):
         ('deepseek', 'DeepSeek'),
         ('qwen', '通义千问'),
         ('siliconflow', '硅基流动'),
+        ('zhipu', '智谱'),
         ('other', '其他'),
     ]
 
@@ -447,9 +448,13 @@ class AIModelService:
         
         # 确保base_url不以/结尾
         base_url = config.base_url.rstrip('/')
-        # 如果用户没有输入完整的v1/chat/completions路径，尝试智能补全
+        # 如果用户没有输入完整的/chat/completions路径，尝试智能补全
         if not base_url.endswith('/chat/completions'):
-            if base_url.endswith('/v1'):
+            # 检查是否已经包含版本号（如v1, v4等）
+            import re
+            version_match = re.search(r'/v(\d+)/?$', base_url)
+            if version_match:
+                # 如果已经以版本号结尾（如/v1, /v4），直接添加/chat/completions
                 url = f"{base_url}/chat/completions"
             else:
                 # 默认假设是根路径，尝试添加 v1/chat/completions
@@ -538,9 +543,14 @@ class AIModelService:
         # 确保base_url不以/结尾
         base_url = config.base_url.rstrip('/')
         if not base_url.endswith('/chat/completions'):
-            if base_url.endswith('/v1'):
+            # 检查是否已经包含版本号（如v1, v4等）
+            import re
+            version_match = re.search(r'/v(\d+)/?$', base_url)
+            if version_match:
+                # 如果已经以版本号结尾（如/v1, /v4），直接添加/chat/completions
                 url = f"{base_url}/chat/completions"
             else:
+                # 默认假设是根路径，尝试添加 v1/chat/completions
                 url = f"{base_url}/v1/chat/completions"
         else:
             url = base_url

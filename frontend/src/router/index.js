@@ -130,12 +130,6 @@ const routes = [
         name: 'AiTestReport',
         component: () => import('@/views/reports/AiTestReport.vue')
       },
-
-      {
-        path: 'prompt-config',
-        name: 'PromptConfig',
-        component: () => import('@/views/requirement-analysis/PromptConfig.vue')
-      },
       {
         path: 'generated-testcases',
         name: 'GeneratedTestCases',
@@ -201,6 +195,11 @@ const routes = [
         path: 'scheduled-tasks',
         name: 'ApiScheduledTasks',
         component: () => import('@/views/api-testing/ScheduledTasks.vue')
+      },
+      {
+        path: 'ai-service-config',
+        name: 'ApiAIServiceConfig',
+        component: () => import('@/views/api-testing/AIServiceConfig.vue')
       },
       {
         path: 'notification-logs',
@@ -300,6 +299,12 @@ const routes = [
         component: () => import('@/views/ui-automation/ai/AIExecutionRecords.vue')
       }
     ]
+  },
+  {
+    path: '/data-factory',
+    name: 'DataFactory',
+    component: () => import('@/views/data-factory/DataFactory.vue'),
+    meta: { requiresAuth: true }
   },
   {
     path: '/configuration',

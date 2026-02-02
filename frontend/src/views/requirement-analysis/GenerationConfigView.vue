@@ -1,17 +1,17 @@
 <template>
   <div class="generation-config">
     <div class="page-header">
-      <h1>⚙️ 生成行为配置</h1>
-      <p>配置测试用例生成的默认行为和自动化流程</p>
+      <h1>{{ $t('generationConfig.title') }}</h1>
+      <p>{{ $t('generationConfig.subtitle') }}</p>
     </div>
 
     <div class="main-content">
       <!-- 配置列表 -->
       <div class="configs-section">
         <div class="section-header">
-          <h2>配置列表</h2>
+          <h2>{{ $t('generationConfig.configList') }}</h2>
           <button class="add-config-btn" @click="openAddModal">
-            ➕ 添加配置
+            {{ $t('generationConfig.addConfig') }}
           </button>
         </div>
 
@@ -22,56 +22,56 @@
                 <h3>{{ config.name }}</h3>
                 <div class="config-badges">
                   <span class="status-badge" :class="{ active: config.is_active }">
-                    {{ config.is_active ? '✅ 启用中' : '❌ 未启用' }}
+                    {{ config.is_active ? $t('generationConfig.enabled') : $t('generationConfig.disabled') }}
                   </span>
                   <span class="mode-badge">
-                    {{ config.default_output_mode === 'stream' ? '⚡ 流式输出' : '📄 完整输出' }}
+                    {{ config.default_output_mode === 'stream' ? $t('generationConfig.streamMode') : $t('generationConfig.completeMode') }}
                   </span>
                 </div>
               </div>
               <div class="config-actions">
                 <button v-if="!config.is_active" class="enable-btn" @click="enableConfig(config.id)">
-                  ✅ 启用
+                  {{ $t('generationConfig.enable') }}
                 </button>
-                <button class="edit-btn" @click="editConfig(config)">✏️ 编辑</button>
-                <button class="delete-btn" @click="deleteConfig(config.id)">🗑️ 删除</button>
+                <button class="edit-btn" @click="editConfig(config)">{{ $t('generationConfig.edit') }}</button>
+                <button class="delete-btn" @click="deleteConfig(config.id)">{{ $t('generationConfig.delete') }}</button>
               </div>
             </div>
 
             <div class="config-details">
               <div class="detail-section">
-                <h4>📤 输出模式</h4>
+                <h4>{{ $t('generationConfig.outputMode') }}</h4>
                 <div class="detail-item">
-                  <label>默认模式:</label>
-                  <span>{{ config.default_output_mode_display }}</span>
+                  <label>{{ $t('generationConfig.defaultMode') }}</label>
+                  <span>{{ config.default_output_mode === 'stream' ? $t('generationConfig.realtimeStream') : $t('generationConfig.completeOutput') }}</span>
                 </div>
               </div>
 
               <div class="detail-section">
-                <h4>🤖 自动化流程</h4>
+                <h4>{{ $t('generationConfig.automationProcess') }}</h4>
                 <div class="detail-item">
-                  <label>AI评审和改进:</label>
+                  <label>{{ $t('generationConfig.aiReview') }}</label>
                   <span :class="{ enabled: config.enable_auto_review, disabled: !config.enable_auto_review }">
-                    {{ config.enable_auto_review ? '✅ 启用' : '❌ 禁用' }}
+                    {{ config.enable_auto_review ? $t('generationConfig.enabled') : $t('generationConfig.disabled') }}
                   </span>
                 </div>
               </div>
 
               <div class="detail-section">
-                <h4>⏱️ 超时设置</h4>
+                <h4>{{ $t('generationConfig.timeoutSettings') }}</h4>
                 <div class="detail-item">
-                  <label>评审和改进超时:</label>
-                  <span>{{ config.review_timeout }} 秒</span>
+                  <label>{{ $t('generationConfig.reviewTimeout') }}</label>
+                  <span>{{ config.review_timeout }} {{ $t('generationConfig.seconds') }}</span>
                 </div>
               </div>
 
               <div class="config-meta">
                 <div class="meta-item">
-                  <label>创建时间:</label>
+                  <label>{{ $t('generationConfig.createdAt') }}</label>
                   <span>{{ formatDateTime(config.created_at) }}</span>
                 </div>
                 <div class="meta-item">
-                  <label>更新时间:</label>
+                  <label>{{ $t('generationConfig.updatedAt') }}</label>
                   <span>{{ formatDateTime(config.updated_at) }}</span>
                 </div>
               </div>
@@ -81,10 +81,10 @@
 
         <div v-if="configs.length === 0" class="empty-state">
           <div class="empty-icon">⚙️</div>
-          <h3>暂无生成配置</h3>
-          <p>请添加生成行为配置以控制测试用例生成的默认行为</p>
+          <h3>{{ $t('generationConfig.emptyTitle') }}</h3>
+          <p>{{ $t('generationConfig.emptyDescription') }}</p>
           <button class="add-first-config-btn" @click="openAddModal">
-            ➕ 添加第一个配置
+            {{ $t('generationConfig.addFirstConfig') }}
           </button>
         </div>
       </div>
@@ -94,20 +94,20 @@
     <div v-if="showAddModal || showEditModal" class="config-modal" @click="closeModals">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>{{ isEditing ? '编辑' : '添加' }}生成行为配置</h3>
+          <h3>{{ isEditing ? $t('generationConfig.editTitle') : $t('generationConfig.addTitle') }}{{ $t('generationConfig.formTitle') }}</h3>
           <button class="close-btn" @click="closeModals">×</button>
         </div>
         <div class="modal-body">
           <form @submit.prevent="saveConfig">
             <div class="form-section">
-              <h4>📋 基本信息</h4>
+              <h4>{{ $t('generationConfig.basicInfo') }}</h4>
               <div class="form-group">
-                <label>配置名称 <span class="required">*</span></label>
+                <label>{{ $t('generationConfig.configName') }} <span class="required">*</span></label>
                 <input
                   v-model="configForm.name"
                   type="text"
                   class="form-input"
-                  placeholder="例如：默认生成配置"
+                  :placeholder="$t('generationConfig.configNamePlaceholder')"
                   required>
               </div>
 
@@ -115,64 +115,64 @@
                 <label class="checkbox-label">
                   <input v-model="configForm.is_active" type="checkbox">
                   <span class="checkmark"></span>
-                  启用此配置
+                  {{ $t('generationConfig.enableThisConfig') }}
                 </label>
                 <div class="checkbox-hint">
-                  注意：只能有一个启用的配置，启用此配置将自动禁用其他配置
+                  {{ $t('generationConfig.enableHint') }}
                 </div>
               </div>
             </div>
 
             <div class="form-section">
-              <h4>📤 输出模式设置</h4>
+              <h4>{{ $t('generationConfig.outputModeSettings') }}</h4>
               <div class="form-group">
-                <label>默认输出模式 <span class="required">*</span></label>
+                <label>{{ $t('generationConfig.defaultOutputMode') }} <span class="required">*</span></label>
                 <select v-model="configForm.default_output_mode" class="form-select" required>
-                  <option value="stream">⚡ 实时流式输出</option>
-                  <option value="complete">📄 完整输出</option>
+                  <option value="stream">{{ $t('generationConfig.realtimeStream') }}</option>
+                  <option value="complete">{{ $t('generationConfig.completeOutput') }}</option>
                 </select>
                 <div class="field-hint">
-                  实时流式输出：内容逐字显示，体验流畅；完整输出：完成后一次性展示
+                  {{ $t('generationConfig.outputModeHint') }}
                 </div>
               </div>
             </div>
 
             <div class="form-section">
-              <h4>🤖 自动化流程配置</h4>
+              <h4>{{ $t('generationConfig.automationSettings') }}</h4>
               <div class="form-group">
                 <label class="checkbox-label">
                   <input v-model="configForm.enable_auto_review" type="checkbox">
                   <span class="checkmark"></span>
-                  启用AI评审和改进
+                  {{ $t('generationConfig.enableAutoReview') }}
                 </label>
                 <div class="checkbox-hint">
-                  生成完成后自动进行AI评审，并根据评审意见改进测试用例
+                  {{ $t('generationConfig.autoReviewHint') }}
                 </div>
               </div>
             </div>
 
             <div class="form-section">
-              <h4>⏱️ 超时设置</h4>
+              <h4>{{ $t('generationConfig.timeoutSettingsLabel') }}</h4>
               <div class="form-group">
-                <label>评审和改进超时时间（秒）</label>
+                <label>{{ $t('generationConfig.reviewTimeoutLabel') }}</label>
                 <input
                   v-model.number="configForm.review_timeout"
                   type="number"
                   class="form-input"
                   min="10"
                   max="3600">
-                <div class="field-hint">AI评审和改进的总超时时间（建议：小文档120秒，大文档600-1800秒，超大文档可设置到3600秒）</div>
+                <div class="field-hint">{{ $t('generationConfig.timeoutHint') }}</div>
               </div>
             </div>
 
             <div class="modal-actions">
-              <button type="button" class="cancel-btn" @click="closeModals">取消</button>
+              <button type="button" class="cancel-btn" @click="closeModals">{{ $t('generationConfig.cancel') }}</button>
               <button
                 type="submit"
                 class="confirm-btn"
                 :disabled="isSaving">
-                <span v-if="isSaving">🔄 保存中...</span>
-                <span v-else>💾 保存配置</span>
+                <span v-if="isSaving">{{ $t('generationConfig.saving') }}</span>
+                <span v-else>{{ $t('generationConfig.saveConfig') }}</span>
               </button>
             </div>
           </form>
@@ -186,9 +186,14 @@
 import { getGenerationConfigs, createGenerationConfig, updateGenerationConfig, deleteGenerationConfig } from '@/api/requirement-analysis'
 import api from '@/utils/api'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 
 export default {
   name: 'GenerationConfigView',
+  setup() {
+    const { t, locale } = useI18n()
+    return { t, locale }
+  },
   data() {
     return {
       configs: [],
@@ -198,7 +203,7 @@ export default {
       isSaving: false,
       editingConfigId: null,
       configForm: {
-        name: '默认生成配置',
+        name: '',
         default_output_mode: 'stream',
         enable_auto_review: true,
         review_timeout: 1500,
@@ -208,6 +213,7 @@ export default {
   },
 
   mounted() {
+    this.configForm.name = this.t('generationConfig.defaultConfigName')
     this.loadConfigs()
   },
 
@@ -236,20 +242,20 @@ export default {
 
         console.log('Final configs count:', this.configs.length)
       } catch (error) {
-        console.error('加载配置失败:', error)
+        console.error('Failed to load config:', error)
         this.configs = []
 
         if (error.response?.status === 401) {
-          ElMessage.error('请先登录')
+          ElMessage.error(this.t('generationConfig.pleaseLogin'))
         } else {
-          ElMessage.error('加载配置失败: ' + (error.response?.data?.error || error.message))
+          ElMessage.error(this.t('generationConfig.loadFailed') + ': ' + (error.response?.data?.error || error.message))
         }
       }
     },
 
     resetForm() {
       this.configForm = {
-        name: '默认生成配置',
+        name: this.t('generationConfig.defaultConfigName'),
         default_output_mode: 'stream',
         enable_auto_review: true,
         review_timeout: 1500,
@@ -276,17 +282,17 @@ export default {
       try {
         if (this.isEditing) {
           await updateGenerationConfig(this.editingConfigId, this.configForm)
-          ElMessage.success('配置更新成功')
+          ElMessage.success(this.t('generationConfig.updateSuccess'))
         } else {
           await createGenerationConfig(this.configForm)
-          ElMessage.success('配置添加成功')
+          ElMessage.success(this.t('generationConfig.saveSuccess'))
         }
 
         this.closeModals()
         this.loadConfigs()
       } catch (error) {
-        console.error('保存配置失败:', error)
-        ElMessage.error('保存失败: ' + (error.response?.data?.error || error.message))
+        console.error('Failed to save config:', error)
+        ElMessage.error(this.t('generationConfig.saveFailed') + ': ' + (error.response?.data?.error || error.message))
       } finally {
         this.isSaving = false
       }
@@ -295,26 +301,26 @@ export default {
     async enableConfig(configId) {
       try {
         await api.post(`/requirement-analysis/generation-config/${configId}/enable/`)
-        ElMessage.success('配置已启用')
+        ElMessage.success(this.t('generationConfig.enableSuccess'))
         this.loadConfigs()
       } catch (error) {
-        console.error('启用配置失败:', error)
-        ElMessage.error('启用失败: ' + (error.response?.data?.error || error.message))
+        console.error('Failed to enable config:', error)
+        ElMessage.error(this.t('generationConfig.enableFailed') + ': ' + (error.response?.data?.error || error.message))
       }
     },
 
     async deleteConfig(configId) {
-      if (!confirm('确定要删除此配置吗？')) {
+      if (!confirm(this.t('generationConfig.deleteConfirm'))) {
         return
       }
 
       try {
         await deleteGenerationConfig(configId)
-        ElMessage.success('配置删除成功')
+        ElMessage.success(this.t('generationConfig.deleteSuccess'))
         this.loadConfigs()
       } catch (error) {
-        console.error('删除配置失败:', error)
-        ElMessage.error('删除失败: ' + (error.response?.data?.error || error.message))
+        console.error('Failed to delete config:', error)
+        ElMessage.error(this.t('generationConfig.deleteFailed') + ': ' + (error.response?.data?.error || error.message))
       }
     },
 
@@ -329,7 +335,7 @@ export default {
     formatDateTime(dateString) {
       if (!dateString) return ''
       const date = new Date(dateString)
-      return date.toLocaleString('zh-CN', {
+      return date.toLocaleString(this.locale === 'zh-cn' ? 'zh-CN' : 'en-US', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',

@@ -1049,8 +1049,8 @@ class AIExecutionRecord(models.Model):
 
     class Meta:
         db_table = 'ui_ai_execution_records'
-        verbose_name = 'AI执行记录'
-        verbose_name_plural = 'AI执行记录'
+        verbose_name = 'AI测试报告'
+        verbose_name_plural = 'AI测试报告'
         ordering = ['-start_time']
 
     def __str__(self):

@@ -1,7 +1,9 @@
 import logging
+
 logger = logging.getLogger('django')
 
 import os
+
 # 禁用 browser-use 遥测
 os.environ['ANONYMIZED_TELEMETRY'] = 'false'
 
@@ -22,6 +24,7 @@ load_dotenv()
 # Patch ChatOpenAI to allow setting attributes (required for browser-use token counting)
 try:
     from pydantic import ConfigDict
+
     if hasattr(ChatOpenAI, 'model_config'):
         if isinstance(ChatOpenAI.model_config, dict):
             ChatOpenAI.model_config['extra'] = 'allow'
@@ -37,6 +40,7 @@ except ImportError:
 try:
     from browser_use.tools.registry.views import ActionModel
     from pydantic import ConfigDict
+
     ActionModel.model_config = ConfigDict(arbitrary_types_allowed=True, extra='allow')
     logger.info("✅ Modified ActionModel.model_config to allow extra fields")
 except Exception as e:
@@ -49,6 +53,7 @@ try:
     import json as json_module
 
     _original_get_model_output = Agent.get_model_output
+
 
     async def _patched_get_model_output(self, input_messages):
         """修补后的 get_model_output，直接从 response.content 解析 JSON"""
@@ -74,12 +79,12 @@ try:
                 break
             except asyncio.TimeoutError as te:
                 last_exception = te
-                logger.warning(f"⚠️ LLM invocation timed out (attempt {attempt+1}/{max_retries}): {te}")
+                logger.warning(f"⚠️ LLM invocation timed out (attempt {attempt + 1}/{max_retries}): {te}")
                 if attempt < max_retries - 1:
                     await asyncio.sleep(0.5)  # 重试间隔0.5秒
             except Exception as e:
                 last_exception = e
-                logger.warning(f"⚠️ LLM invocation failed (attempt {attempt+1}/{max_retries}): {e}")
+                logger.warning(f"⚠️ LLM invocation failed (attempt {attempt + 1}/{max_retries}): {e}")
                 if attempt < max_retries - 1:
                     await asyncio.sleep(0.5)  # 重试间隔0.5秒
         else:
@@ -102,7 +107,7 @@ try:
         try:
             if hasattr(response, 'content') and isinstance(response.content, str):
                 content_dict = json_module.loads(response.content)
-                
+
                 # 规范化 action 字典
                 if 'action' in content_dict:
                     normalized_actions = []
@@ -113,7 +118,8 @@ try:
                             if isinstance(action_params, int):
                                 normalized_action[action_name] = {'index': action_params}
                             # 自动修复: switch_tab 的 tab_id 字符串参数
-                            elif action_name == 'switch_tab' and isinstance(action_params, str) and not isinstance(action_params, dict):
+                            elif action_name == 'switch_tab' and isinstance(action_params, str) and not isinstance(
+                                    action_params, dict):
                                 normalized_action[action_name] = {'tab_id': action_params}
                             elif isinstance(action_params, dict):
                                 normalized_params = {}
@@ -127,7 +133,7 @@ try:
                                 normalized_action[action_name] = action_params
                         normalized_actions.append(normalized_action)
                     content_dict['action'] = normalized_actions
-                
+
                 parsed = AgentOutput.model_construct(
                     thinking=content_dict.get('thinking'),
                     evaluation_previous_goal=content_dict.get('evaluation_previous_goal'),
@@ -135,12 +141,14 @@ try:
                     next_goal=content_dict.get('next_goal'),
                     action=[]
                 )
-                
+
                 class _ActionWrapper:
                     def __init__(self, action_dict):
                         self._action_dict = action_dict
+
                     def model_dump(self, **kwargs):
                         return self._action_dict
+
                     def get_index(self):
                         for action_params in self._action_dict.values():
                             if isinstance(action_params, dict) and 'index' in action_params:
@@ -150,9 +158,9 @@ try:
                 action_list = []
                 for action_dict in content_dict.get('action', []):
                     action_list.append(_ActionWrapper(action_dict))
-                
+
                 object.__setattr__(parsed, 'action', action_list)
-                
+
                 if len(parsed.action) > self.settings.max_actions_per_step:
                     parsed.action = parsed.action[:self.settings.max_actions_per_step]
 
@@ -161,7 +169,8 @@ try:
             # If our complex normalization fails, fall back to the original method
             logger.warning(f"⚠️ Custom output normalization failed, falling back: {e}")
             return await _original_get_model_output(self, input_messages)
-    
+
+
     Agent.get_model_output = _patched_get_model_output
     logger.info("✅ Successfully patched Agent.get_model_output")
 except Exception as e:
@@ -172,16 +181,17 @@ try:
     from browser_use.tokens.service import TokenCost
     from langchain_core.messages import HumanMessage, SystemMessage as LangChainSystemMessage, AIMessage
 
+
     def _patched_register_llm(self, llm):
         """修补后的 register_llm，修复 langchain 兼容性"""
         instance_id = str(id(llm))
         if instance_id in self.registered_llms:
             return llm
-        
+
         self.registered_llms[instance_id] = llm
         _original_ainvoke = llm.ainvoke
         _token_service = self
-        
+
         async def _fixed_tracked_ainvoke(messages, output_format=None, **kwargs):
             # Sanitize message contents
             def _content_to_str(content):
@@ -189,11 +199,15 @@ try:
                 if isinstance(content, list):
                     parts = []
                     for item in content:
-                        if isinstance(item, str): parts.append(item)
+                        if isinstance(item, str):
+                            parts.append(item)
                         elif isinstance(item, dict):
-                            if 'text' in item: parts.append(str(item['text']))
-                            elif 'image' in item or 'image_url' in item: parts.append("[image]")
-                        else: parts.append(str(item))
+                            if 'text' in item:
+                                parts.append(str(item['text']))
+                            elif 'image' in item or 'image_url' in item:
+                                parts.append("[image]")
+                        else:
+                            parts.append(str(item))
                     return "\n".join(parts)
                 if isinstance(content, dict):
                     if 'text' in content: return str(content['text'])
@@ -208,15 +222,16 @@ try:
                 if msg_type_name == 'SystemMessage': return LangChainSystemMessage(content=content_str)
                 if msg_type_name in ('HumanMessage', 'UserMessage'): return HumanMessage(content=content_str)
                 if msg_type_name == 'AIMessage': return AIMessage(content=content_str)
-                if isinstance(msg, (HumanMessage, LangChainSystemMessage, AIMessage)): return type(msg)(content=content_str)
+                if isinstance(msg, (HumanMessage, LangChainSystemMessage, AIMessage)): return type(msg)(
+                    content=content_str)
                 return HumanMessage(content=str(content_str))
 
             sanitized_messages = [_sanitize_message(m) for m in messages]
-            
+
             output_format = kwargs.pop('output_format', None)
             if output_format:
                 kwargs['response_format'] = {"type": "json_object"}
-                
+
             # Add retry logic for LLM invocation
             max_retries = 2  # 重试次数为2次
             last_exception = None
@@ -231,7 +246,7 @@ try:
                         # retry immediately without response_format
                         continue
 
-                    logger.warning(f"⚠️ LLM ainvoke failed (attempt {attempt+1}/{max_retries}): {e}")
+                    logger.warning(f"⚠️ LLM ainvoke failed (attempt {attempt + 1}/{max_retries}): {e}")
                     if attempt < max_retries - 1:
                         await asyncio.sleep(0.5)  # 等待0.5秒
             else:
@@ -241,12 +256,14 @@ try:
             # Enhance response parsing
             import json as json_module
             clean_content = result.content.strip() if hasattr(result, 'content') else str(result).strip()
-            
+
             # Remove Markdown
             if '```' in clean_content:
                 match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', clean_content, re.DOTALL)
-                if match: clean_content = match.group(1).strip()
-                else: clean_content = re.sub(r'```[a-z]*', '', clean_content).replace('```', '').strip()
+                if match:
+                    clean_content = match.group(1).strip()
+                else:
+                    clean_content = re.sub(r'```[a-z]*', '', clean_content).replace('```', '').strip()
 
             parsed_data = None
             try:
@@ -257,7 +274,7 @@ try:
                     if match: parsed_data = json_module.loads(match.group(1))
                 except:
                     pass
-            
+
             # Wrapper classes
             class _ActionWrapper:
                 def __init__(self, action_dict):
@@ -266,17 +283,23 @@ try:
                         if isinstance(v, dict):
                             norm = {}
                             for subk, subv in v.items():
-                                if subk == 'element_index': norm['index'] = subv
-                                else: norm[subk] = subv
+                                if subk == 'element_index':
+                                    norm['index'] = subv
+                                else:
+                                    norm[subk] = subv
                             self._dict[k] = norm
-                        else: self._dict[k] = v
+                        else:
+                            self._dict[k] = v
                     for k, v in self._dict.items(): setattr(self, k, v)
-                def model_dump(self, **kwargs): return self._dict
+
+                def model_dump(self, **kwargs):
+                    return self._dict
+
                 def get_index(self):
                     for v in self._dict.values():
                         if isinstance(v, dict) and 'index' in v: return v['index']
                     return None
-            
+
             # Construct AgentOutput manually
             agent_output = None
             if parsed_data and 'action' in parsed_data:
@@ -288,8 +311,10 @@ try:
                         if isinstance(action_params, dict):
                             normalized_params = {}
                             for k, v in action_params.items():
-                                if k == 'element_index': normalized_params['index'] = v
-                                else: normalized_params[k] = v
+                                if k == 'element_index':
+                                    normalized_params['index'] = v
+                                else:
+                                    normalized_params[k] = v
                             normalized_action[action_name] = normalized_params
                         else:
                             normalized_action[action_name] = action_params
@@ -318,7 +343,8 @@ try:
                     self.content = getattr(orig, 'content', '')
                     self.response_metadata = getattr(orig, 'response_metadata', {})
                     self.completion = completion_obj
-                    usage = getattr(orig, 'usage', None) or (orig.response_metadata.get('token_usage') if hasattr(orig, 'response_metadata') else None)
+                    usage = getattr(orig, 'usage', None) or (
+                        orig.response_metadata.get('token_usage') if hasattr(orig, 'response_metadata') else None)
                     if not usage: usage = {}
                     # Fix usage
                     usage = dict(usage) if hasattr(usage, '__dict__') else usage
@@ -326,18 +352,22 @@ try:
                     usage.setdefault('completion_tokens', 0)
                     usage.setdefault('total_tokens', 0)
                     self.usage = usage
+
                 def __getattr__(self, name): return getattr(self._orig, name)
 
             wrapped = _ResponseWrapper(result, agent_output)
             if hasattr(wrapped, 'usage') and wrapped.usage:
-                try: _token_service.add_usage(llm.model, wrapped.usage)
-                except: pass
-            
+                try:
+                    _token_service.add_usage(llm.model, wrapped.usage)
+                except:
+                    pass
+
             return wrapped
-        
+
         setattr(llm, 'ainvoke', _fixed_tracked_ainvoke)
         return llm
-    
+
+
     TokenCost.register_llm = _patched_register_llm
     logger.info("✅ Successfully patched TokenCost.register_llm")
 except Exception as e:
@@ -347,27 +377,30 @@ except Exception as e:
 try:
     from browser_use.browser.session import BrowserSession
     import httpx
-    
+
     _original_connect = BrowserSession.connect
-    
+
+
     async def _patched_connect(self, cdp_url=None):
         if cdp_url: return await _original_connect(self, cdp_url=cdp_url)
-        
+
         browser_profile = getattr(self, 'browser_profile', None)
         if hasattr(browser_profile, 'cdp_url') and browser_profile.cdp_url:
             return await _original_connect(self, cdp_url=browser_profile.cdp_url)
-        
+
         port = 9222
         if hasattr(browser_profile, 'extra_chromium_args'):
             for arg in browser_profile.extra_chromium_args:
                 if '--remote-debugging-port=' in str(arg):
-                    try: port = int(arg.split('=')[1]); break
-                    except: pass
+                    try:
+                        port = int(arg.split('=')[1]); break
+                    except:
+                        pass
         if hasattr(browser_profile, 'remote_debugging_port'):
             port = browser_profile.remote_debugging_port
-            
+
         cdp_endpoint = f"http://localhost:{port}/json/version"
-        
+
         for attempt in range(5):
             try:
                 async with httpx.AsyncClient(timeout=10.0) as client:
@@ -378,9 +411,10 @@ try:
                         return await _original_connect(self, cdp_url=browser_profile.cdp_url)
             except Exception:
                 if attempt < 4: await asyncio.sleep(1.0)
-        
+
         return await _original_connect(self, cdp_url=cdp_url)
-    
+
+
     BrowserSession.connect = _patched_connect
     logger.info("✅ Successfully patched BrowserSession.connect")
 except Exception as e:
@@ -389,7 +423,10 @@ except Exception as e:
 # Patch ClickElementAction parameters
 try:
     from browser_use.tools.views import ClickElementAction
+
     _original_click_init = ClickElementAction.__init__
+
+
     def _patched_click_init(self, **kwargs):
         fixed_kwargs = {}
         for key, value in kwargs.items():
@@ -407,6 +444,8 @@ try:
             if fixed_kwargs and isinstance(list(fixed_kwargs.values())[0], int):
                 return _original_click_init(self, **{'index': list(fixed_kwargs.values())[0]})
             raise
+
+
     ClickElementAction.__init__ = _patched_click_init
 except Exception:
     pass
@@ -414,15 +453,17 @@ except Exception:
 # Patch ToolRegistry
 try:
     from browser_use.tools.registry.service import Registry as ToolRegistry
+
     # Force patch Registry class
     _original_execute_action = ToolRegistry.execute_action
-    
+
+
     async def _patched_execute_action(self, action_name: str, params: dict, **kwargs):
         # 自动映射 switch_tab -> switch (强制映射)
         if action_name == 'switch_tab':
             logger.info(f"🔧 Force aliasing: switch_tab -> switch")
             action_name = 'switch'
-        
+
         if isinstance(params, int):
             params = {'index': params}
         elif not isinstance(params, dict) and params is not None:
@@ -431,7 +472,19 @@ try:
                 params = {'tab_id': params}
             else:
                 params = {'value': params} if params else {}
-        
+
+        # 🔧 修复 input action 的参数格式：将 content/value 转换为 text
+        # 适配不同LLM模型生成的参数格式
+        if action_name in ['input', 'input_text'] and isinstance(params, dict):
+            # 检查是否有 content 或 value 字段，转换为 text
+            if 'text' not in params:
+                if 'content' in params:
+                    params['text'] = params.pop('content')
+                    logger.info(f"🔧 Converted 'content' -> 'text' for input action: {params.get('index', '?')}")
+                elif 'value' in params:
+                    params['text'] = params.pop('value')
+                    logger.info(f"🔧 Converted 'value' -> 'text' for input action: {params.get('index', '?')}")
+
         # 针对点击增加延迟，确保 UI 更新 (如弹窗弹出、下拉框展开)
         if action_name in ['click_element', 'click']:
             result = await _original_execute_action(self, action_name, params, **kwargs)
@@ -439,9 +492,10 @@ try:
             # 尤其是对于 element-plus 等 UI 框架，下拉列表渲染需要时间
             await asyncio.sleep(1.5)
             return result
-            
+
         return await _original_execute_action(self, action_name, params, **kwargs)
-        
+
+
     ToolRegistry.execute_action = _patched_execute_action
     logger.info("✅ Successfully patched ToolRegistry.execute_action with alias support")
 except Exception as e:
@@ -450,9 +504,9 @@ except Exception as e:
 # Patch ScreenshotWatchdog GLOBALLY to fix timeouts
 try:
     from browser_use.browser.watchdogs.screenshot_watchdog import ScreenshotWatchdog
-    
+
     _original_on_screenshot_event = ScreenshotWatchdog.on_ScreenshotEvent
-    
+
     # Check if already patched to avoid double patching
     if not getattr(_original_on_screenshot_event, '_is_patched_global', False):
         async def on_ScreenshotEvent(self, event):
@@ -463,7 +517,7 @@ try:
                 # Try original method first with strict timeout
                 result = await asyncio.wait_for(
                     _original_on_screenshot_event(self, event),
-                    timeout=3.0 # Reduced for fail-fast
+                    timeout=3.0  # Reduced for fail-fast
                 )
                 return result
             except asyncio.TimeoutError:
@@ -472,38 +526,42 @@ try:
                     # Get CDP session
                     cdp_session = await self.browser_session.get_or_create_cdp_session(target_id=None)
                     if not cdp_session: raise Exception("Failed to get CDP session")
-                    
+
                     params = {'format': 'png', 'quality': 50, 'from_surface': True, 'capture_beyond_viewport': False}
-                    
+
                     # One quick retry
                     result = await asyncio.wait_for(
-                        cdp_session.cdp_client.send.Page.captureScreenshot(params=params, session_id=cdp_session.session_id),
+                        cdp_session.cdp_client.send.Page.captureScreenshot(params=params,
+                                                                           session_id=cdp_session.session_id),
                         timeout=3.0
                     )
                     return result
-                
+
                 except Exception as ex:
                     # In Text Mode especially, we don't want to die on screenshot
                     logger.warning(f"DEBUG: Screenshot failed optimized, returning placeholder: {ex}")
                     import base64
                     # 1x1 transparent pixel
-                    placeholder = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==')
+                    placeholder = base64.b64decode(
+                        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==')
                     return {'data': placeholder}
             except Exception as e:
                 logger.error(f"DEBUG: Screenshot unexpected error: {e}")
                 import base64
-                placeholder = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==')
+                placeholder = base64.b64decode(
+                    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==')
                 return {'data': placeholder}
-        
+
+
         on_ScreenshotEvent._is_patched_global = True
         ScreenshotWatchdog.on_ScreenshotEvent = on_ScreenshotEvent
         logger.info("✅ Applied Global ScreenshotWatchdog Patch")
 
     # Patch DOMWatchdog
     from browser_use.browser.watchdogs.dom_watchdog import DOMWatchdog
-    
+
     _original_capture_clean_screenshot = DOMWatchdog._capture_clean_screenshot
-    
+
     if not getattr(_original_capture_clean_screenshot, '_is_patched_global', False):
         async def _capture_clean_screenshot(self):
             try:
@@ -512,7 +570,8 @@ try:
             except Exception as e:
                 logger.warning(f"DEBUG: Clean screenshot failed/timed out: {e}, continuing...")
                 return None
-                
+
+
         _capture_clean_screenshot._is_patched_global = True
         DOMWatchdog._capture_clean_screenshot = _capture_clean_screenshot
         logger.info("✅ Applied Global DOMWatchdog Patch")
@@ -524,21 +583,25 @@ except Exception as e:
 try:
     from browser_use.agent.service import Agent
     from browser_use.agent.message_manager.service import AgentOutput
-    
+
     _original_judge_and_log = Agent._judge_and_log
-    
+
+
     def _agent_output_getattr(self, name):
         if name == 'verdict':
             if hasattr(self, 'next_goal') and self.next_goal:
-                if any(w in str(self.next_goal).lower() for w in ['complete', 'done', 'finished', 'success']): return True
+                if any(
+                    w in str(self.next_goal).lower() for w in ['complete', 'done', 'finished', 'success']): return True
             if hasattr(self, 'evaluation_previous_goal') and self.evaluation_previous_goal:
                 if any(w in str(self.evaluation_previous_goal).lower() for w in ['success', 'complete']): return True
             return False
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
-    
+
+
     if not hasattr(AgentOutput, '__getattr__'):
         AgentOutput.__getattr__ = _agent_output_getattr
-        
+
+
     async def _patched_judge_and_log(self):
         try:
             return await _original_judge_and_log(self)
@@ -546,10 +609,11 @@ try:
             if 'verdict' in str(e):
                 return None
             raise
+
+
     Agent._judge_and_log = _patched_judge_and_log
 except Exception:
     pass
-
 
 # ============================================================================
 # PART 2: Helper Classes
@@ -558,13 +622,17 @@ except Exception:
 from langchain_core.callbacks import BaseCallbackHandler
 from typing import Any
 
+
 class RawResponseLogger(BaseCallbackHandler):
-    def on_llm_new_token(self, token: str, **kwargs: Any) -> Any: pass
+    def on_llm_new_token(self, token: str, **kwargs: Any) -> Any:
+        pass
+
     def on_llm_end(self, response: Any, **kwargs: Any) -> Any:
         try:
             generation = response.generations[0][0]
             logger.info(f"DEBUG: Raw LLM Response: {generation.text}")
-        except: pass
+        except:
+            pass
 
 
 # ============================================================================
@@ -574,44 +642,77 @@ class RawResponseLogger(BaseCallbackHandler):
 from browser_use import Agent, Controller
 from browser_use.browser.profile import BrowserProfile
 
+
 class BaseBrowserAgent:
     def __init__(self, execution_mode='text', enable_gif=True, case_name=None):
         self.execution_mode = 'text'
         self.enable_gif = enable_gif  # GIF录制开关
         self.case_name = case_name or "Adhoc Task"  # 用例名称
-        
+
         # Load Config from DB
         from apps.requirement_analysis.models import AIModelConfig
-        
+
         # Select Config (always use text mode config)
         role_name = 'browser_use_text'
         config_obj = AIModelConfig.objects.filter(role=role_name, is_active=True).first()
-        
+
         model_config = {}
         if config_obj:
             model_config = {
                 'api_key': config_obj.api_key,
                 'base_url': config_obj.base_url,
                 'model_name': config_obj.model_name,
-                'provider': config_obj.model_type
+                'provider': config_obj.model_type,
+                'temperature': config_obj.temperature  # 读取配置的temperature
             }
-        
+
         self.api_key = model_config.get('api_key') or os.getenv('AUTH_TOKEN')
         self.base_url = model_config.get('base_url') or os.getenv('BASE_URL')
         self.model_name = model_config.get('model_name') or os.getenv('MODEL_NAME')
         self.provider = model_config.get('provider', 'openai')
-        
+
         if not self.api_key:
             raise ValueError(f"No API Key found for mode: {execution_mode}")
+
+        # 智能temperature处理：特殊模型强制使用特定temperature值
+        # 格式: {'模型名称关键字': temperature值}
+        special_model_temperature_map = {
+            'kimi-2.5': 1.0,  # Moonshot AI Kimi 2.5 只支持 temperature=1
+            'kimi-k2.5': 1.0,  # Moonshot AI Kimi K2.5 只支持 temperature=1
+            'kimi': 1.0,  # 通用Kimi模型匹配（兜底）
+            # 未来可以在这里添加其他特殊模型，例如：
+            # 'claude-3.5-sonnet': 0.7,
+            # 'gpt-4-turbo': 0.0,
+        }
+
+        # 确定最终使用的temperature值
+        final_temperature = 0.0  # 默认值
+        model_name_lower = self.model_name.lower()
+
+        # 1. 优先检查是否是特殊模型
+        for model_keyword, temp in special_model_temperature_map.items():
+            if model_keyword in model_name_lower:
+                final_temperature = temp
+                logger.info(f"✅ 检测到特殊模型 '{self.model_name}'，使用强制 temperature={temp}")
+                break
+        else:
+            # 2. 如果不是特殊模型，使用配置中的值
+            if 'temperature' in model_config:
+                final_temperature = model_config['temperature']
+                logger.info(f"📋 使用配置的 temperature={final_temperature}")
+            else:
+                # 3. 如果配置中没有，使用默认值
+                final_temperature = 0.0
+                logger.info(f"⚙️ 使用默认 temperature={final_temperature}")
 
         self.llm = ChatOpenAI(
             model=self.model_name,
             api_key=self.api_key,
             base_url=self.base_url,
-            temperature=0.0,
+            temperature=final_temperature,
             callbacks=[RawResponseLogger()]
         )
-        
+
         # browser-use requirement
         try:
             object.__setattr__(self.llm, 'provider', self.provider)
@@ -621,22 +722,27 @@ class BaseBrowserAgent:
                 self.llm.__pydantic_extra__ = {}
             self.llm.__pydantic_extra__['provider'] = self.provider
             self.llm.__pydantic_extra__['model'] = self.model_name
-            
+
     def _format_action(self, action):
         try:
             action_dict = {}
-            if hasattr(action, 'model_dump'): action_dict = action.model_dump()
-            elif hasattr(action, '_action_dict'): action_dict = action._action_dict
-            elif hasattr(action, '_dict'): action_dict = action._dict
-            elif isinstance(action, dict): action_dict = action
-            else: return str(action)
+            if hasattr(action, 'model_dump'):
+                action_dict = action.model_dump()
+            elif hasattr(action, '_action_dict'):
+                action_dict = action._action_dict
+            elif hasattr(action, '_dict'):
+                action_dict = action._dict
+            elif isinstance(action, dict):
+                action_dict = action
+            else:
+                return str(action)
 
             if not action_dict: return "待机"
 
             descriptions = []
             for name, params in action_dict.items():
                 if not params and name not in ['scroll_down', 'scroll_up', 'done']: continue
-                
+
                 if name in ['go_to_url', 'navigate']:
                     url = params.get('url') if isinstance(params, dict) else params
                     descriptions.append(f"访问: {url}")
@@ -665,17 +771,18 @@ class BaseBrowserAgent:
             prompt = f"Break down this task into steps: {task_description}. Return JSON list of strings."
             response = await self.llm.ainvoke(prompt)
             content = response.content.strip() if hasattr(response, 'content') else str(response)
-            
+
             steps = []
             try:
                 import json
                 match = re.search(r'(\[.*\])', content, re.DOTALL)
                 if match: steps = json.loads(match.group(1))
-            except: pass
-            
+            except:
+                pass
+
             if not steps:
                 steps = [s.strip() for s in task_description.split('\n') if s.strip()]
-            
+
             # 彻底清理生成的步骤描述中的重复编号
             cleaned_steps = []
             for s in steps:
@@ -686,8 +793,8 @@ class BaseBrowserAgent:
                     desc = match.group(1).strip()
                 if desc:
                     cleaned_steps.append(desc)
-                
-            return [{'id': i+1, 'description': s, 'status': 'pending'} for i, s in enumerate(cleaned_steps)]
+
+            return [{'id': i + 1, 'description': s, 'status': 'pending'} for i, s in enumerate(cleaned_steps)]
         except:
             return [{'id': 1, 'description': task_description, 'status': 'pending'}]
 
@@ -738,18 +845,18 @@ class BaseBrowserAgent:
         if system == 'Linux':
             # Linux 服务器环境（特别是无头环境）必需的参数
             extra_args.extend([
-                '--no-sandbox',                    # Linux 必需：禁用沙箱
-                '--disable-setuid-sandbox',        # Linux 必需：禁用 setuid 沙箱
-                '--disable-dev-shm-usage',         # Linux 必需：使用 /tmp 而不是 /dev/shm
-                '--disable-gpu',                   # 禁用 GPU 加速（服务器通常无 GPU）
-                '--headless=new',                  # Linux 服务器使用无头模式
-                '--disable-software-rasterizer',   # 禁用软件光栅化器
-                '--remote-debugging-port=0',       # 使用随机可用端口
+                '--no-sandbox',  # Linux 必需：禁用沙箱
+                '--disable-setuid-sandbox',  # Linux 必需：禁用 setuid 沙箱
+                '--disable-dev-shm-usage',  # Linux 必需：使用 /tmp 而不是 /dev/shm
+                '--disable-gpu',  # 禁用 GPU 加速（服务器通常无 GPU）
+                '--headless=new',  # Linux 服务器使用无头模式
+                '--disable-software-rasterizer',  # 禁用软件光栅化器
+                '--remote-debugging-port=0',  # 使用随机可用端口
             ])
         else:
             # macOS 和 Windows 使用显示模式
             extra_args.extend([
-                '--no-sandbox',                    # 兼容性
+                '--no-sandbox',  # 兼容性
                 '--disable-gpu',
                 '--remote-debugging-port=9222',
             ])
@@ -770,7 +877,7 @@ class BaseBrowserAgent:
             loop = asyncio.get_running_loop()
         except RuntimeError:
             loop = None
-            
+
         controller = Controller()
         _task_was_done = False
 
@@ -825,39 +932,40 @@ class BaseBrowserAgent:
         final_task += "5. RETRY LOGIC: If a previous 'save' or 'submit' failed (e.g., error toast), RE-VERIFY all fields. Re-select dropdowns and re-input text to ensure the form is complete. Often errors are caused by missing project selection.\n"
         final_task += "6. DO NOT REPEAT: If a task is complete, mark it and MOVE ON. Don't re-confirm unless the system requires it.\n"
         final_task += "7. VERIFICATION: Task 15/16 usually require checking the list. Ensure you are on the correct page and the new data is visible before marking complete.\n"
-        
+
         if 'qwen' in self.model_name.lower() or 'deepseek' in self.model_name.lower():
             final_task += "8. EXTREMELY MINIMIZE output tokens for speed. Keep responses as short as possible while maintaining accuracy.\n"
 
         # 核心修复: 清理 task 长文本中的 URL，防止中文标点紧贴 URL 导致 browser-use 解析错误
         # 例如 "http://localhost:3000，" -> "http://localhost:3000 "
         try:
-             # 在中文标点前加空格，避免它们成为 URL 的一部分
-             final_task = re.sub(r'(https?://[^\s\u4e00-\u9fa5]+?)(?=[，；。、！])', r'\1 ', final_task)
-             logger.info(f"🔧 Optimized task description for URL extraction")
+            # 在中文标点前加空格，避免它们成为 URL 的一部分
+            final_task = re.sub(r'(https?://[^\s\u4e00-\u9fa5]+?)(?=[，；。、！])', r'\1 ', final_task)
+            logger.info(f"🔧 Optimized task description for URL extraction")
         except:
-             pass
+            pass
 
         browser_profile = self._create_browser_profile()
-        
+
         agent = Agent(
             task=final_task,
             llm=self.llm,
             controller=controller,
             browser_profile=browser_profile,
             use_vision=False,
-            max_actions_per_step=10, # 增加步进密度，减少总步骤数，降低超时风险
-            max_retries=1, # 减少重试次数以提高速度 (从2改为1)
-            max_failures=2, # 减少最大失败次数，避免过长等待 (从默认3改为2)
-            llm_timeout=60, # 设置LLM调用超时为60秒（支持硅基流动等大模型API）
-            step_timeout=90, # 设置每步超时为90秒
-            generate_gif=self.enable_gif, # 根据开关决定是否生成GIF
+            max_actions_per_step=10,  # 增加步进密度，减少总步骤数，降低超时风险
+            max_retries=1,  # 减少重试次数以提高速度 (从2改为1)
+            max_failures=2,  # 减少最大失败次数，避免过长等待 (从默认3改为2)
+            llm_timeout=60,  # 设置LLM调用超时为60秒（支持硅基流动等大模型API）
+            step_timeout=90,  # 设置每步超时为90秒
+            generate_gif=self.enable_gif,  # 根据开关决定是否生成GIF
         )
         agent._task_was_done = False
 
         # Callback helper - 添加任务标记跟踪
         last_processed_step = 0
         last_marked_task_id = 0  # 跟踪上一次标记的任务ID
+
         async def on_step_end(agent_instance):
             nonlocal last_processed_step, last_marked_task_id
 
@@ -885,7 +993,9 @@ class BaseBrowserAgent:
                         step_has_task_complete = False
                         step_marked_task_id = None
                         for action in actions:
-                            action_dict = action.model_dump() if hasattr(action, 'model_dump') else getattr(action, '_action_dict', {})
+                            action_dict = action.model_dump() if hasattr(action, 'model_dump') else getattr(action,
+                                                                                                            '_action_dict',
+                                                                                                            {})
                             if 'mark_task_complete' in action_dict:
                                 step_has_task_complete = True
                                 step_marked_task_id = action_dict['mark_task_complete'].get('task_id')
@@ -895,7 +1005,9 @@ class BaseBrowserAgent:
                         # 检查这一步是否有实际操作（非mark_task_complete的操作）
                         has_real_action = False
                         for action in actions:
-                            action_dict = action.model_dump() if hasattr(action, 'model_dump') else getattr(action, '_action_dict', {})
+                            action_dict = action.model_dump() if hasattr(action, 'model_dump') else getattr(action,
+                                                                                                            '_action_dict',
+                                                                                                            {})
                             for key in action_dict.keys():
                                 if key not in ['mark_task_complete', 'done']:
                                     has_real_action = True
@@ -904,11 +1016,13 @@ class BaseBrowserAgent:
                                 break
 
                         action_str = " | ".join([self._format_action(a) for a in actions])
-                        log_content = f"\n[Step {i+1}]\n执行: {action_str}\n"
+                        log_content = f"\n[Step {i + 1}]\n执行: {action_str}\n"
 
                         if callback:
-                            if asyncio.iscoroutinefunction(callback): await callback({'type': 'log', 'content': log_content})
-                            else: callback({'type': 'log', 'content': log_content})
+                            if asyncio.iscoroutinefunction(callback):
+                                await callback({'type': 'log', 'content': log_content})
+                            else:
+                                callback({'type': 'log', 'content': log_content})
 
                         # 关键修复：如果这一步有实际操作但没有调用mark_task_complete，
                         # 且planned_tasks中下一个未标记的任务ID应该被标记
@@ -925,7 +1039,8 @@ class BaseBrowserAgent:
 
                                 if not task_already_marked:
                                     # 自动补充标记这个任务
-                                    logger.warning(f"⚠️ Auto-fixing: Step {i+1} had actions but no mark_task_complete. Auto-marking task {next_expected_task_id} as completed.")
+                                    logger.warning(
+                                        f"⚠️ Auto-fixing: Step {i + 1} had actions but no mark_task_complete. Auto-marking task {next_expected_task_id} as completed.")
                                     data = {'task_id': int(next_expected_task_id), 'status': 'completed'}
                                     if asyncio.iscoroutinefunction(callback):
                                         await callback(data)
@@ -958,7 +1073,8 @@ class BaseBrowserAgent:
             # 检查是否有任务执行了但未标记完成
             executed_tasks_info = self._find_executed_tasks(history)
             if executed_tasks_info and executed_tasks_info.get('unmarked_actions'):
-                logger.warning(f"⚠️ Found {executed_tasks_info['executed_actions']} executed actions, but only {len(executed_tasks_info['marked_tasks'])} tasks were explicitly marked complete")
+                logger.warning(
+                    f"⚠️ Found {executed_tasks_info['executed_actions']} executed actions, but only {len(executed_tasks_info['marked_tasks'])} tasks were explicitly marked complete")
                 logger.warning(f"⚠️ Unmarked actions: {executed_tasks_info['unmarked_actions']}")
                 logger.warning("⚠️ This indicates the AI agent did not follow the 'mark_task_complete' rule properly.")
 
@@ -972,7 +1088,7 @@ class BaseBrowserAgent:
             return []
 
         executed_actions = {}  # 已执行的操作类型和索引，以及对应的步骤
-        marked_tasks = set()   # 已标记完成的任务ID
+        marked_tasks = set()  # 已标记完成的任务ID
 
         # 分析执行历史
         for step_idx, step in enumerate(getattr(history, 'steps', [])):
@@ -1022,10 +1138,13 @@ class BaseBrowserAgent:
             'unmarked_actions': unmarked_actions
         }
 
-    async def run_full_process(self, task_description: str, analysis_callback=None, step_callback=None, should_stop=None):
+    async def run_full_process(self, task_description: str, analysis_callback=None, step_callback=None,
+                               should_stop=None):
         planned_tasks = await self.analyze_task(task_description)
         if analysis_callback:
-            if asyncio.iscoroutinefunction(analysis_callback): await analysis_callback(planned_tasks)
-            else: analysis_callback(planned_tasks)
-            
+            if asyncio.iscoroutinefunction(analysis_callback):
+                await analysis_callback(planned_tasks)
+            else:
+                analysis_callback(planned_tasks)
+
         return await self.run_task(task_description, planned_tasks, step_callback, should_stop)
