@@ -1069,9 +1069,9 @@ class PromptConfigViewSet(viewsets.ModelViewSet):
         """加载默认提示词"""
         try:
             # 读取用例编写提示词
-            writer_prompt_path = os.path.join(settings.BASE_DIR, 'tester.md')
+            writer_prompt_path = os.path.join(settings.BASE_DIR, 'docs/tester.md')
             # 读取用例评审提示词
-            reviewer_prompt_path = os.path.join(settings.BASE_DIR, 'tester_pro.md')
+            reviewer_prompt_path = os.path.join(settings.BASE_DIR, 'docs/tester_pro.md')
 
             defaults = {}
 
@@ -1079,39 +1079,72 @@ class PromptConfigViewSet(viewsets.ModelViewSet):
                 with open(writer_prompt_path, 'r', encoding='utf-8') as f:
                     defaults['writer'] = f.read()
             except FileNotFoundError:
-                defaults['writer'] = """你是一名资深的QA高级专家，擅长编写高质量的测试用例。
+                defaults['writer'] = """你是一位拥有10年经验的资深测试用例编写专家，能够根据需求精确生成高质量的测试用例。
 
-请根据以下需求描述，生成详细的测试用例。
+# 核心目标
+生成高覆盖率、颗粒度细致的测试用例，确保不遗漏任何功能逻辑、异常场景和边界条件。
 
-要求：
-1. 测试用例应该覆盖正常流程、异常流程和边界条件
-2. 每个测试用例包含：用例编号、用例标题、前置条件、测试步骤、预期结果
-3. 测试步骤要详细、清晰、可执行
-4. 考虑不同的用户角色和权限
-5. 关注数据验证和错误处理
+# 角色设定
+1. 身份：精通全栈测试（Web/App/API）的高级QA专家
+2. 测试风格：破坏性测试思维，善于发现潜在Bug
+3. 输出原则：详细、独立、可执行
 
-请以结构化的格式输出测试用例。"""
+# 用例设计规范
+1. **独立性**：每条用例只验证一个具体的测试点，严禁合并多个场景。
+2. **完整性**：
+   - 包含用例ID（[模块]_[序号]）
+   - 清晰的测试目标
+   - 准确的前置条件
+   - 步骤化操作描述
+   - 具体的预期结果
+3. **覆盖维度**：
+   - ✅ 功能正向流程（Happy Path）
+   - ⚠️ 异常流程（输入错误、权限不足、网络异常）
+   - 🔄 边界值（最大/最小值、空值、特殊字符）
+   - 🔒 业务约束（状态机流转、数据依赖）
+
+# 输出格式
+请严格按照以下Markdown表格格式输出，不要包含任何开场白或结束语：
+
+## ⚠️ 重要：输出顺序要求
+1. **必须按用例编号从小到大的顺序输出**（如：001, 002, 003...）
+2. **绝对不能跳号、重复或乱序输出**
+3. 编号必须连续，中间不能有遗漏
+4. 所有用例必须一次性完整输出，不能中断
+
+```markdown
+| 用例ID | 测试目标 | 前置条件 | 操作步骤 | 预期结果 | 优先级 | 测试类型 | 关联需求 |
+|--------|--------|--------|--------|--------|--------|--------|--------|
+| LOGIN_001 | 验证手机号格式校验 | 在登录页 | 1. 输入10位手机号<br>2. 点击获取验证码 | 提示"手机号格式不正确"，发送按钮不可点 | P1 | 功能验证 | 登录模块 |
+```"""
 
             try:
                 with open(reviewer_prompt_path, 'r', encoding='utf-8') as f:
                     defaults['reviewer'] = f.read()
             except FileNotFoundError:
-                defaults['reviewer'] = """你是一名资深的测试经理，负责评审测试用例的质量。
+                defaults['reviewer'] = """你是一名资深测试专家（Test Architect），拥有极高的质量标准。你的任务是对生成的测试用例进行严格的评审。
 
-请对以下测试用例进行评审，并提供改进意见。
+# 核心职责
+不只是简单通过，而是要作为“质量守门员”，敏锐地发现遗漏的场景、逻辑漏洞和描述不清的问题。
 
-评审要点：
-1. 测试用例是否覆盖了主要功能点
-2. 测试步骤是否清晰、完整、可执行
-3. 预期结果是否准确、具体
-4. 是否遗漏了重要的测试场景
-5. 是否需要补充边界条件测试
+# 评审维度
+1. **覆盖率检查**：
+   - 是否遗漏了需求文档中的关键功能点？
+   - 是否包含了必要的异常场景（如断网、服务超时、数据错误）？
+   - 是否覆盖了边界条件（如最大长度、空值、特殊字符）？
+2. **逻辑性检查**：
+   - 前置条件是否充分？（例如测试“支付功能”前是否检查了“余额充足”）
+   - 预期结果是否具体？（拒绝模糊的“显示正确”，必须说明具体提示文案或状态变化）
+3. **规范性检查**：
+   - 用例标题是否清晰表达了测试意图？
+   - 步骤是否可执行？
 
-请提供：
-1. 总体评价
-2. 具体的改进建议
-3. 补充的测试场景（如有）
-4. 修改后的测试用例（如需要）"""
+# 输出要求
+请输出一份结构化的评审报告：
+1. **总体评价**：给出一个质量评分（0-100分）和总体结论（通过/需修改）。
+2. **发现的问题**：列出具体的问题点，精确到具体的用例ID。
+3. **补充建议**：直接给出建议补充的测试场景或用例。
+4. **修正后的用例**（可选）：如果发现严重问题，请直接提供修正后的用例版本。"""
 
             return Response({
                 'message': '默认提示词加载成功',
@@ -1807,20 +1840,27 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
             logger.info(
                 f"SSE连接请求: task_id={task_id}, user={request.user}, authenticated={request.user.is_authenticated}, path={request.path}, origin={request_origin}")
 
-            # 动态获取CORS origin - 支持localhost、127.0.0.1和任意IP地址
+            # 动态获取CORS origin - 使用 Django 配置优先
             def get_allowed_origin(origin):
-                """获取允许的CORS origin，支持localhost和任意IP地址"""
-                if not origin:
-                    return 'http://localhost:3000'
-                # 允许localhost和127.0.0.1
-                if origin in ['http://localhost:3000', 'http://127.0.0.1:3000']:
+                """获取允许的CORS origin，优先使用 settings 配置"""
+                if getattr(settings, 'CORS_ALLOW_ALL_ORIGINS', False):
+                    return origin or '*'
+
+                allowed_origins = getattr(settings, 'CORS_ALLOWED_ORIGINS', []) or []
+                if origin in allowed_origins:
                     return origin
-                # 允许任意IP地址的3000端口
-                import re
-                if re.match(r'^http://\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:3000$', origin):
+
+                # 兼容未配置时的本地开发默认
+                local_defaults = ['http://localhost:3000', 'http://127.0.0.1:3000']
+                if origin in local_defaults:
                     return origin
-                # 默认返回localhost:3000
-                return 'http://localhost:3000'
+
+                # 如果未匹配，优先返回第一个允许的 origin（避免返回错误的 localhost）
+                if allowed_origins:
+                    return allowed_origins[0]
+
+                # 最后兜底：返回请求 origin（若存在）
+                return origin or 'http://localhost:3000'
 
             cors_origin = get_allowed_origin(request_origin)
 
@@ -1859,12 +1899,34 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
 
             def event_stream():
                 nonlocal last_sent_position, loop_count, last_review_length, last_final_length, last_status
+                
+                # Performance & Timeout Optimization
+                start_time = time.time()
+                last_heartbeat_time = time.time()
+                last_progress_hash = None
+                MAX_TIMEOUT = 3600  # 1 hour safety timeout
 
                 while True:
                     loop_count += 1
+                    current_time = time.time()
+                    has_sent_data = False
+
+                    # Safety Timeout Check
+                    if current_time - start_time > MAX_TIMEOUT:
+                        logger.error(f"SSE Connection timed out after {MAX_TIMEOUT}s: task_id={task_id}")
+                        yield f"event: error\ndata: timeout\n\n"
+                        break
 
                     # 从数据库重新获取任务状态
-                    task.refresh_from_db()
+                    try:
+                        task.refresh_from_db()
+                    except TestCaseGenerationTask.DoesNotExist:
+                        yield f"event: error\ndata: task_not_found\n\n"
+                        break
+                    except Exception as e:
+                        logger.error(f"DB refresh failed: {e}")
+                        time.sleep(1)
+                        continue
 
                     # 检测状态变化，如果进入revising阶段，重置last_final_length
                     if task.status != last_status:
@@ -1874,8 +1936,8 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
                             last_final_length = 0
                         last_status = task.status
 
-                    # 每10次循环记录一次日志
-                    if loop_count % 10 == 0:
+                    # 每30次循环记录一次日志 (Reduced frequency)
+                    if loop_count % 30 == 0:
                         logger.info(
                             f"SSE stream loop #{loop_count}: task_status={task.status}, progress={task.progress}%, buffer_len={len(task.stream_buffer) if task.stream_buffer else 0}")
 
@@ -1942,6 +2004,7 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
                                 logger.info(f"SSE发送新增内容: {len(new_content)} 字符, 总位置: {current_position}")
                                 yield f"data: {content_data}\n\n"
                                 last_sent_position = current_position
+                                has_sent_data = True
 
                     # 如果是评审阶段，发送评审内容
                     if task.status == 'reviewing' and task.review_feedback:
@@ -1956,6 +2019,7 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
                                     logger.info(f"SSE发送评审内容: {len(new_review)} 字符")
                                     yield f"data: {review_data}\n\n"
                                     last_review_length = len(review_feedback)
+                                    has_sent_data = True
 
                     # 如果有最终用例，发送最终用例内容（在reviewing、revising或completed阶段）
                     if task.status in ['reviewing', 'revising', 'completed'] and task.final_test_cases:
@@ -1971,28 +2035,53 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
                                         f"SSE发送最终用例: {len(new_final)} 字符, 总长度: {len(final_cases)}, 阶段: {task.status}")
                                     yield f"data: {final_data}\n\n"
                                     last_final_length = len(final_cases)
+                                    has_sent_data = True
 
-                    # 发送进度更新
-                    progress_data = json.dumps({'type': 'progress', 'status': task.status, 'progress': task.progress},
-                                               ensure_ascii=False)
-                    yield f"data: {progress_data}\n\n"
+                    # 发送进度更新 (Optimized)
+                    current_progress_hash = f"{task.status}_{task.progress}"
+                    if current_progress_hash != last_progress_hash:
+                        progress_data = json.dumps({'type': 'progress', 'status': task.status, 'progress': task.progress},
+                                                   ensure_ascii=False)
+                        yield f"data: {progress_data}\n\n"
+                        last_progress_hash = current_progress_hash
+                        has_sent_data = True
 
-                    # 短暂休眠，避免过度消耗资源
-                    time.sleep(0.3)
+                    # Heartbeat
+                    if has_sent_data:
+                        last_heartbeat_time = current_time
+                    elif current_time - last_heartbeat_time >= 15:
+                        yield ": keep-alive\n\n"
+                        last_heartbeat_time = current_time
 
-            # 返回SSE流式响应
-            response = StreamingHttpResponse(
-                event_stream(),
-                content_type='text/event-stream'
-            )
+                    # 增加休眠时间到 1.0s，减少负载
+                    time.sleep(1.0)
 
-            # 设置SSE相关的响应头（注意：不能设置Connection等hop-by-hop头部）
-            response['Cache-Control'] = 'no-cache'
+            # 返回SSE流式响应 - 使用更稳健的方式
+            try:
+                response = StreamingHttpResponse(
+                    event_stream(),
+                    content_type='text/event-stream; charset=utf-8'
+                )
+            except Exception as e:
+                logger.error(f"创建SSE响应失败: {e}")
+                raise
+
+            # 设置SSE相关的响应头 - 确保正确处理长连接
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
             response['X-Accel-Buffering'] = 'no'
+            response['X-Content-Type-Options'] = 'nosniff'
+            # 添加连接保持头部，防止过早断开
+            # 注意：在本地开发服务器(runserver)中，wsgiref禁止手动设置Hop-by-hop headers(如Connection)
+            # 只有在生产环境(Gunicorn/Nginx)下才需要显式设置
+            if not settings.DEBUG:
+                response['Connection'] = 'keep-alive'
 
             # 设置CORS头部 - 使用动态计算的cors_origin
             response['Access-Control-Allow-Origin'] = cors_origin
             response['Access-Control-Allow-Credentials'] = 'true'
+            response['Access-Control-Allow-Headers'] = 'Content-Type, Cache-Control'
 
             logger.info(f"SSE连接建立成功: task_id={task_id}, cors_origin={cors_origin}")
             return response
@@ -2006,14 +2095,21 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
             request_origin = request.META.get('HTTP_ORIGIN', 'unknown')
 
             def get_allowed_origin(origin):
-                if not origin:
-                    return 'http://localhost:3000'
-                if origin in ['http://localhost:3000', 'http://127.0.0.1:3000']:
+                if getattr(settings, 'CORS_ALLOW_ALL_ORIGINS', False):
+                    return origin or '*'
+
+                allowed_origins = getattr(settings, 'CORS_ALLOWED_ORIGINS', []) or []
+                if origin in allowed_origins:
                     return origin
-                import re
-                if re.match(r'^http://\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:3000$', origin):
+
+                local_defaults = ['http://localhost:3000', 'http://127.0.0.1:3000']
+                if origin in local_defaults:
                     return origin
-                return 'http://localhost:3000'
+
+                if allowed_origins:
+                    return allowed_origins[0]
+
+                return origin or 'http://localhost:3000'
 
             cors_origin = get_allowed_origin(request_origin)
             response = HttpResponse(
@@ -2193,7 +2289,7 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=True, methods=['post'], url_path='batch-adopt')
+    @action(detail=True, methods=['post'], url_path='batch_adopt')
     def batch_adopt(self, request, task_id=None):
         """批量采纳任务的所有测试用例"""
         try:
@@ -2393,7 +2489,7 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=True, methods=['post'], url_path='batch-discard')
+    @action(detail=True, methods=['post'], url_path='batch_discard')
     def batch_discard(self, request, task_id=None):
         """批量弃用任务的所有测试用例 - 删除整个任务"""
         try:
@@ -2607,7 +2703,23 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
         # 提取表格数据
         for line in lines:
             if '|' in line and not line.startswith('|-'):
-                cells = [cell.strip() for cell in line.split('|') if cell.strip()]
+                # 针对内容中可能包含转义后的 \| 进行预处理
+                # 先把 \| 替换为一个临时占位符，分割完后再替换回来
+                temp_placeholder = "___PIPE___"
+                processed_line = line.replace(r'\|', temp_placeholder)
+                
+                # 移除首尾的 |
+                if processed_line.startswith('|'):
+                    processed_line = processed_line[1:]
+                if processed_line.endswith('|'):
+                    processed_line = processed_line[:-1]
+                
+                cells = []
+                for cell in processed_line.split('|'):
+                    # 恢复原来的转义管道符，并清理空格
+                    cell_content = cell.replace(temp_placeholder, '|').replace('&#124;', '|').strip()
+                    cells.append(cell_content)
+                    
                 if len(cells) > 1:
                     table_data.append(cells)
 

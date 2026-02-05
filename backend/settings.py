@@ -128,7 +128,7 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_ROOT = os.path.join(BASE_DIR, 'static_files')
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -208,8 +208,14 @@ else:
     CSRF_COOKIE_SAMESITE = 'Strict'
 
 # CORS Settings
+cors_origins_str = config('CORS_ALLOWED_ORIGINS', default='')
+parsed_cors_origins = [s.strip() for s in cors_origins_str.split(',') if s.strip()]
+
 if DEBUG:
+    # 开发环境默认允许本地地址，同时合并环境变量里的配置
+    # 优先使用环境变量配置的地址，确保服务器IP优先级最高
     CORS_ALLOWED_ORIGINS = [
+        *parsed_cors_origins,  # 环境变量配置的地址优先
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:8080",
@@ -229,10 +235,17 @@ if DEBUG:
         'user-agent',
         'x-csrftoken',
         'x-requested-with',
+        'cache-control',  # 添加 SSE 需要的头部
     ]
 else:
-    CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000',
-                                  cast=lambda v: [s.strip() for s in v.split(',')])
+    # 生产环境 CORS 配置
+    if parsed_cors_origins:
+        # 如果配置了 CORS_ALLOWED_ORIGINS，使用配置的值
+        CORS_ALLOWED_ORIGINS = parsed_cors_origins
+    else:
+        # 如果未配置，允许所有来源（可根据需求调整）
+        CORS_ALLOW_ALL_ORIGINS = True
+
     CORS_ALLOW_CREDENTIALS = True
     CORS_ALLOW_HEADERS = [
         'accept',
@@ -244,7 +257,10 @@ else:
         'user-agent',
         'x-csrftoken',
         'x-requested-with',
+        'cache-control',  # 添加 SSE 需要的头部
     ]
+    # SSE 需要的额外配置
+    CORS_EXPOSE_HEADERS = ['Content-Type', 'Cache-Control']
 
 # CSRF Settings
 CSRF_TRUSTED_ORIGINS = [

@@ -4,7 +4,7 @@
 
 **基于 AI 驱动的全栈测试管理平台**
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
 [![Django](https://img.shields.io/badge/Django-4.2-green.svg)](https://www.djangoproject.com/)
 [![Vue](https://img.shields.io/badge/Vue-3.3-brightgreen.svg)](https://vuejs.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -216,36 +216,11 @@ pip install -r requirements.txt
 ```
 
 4. **配置环境变量**
-
-创建 `.env` 文件：
-```env
-# 数据库配置
-DB_NAME=testhub
-DB_USER=root
-DB_PASSWORD=your_password
-DB_HOST=localhost
-DB_PORT=3306
-
-# Django 配置
-SECRET_KEY=your-secret-key-here
-DEBUG=True
-
-# 本地化配置
-# 语言: 'en-us' (英语), 'zh-hans' (简体中文), 'ja' (日语), 'ko' (韩语) 等
-# 时区: 参考 https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-LANGUAGE_CODE=zh-hans
-TIME_ZONE=Asia/Shanghai
-
-# 邮件配置（可选）
-EMAIL_HOST=smtp.163.com
-EMAIL_PORT=465
-EMAIL_USE_TLS=True
-EMAIL_HOST_USER=your_email@gmail.com
-EMAIL_HOST_PASSWORD=your_email_password
-DEFAULT_FROM_EMAIL=your_email@gmail.com
+```bash
+# 复制示例配置文件到 .env 文件
+# 按照.env文件模板配置你的数据库连接信息等
+cp .env.example .env
 ```
-
-详细的语言和时区配置说明请参考 [LOCALIZATION_CONFIG.md](LOCALIZATION_CONFIG.md)
 
 5. **初始化数据库**
 ```bash

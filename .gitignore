@@ -8,11 +8,10 @@ __pycache__/
 .DS_Store
 .pytest_cache
 备注笔记.txt
-frontend/dist/
 # 忽略log文件
 logs/*
 !logs/.gitkeep
-# 忽略.env
+# 忽略.env配置文件(但保留.env.example示例文件)
 .env
 .sql
 
@@ -43,6 +42,5 @@ Dockerfile*
 docker-compose*.yml
 .dockerignore
 nginx.conf
-.env.example
 Makefile
 build-multiplatform.sh

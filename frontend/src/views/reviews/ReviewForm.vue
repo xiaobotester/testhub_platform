@@ -491,13 +491,41 @@ const searchTestcasesInDialog = () => {
   // 在对话框中搜索用例的逻辑
 }
 
-onMounted(() => {
-  fetchProjects()
+onMounted(async () => {
+  await fetchProjects()
   fetchProjectUsers() // 页面加载时就获取所有用户
 
   if (isEdit.value) {
     // 如果是编辑模式，加载现有数据
     fetchReviewData(route.params.id)
+  } else {
+    // 创建模式，检查是否有模板参数
+    const templateId = route.query.template
+    if (templateId) {
+      try {
+        // 获取模板详情
+        const response = await api.get(`/reviews/review-templates/${templateId}/`)
+        const template = response.data
+
+        // 设置模板ID到表单
+        form.template = parseInt(templateId)
+
+        // 自动填充项目
+        if (template.project && template.project.length > 0) {
+          form.projects = template.project.map(p => p.id)
+
+          // 触发项目变更，加载对应的用例和模板
+          await onProjectChange(form.projects)
+
+          // 应用模板的默认评审人
+          if (template.default_reviewers && template.default_reviewers.length > 0) {
+            form.reviewers = template.default_reviewers.map(u => u.id)
+          }
+        }
+      } catch (error) {
+        console.error('加载模板失败:', error)
+      }
+    }
   }
 })
 </script>

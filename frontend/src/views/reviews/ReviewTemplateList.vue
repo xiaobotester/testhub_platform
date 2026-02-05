@@ -302,7 +302,7 @@ const editTemplate = (template) => {
 const useTemplate = (template) => {
   // 使用模板创建评审
   router.push({
-    path: '/reviews/create',
+    path: '/ai-generation/reviews/create',
     query: { template: template.id }
   })
 }
