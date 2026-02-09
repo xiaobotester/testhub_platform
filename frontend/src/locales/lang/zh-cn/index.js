@@ -40,8 +40,8 @@ export default {
 
   // 评审模块
   reviewList: reviewModule.reviewList,
-  reviewDetail: reviewModule.reviewDetail,
   reviewForm: reviewModule.reviewForm,
+  reviewDetail: reviewModule.reviewDetail,
   reviewTemplate: reviewModule.reviewTemplate,
 
   // 需求分析模块

@@ -896,7 +896,7 @@
       <el-tabs v-model="historyTab">
         <el-tab-pane :label="$t('dataFactory.history.allRecords')" name="all">
           <div class="history-content">
-            <el-table :data="historyRecords" stripe class="history-table">
+            <el-table v-loading="historyLoading" :data="historyRecords" stripe class="history-table">
               <el-table-column :label="$t('dataFactory.history.toolName')" min-width="180">
                 <template #default="{ row }">
                   <span>{{ getToolDisplayName(row.tool_name) }}</span>
@@ -931,7 +931,7 @@
           <div class="stats-container">
             <el-row :gutter="20">
               <el-col :span="24">
-                <el-card class="total-stats-card">
+                <el-card class="total-stats-card" v-loading="statsLoading">
                   <div class="total-stats">
                     <div class="total-stat-item">
                       <div class="total-stat-value">{{ statistics.total_records || 0 }}</div>
@@ -943,7 +943,7 @@
             </el-row>
             <el-row :gutter="20" style="margin-top: 20px;">
               <el-col :span="12">
-                <el-card>
+                <el-card v-loading="statsLoading">
                   <template #header>
                     <span class="card-header-title">{{ $t('dataFactory.history.categoryStats') }}</span>
                   </template>
@@ -964,7 +964,7 @@
                 </el-card>
               </el-col>
               <el-col :span="12">
-                <el-card>
+                <el-card v-loading="statsLoading">
                   <template #header>
                     <span class="card-header-title">{{ $t('dataFactory.history.scenarioStats') }}</span>
                   </template>
@@ -993,16 +993,48 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed, nextTick } from 'vue'
+import { ref, watch, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox, ElEmpty } from 'element-plus'
 import {
   DataLine, Menu, Grid, Clock, Operation, ArrowRight,
   Document, List, Lock, User, MagicStick, VideoPlay, ChatDotSquare, Picture, Connection,
   Phone, Message, Location, Ticket, OfficeBuilding, CreditCard, CircleCheck, DocumentCopy, Search, Delete, Edit, Unlock, DataLine as DataLineIcon, Sort, Share, View, Upload
 } from '@element-plus/icons-vue'
 import axios from 'axios'
+import { debounce } from 'lodash-es'
+
+// 缓存工具
+const cache = {
+  get: (key) => {
+    try {
+      const item = localStorage.getItem(key)
+      if (item) {
+        const parsed = JSON.parse(item)
+        if (parsed.expiry > Date.now()) return parsed.data
+        localStorage.removeItem(key)
+      }
+    } catch (error) {
+      console.error('Cache get error:', error)
+    }
+    return null
+  },
+  set: (key, data, expiry = 300000) => { // 默认5分钟过期
+    try {
+      localStorage.setItem(key, JSON.stringify({ data, expiry: Date.now() + expiry }))
+    } catch (error) {
+      console.error('Cache set error:', error)
+    }
+  },
+  remove: (key) => {
+    try {
+      localStorage.removeItem(key)
+    } catch (error) {
+      console.error('Cache remove error:', error)
+    }
+  }
+}
 
 const router = useRouter()
 const { t } = useI18n()
@@ -1033,7 +1065,7 @@ const toolForm = ref({
   flags: [],
   text1: '',
   text2: '',
-  convert_type: 'to_ascii',
+  convert_type: 'upper',
   format_type: 'trim',
   min_val: 1,
   max_val: 100,
@@ -1109,6 +1141,8 @@ const historyTotal = ref(0)
 const historyCurrentPage = ref(1)
 const historyPageSize = ref(10)
 const statistics = ref({})
+const historyLoading = ref(false)
+const statsLoading = ref(false)
 const jsonTreeData = ref(null)
 const jsonExpandedKeys = ref([])
 const jsonCollapseState = ref({})
@@ -1168,11 +1202,10 @@ const fetchCategories = async () => {
   }
 }
 
-const fetchScenarios = async () => {
+const fetchScenarios = () => {
   try {
-    const response = await axios.get('/api/data-factory/categories/')
     const scenarioMap = {}
-    response.data.categories.forEach(category => {
+    categories.value.forEach(category => {
       category.tools.forEach(tool => {
         const scenario = tool.scenario || 'other'
         if (!scenarioMap[scenario]) {
@@ -1193,35 +1226,193 @@ const fetchScenarios = async () => {
 }
 
 const getScenarioName = (scenario) => {
-  const key = `dataFactory.scenarios.${scenario}`
-  const translated = t(key)
-  // vue-i18n returns the key itself if translation doesn't exist
-  return translated === key ? t('dataFactory.scenarios.other') : translated
-}
-
-const getScenarioDesc = (scenario) => {
-  const key = `dataFactory.scenarioDescs.${scenario}`
-  const translated = t(key)
-  return translated === key ? t('dataFactory.scenarioDescs.other') : translated
+  return t(`dataFactory.scenarios.${scenario}`) || scenario
 }
 
 const getCategoryName = (category) => {
-  const key = `dataFactory.scenarios.${category}`
-  const translated = t(key)
-  return translated === key ? category : translated
+  return t(`dataFactory.scenarios.${category}`) || category
+}
+
+const getScenarioDesc = (scenario) => {
+  return t(`dataFactory.scenarioDescs.${scenario}`) || ''
 }
 
 const getToolDisplayName = (toolName) => {
-  const key = `dataFactory.tools.${toolName}`
-  const translated = t(key)
-  // vue-i18n returns the key itself if translation doesn't exist
-  return translated === key ? null : translated
+  return t(`dataFactory.tools.${toolName}`) || getToolDisplayNameOld(toolName) || toolName
+}
+
+const getToolDisplayNameOld = (toolName) => {
+  const toolNames = {
+    'generate_chinese_name': '生成中文姓名',
+    'generate_chinese_phone': '生成手机号',
+    'generate_chinese_email': '生成邮箱',
+    'generate_chinese_address': '生成地址',
+    'generate_id_card': '生成身份证号',
+    'generate_company_name': '生成公司名称',
+    'generate_bank_card': '生成银行卡号',
+    'generate_user_profile': '生成用户档案',
+    'generate_hk_id_card': '生成香港身份证号',
+    'generate_business_license': '生成营业执照号',
+    'generate_coordinates': '生成经纬度',
+    'remove_whitespace': '去除空格换行',
+    'replace_string': '字符串替换',
+    'escape_string': '字符串转义',
+    'unescape_string': '字符串反转义',
+    'word_count': '字数统计',
+    'text_diff': '文本对比',
+    'regex_test': '正则测试',
+    'case_convert': '大小写转换',
+    'string_format': '字符串格式化',
+    'generate_barcode': '生成条形码',
+    'generate_qrcode': '生成二维码',
+    'decode_qrcode':'二维码解析',
+    'timestamp_convert': '时间戳转换',
+    'base_convert': '进制转换',
+    'unicode_convert': 'Unicode转换',
+    'ascii_convert': 'ASCII转换',
+    'color_convert': '颜色值转换',
+    'base64_encode': 'Base64编码',
+    'base64_decode': 'Base64解码',
+    'random_int': '随机整数',
+    'random_float': '随机浮点数',
+    'random_string': '随机字符串',
+    'random_uuid': '随机UUID',
+    'random_mac_address': '随机MAC地址',
+    'random_ip_address': '随机IP地址',
+    'random_date': '随机日期',
+    'random_boolean': '随机布尔值',
+    'random_color': '随机颜色',
+    'random_password': '随机密码',
+    'random_sequence': '随机序列',
+    'md5_hash': 'MD5加密',
+    'sha1_hash': 'SHA1加密',
+    'sha256_hash': 'SHA256加密',
+    'sha512_hash': 'SHA512加密',
+    'hash_comparison': '哈希值比对',
+    'aes_encrypt': 'AES加密',
+    'aes_decrypt': 'AES解密',
+    'password_strength': '密码强度分析',
+    'generate_salt': '生成盐值',
+    'format_json': 'JSON格式化',
+    'validate_json': 'JSON校验',
+    'json_to_xml': 'JSON转XML',
+    'xml_to_json': 'XML转JSON',
+    'json_to_yaml': 'JSON转YAML',
+    'yaml_to_json': 'YAML转JSON',
+    'json_diff': 'JSON对比',
+    'jsonpath_query': 'JSONPath查询',
+    'json_path_list': '列出JSON路径',
+    'json_flatten': '扁平化JSON',
+    'json_diff_enhanced': 'JSON增强对比',
+    'mock_string': 'Mock字符串',
+    'mock_number': 'Mock数字',
+    'mock_boolean': 'Mock布尔值',
+    'mock_email': 'Mock邮箱',
+    'mock_phone': 'Mock手机号',
+    'mock_date': 'Mock日期',
+    'mock_datetime': 'Mock日期时间',
+    'mock_name': 'Mock姓名',
+    'mock_address': 'Mock地址',
+    'mock_url': 'Mock URL',
+    'mock_uuid': 'Mock UUID',
+    'mock_ip': 'Mock IP地址',
+    'generate_expression': '生成Crontab表达式',
+    'parse_expression': '解析Crontab表达式',
+    'get_next_runs': '获取下次执行时间',
+    'validate_expression': '验证Crontab表达式',
+    'image_to_base64': '图片转Base64',
+    'base64_to_image': 'Base64转图片'
+  }
+  return toolNames[toolName] || toolName
 }
 
 const getToolDescription = (toolName) => {
-  const key = `dataFactory.toolDescs.${toolName}`
-  const translated = t(key)
-  return translated === key ? null : translated
+  return t(`dataFactory.toolDescs.${toolName}`) || getToolDescriptionOld(toolName) || ''
+}
+
+const getToolDescriptionOld = (toolName) => {
+  const toolDescriptions = {
+    'generate_chinese_name': '生成随机的中文姓名',
+    'generate_chinese_phone': '生成随机的手机号码',
+    'generate_chinese_email': '生成随机的邮箱地址',
+    'generate_chinese_address': '生成随机的地址信息',
+    'generate_id_card': '生成随机的身份证号码',
+    'generate_company_name': '生成随机的公司名称',
+    'generate_bank_card': '生成随机的银行卡号',
+    'generate_user_profile': '生成完整的用户档案信息',
+    'generate_hk_id_card': '生成香港身份证号码',
+    'generate_business_license': '生成营业执照号码',
+    'generate_coordinates': '生成随机的经纬度坐标',
+    'remove_whitespace': '去除字符串中的空格和换行符',
+    'replace_string': '替换字符串中的指定内容',
+    'escape_string': '对字符串进行转义处理',
+    'unescape_string': '对转义后的字符串进行反转义',
+    'word_count': '统计字符串中的字数',
+    'text_diff': '对比两段文本的差异',
+    'regex_test': '测试正则表达式的匹配效果',
+    'case_convert': '转换字符串的大小写',
+    'string_format': '格式化字符串内容',
+    'generate_barcode': '生成条形码图片',
+    'generate_qrcode': '生成二维码图片',
+    'decode_qrcode':'二维码解析',
+    'timestamp_convert': '时间戳与日期时间的转换',
+    'base_convert': '不同进制之间的转换',
+    'unicode_convert': 'Unicode编码与解码',
+    'ascii_convert': 'ASCII编码与解码',
+    'color_convert': '不同颜色格式之间的转换',
+    'base64_encode': '将数据转换为Base64编码',
+    'base64_decode': '解码Base64编码的数据',
+    'random_int': '生成随机整数',
+    'random_float': '生成随机浮点数',
+    'random_string': '生成随机字符串',
+    'random_uuid': '生成随机UUID',
+    'random_mac_address': '生成随机MAC地址',
+    'random_ip_address': '生成随机IP地址',
+    'random_date': '生成随机日期',
+    'random_boolean': '生成随机布尔值',
+    'random_color': '生成随机颜色值',
+    'random_password': '生成随机密码',
+    'random_sequence': '生成随机序列',
+    'md5_hash': '计算MD5哈希值',
+    'sha1_hash': '计算SHA1哈希值',
+    'sha256_hash': '计算SHA256哈希值',
+    'sha512_hash': '计算SHA512哈希值',
+    'hash_comparison': '比较两个哈希值是否相同',
+    'aes_encrypt': '使用AES加密数据',
+    'aes_decrypt': '使用AES解密数据',
+    'password_strength': '分析密码强度',
+    'generate_salt': '生成加密盐值',
+    'format_json': '格式化JSON数据',
+    'validate_json': '验证JSON数据格式',
+    'json_to_xml': '将JSON转换为XML格式',
+    'xml_to_json': '将XML转换为JSON格式',
+    'json_to_yaml': '将JSON转换为YAML格式',
+    'yaml_to_json': '将YAML转换为JSON格式',
+    'json_diff': '对比两个JSON数据的差异',
+    'jsonpath_query': '使用JSONPath查询JSON数据',
+    'json_path_list': '列出JSON数据中的所有路径',
+    'json_flatten': '将嵌套的JSON数据扁平化',
+    'json_diff_enhanced': '增强版JSON对比功能',
+    'mock_string': '生成模拟字符串数据',
+    'mock_number': '生成模拟数字数据',
+    'mock_boolean': '生成模拟布尔值数据',
+    'mock_email': '生成模拟邮箱地址',
+    'mock_phone': '生成模拟手机号码',
+    'mock_date': '生成模拟日期',
+    'mock_datetime': '生成模拟日期时间',
+    'mock_name': '生成模拟姓名',
+    'mock_address': '生成模拟地址',
+    'mock_url': '生成模拟URL地址',
+    'mock_uuid': '生成模拟UUID',
+    'mock_ip': '生成模拟IP地址',
+    'generate_expression': '生成Crontab定时任务表达式',
+    'parse_expression': '解析Crontab表达式的含义',
+    'get_next_runs': '获取Crontab表达式的下次执行时间',
+    'validate_expression': '验证Crontab表达式是否有效',
+    'image_to_base64': '将图片转换为Base64编码',
+    'base64_to_image': '将Base64编码转换为图片'
+  }
+  return toolDescriptions[toolName] || ''
 }
 
 const goToHome = () => {
@@ -1380,9 +1571,16 @@ const buildInputData = () => {
 const executeTool = async () => {
   if (!currentTool.value) return
 
+  // 验证二维码解析工具的图片数据
+  if (currentTool.value.name === 'decode_qrcode' && !toolForm.value.image_data) {
+    ElMessage.warning('请先上传二维码图片')
+    return
+  }
+
   executing.value = true
   try {
     const input_data = buildInputData()
+    console.log('Executing tool:', currentTool.value.name, 'with input:', input_data)
     const response = await axios.post('/api/data-factory/', {
       tool_name: currentTool.value.name,
       tool_category: currentCategory.value,
@@ -1392,9 +1590,11 @@ const executeTool = async () => {
       tags: toolForm.value.tags ? toolForm.value.tags.split(',') : []
     })
 
+    console.log('Tool execution result:', response.data)
     toolResult.value = response.data
     ElMessage.success(t('dataFactory.messages.executeSuccess'))
   } catch (error) {
+    console.error('Tool execution error:', error, 'Tool:', currentTool.value.name)
     ElMessage.error(error.response?.data?.error || t('dataFactory.messages.executeFailed'))
   } finally {
     executing.value = false
@@ -1421,7 +1621,7 @@ const resetToolForm = () => {
     flags: [],
     text1: '',
     text2: '',
-    convert_type: 'to_ascii',
+    convert_type: 'upper',
     format_type: 'trim',
     min_val: 1,
     max_val: 100,
@@ -1485,6 +1685,7 @@ const resetToolForm = () => {
   }
   toolResult.value = null
   imagePreview.value = ''
+  qrCodeImage.value = ''
   jsonTreeData.value = null
   jsonExpandedKeys.value = []
   jsonCollapseState.value = {}
@@ -1619,6 +1820,12 @@ watch(() => currentTool.value, (newTool) => {
   if (newTool?.name !== 'decode_qrcode') {
     qrCodeImage.value = ''
     toolForm.value.image_data = ''
+  }
+  // 根据工具类型设置convert_type的默认值
+  if (newTool?.name === 'case_convert') {
+    toolForm.value.convert_type = 'upper'
+  } else if (newTool?.name === 'ascii_convert') {
+    toolForm.value.convert_type = 'to_ascii'
   }
 })
 
@@ -1818,7 +2025,21 @@ const filteredCategories = () => {
   })).filter(category => category.tools.length > 0)
 }
 
-const fetchHistory = async () => {
+// 防抖处理的fetchHistory函数
+const debouncedFetchHistory = debounce(async () => {
+  if (historyLoading.value) return
+  
+  const cacheKey = `history_${historyCurrentPage.value}_${historyPageSize.value}`
+  
+  // 检查缓存
+  const cachedData = cache.get(cacheKey)
+  if (cachedData) {
+    historyRecords.value = cachedData.results
+    historyTotal.value = cachedData.count
+    return
+  }
+  
+  historyLoading.value = true
   try {
     const response = await axios.get('/api/data-factory/', {
       params: {
@@ -1826,11 +2047,21 @@ const fetchHistory = async () => {
         page_size: historyPageSize.value
       }
     })
+    
+    // 缓存数据
+    cache.set(cacheKey, response.data, 300000) // 5分钟缓存
+    
     historyRecords.value = response.data.results
     historyTotal.value = response.data.count
   } catch (error) {
     ElMessage.error(t('dataFactory.messages.fetchHistoryFailed'))
+  } finally {
+    historyLoading.value = false
   }
+}, 300)
+
+const fetchHistory = async () => {
+  debouncedFetchHistory()
 }
 
 const handleHistoryPageChange = (page) => {
@@ -1845,11 +2076,29 @@ const handleHistorySizeChange = (size) => {
 }
 
 const fetchStatistics = async () => {
+  if (statsLoading.value) return
+  
+  const cacheKey = 'statistics'
+  
+  // 检查缓存
+  const cachedData = cache.get(cacheKey)
+  if (cachedData) {
+    statistics.value = cachedData
+    return
+  }
+  
+  statsLoading.value = true
   try {
     const response = await axios.get('/api/data-factory/statistics/')
+    
+    // 缓存数据
+    cache.set(cacheKey, response.data, 600000) // 10分钟缓存
+    
     statistics.value = response.data
   } catch (error) {
     ElMessage.error(t('dataFactory.messages.fetchStatsFailed'))
+  } finally {
+    statsLoading.value = false
   }
 }
 
@@ -1857,6 +2106,17 @@ const deleteRecord = async (record) => {
   try {
     await axios.delete(`/api/data-factory/${record.id}/`)
     ElMessage.success(t('dataFactory.history.deleteSuccess'))
+    
+    // 清除缓存
+    cache.remove('statistics')
+    // 清除所有历史记录缓存
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith('history_')) {
+        cache.remove(key)
+      }
+    }
+    
     fetchHistory()
     fetchStatistics()
   } catch (error) {
@@ -1908,7 +2168,6 @@ const downloadImage = (result) => {
 watch(showHistory, (newVal) => {
   if (newVal) {
     fetchHistory()
-    fetchStatistics()
   }
 })
 
@@ -1918,8 +2177,8 @@ watch(historyTab, (newVal) => {
   }
 })
 
-onMounted(() => {
-  fetchCategories()
+onMounted(async () => {
+  await fetchCategories()
   fetchScenarios()
 })
 </script>
@@ -2247,7 +2506,7 @@ onMounted(() => {
 
 .stats-container {
   .total-stats-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
     border: none;
     
     :deep(.el-card__body) {

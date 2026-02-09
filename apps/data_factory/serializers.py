@@ -22,6 +22,7 @@ class DataFactoryRecordSerializer(serializers.ModelSerializer):
     def get_tool_name_display(self, obj):
         """获取工具名称的显示名称"""
         try:
+            # 直接在方法内获取工具列表
             tool_list = get_tool_list()
             for tool in tool_list:
                 if tool['name'] == obj.tool_name:

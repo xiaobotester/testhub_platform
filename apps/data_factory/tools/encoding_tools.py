@@ -158,19 +158,21 @@ class EncodingTools:
                 static_img_path = Path(EncodingTools.get_static_img_path())
                 full_path = static_img_path / filename
                 saved_filename = my_barcode.save(str(full_path))
-                filepath = str(full_path)
+                filepath = saved_filename
             else:
                 filename = f'temp_barcode_{barcode_type}'
                 saved_filename = my_barcode.save(filename)
-                filepath = filename
+                filepath = saved_filename
 
+            result_url = f'/static_files/img/{os.path.basename(saved_filename)}' if save_to_static else None
             return {
+                'url': result_url,
+                'result': result_url,
                 'success': True,
                 'data': data,
                 'barcode_type': barcode_type,
                 'filename': os.path.basename(saved_filename),
-                'filepath': filepath,
-                'url': f'/static_files/img/{os.path.basename(saved_filename)}' if save_to_static else None
+                'filepath': filepath
             }
         except Exception as e:
             logger.error(f'条形码生成失败: {str(e)}')
@@ -190,7 +192,7 @@ class EncodingTools:
                 box_size=10,
                 border=border,
             )
-            qr.add_data(data)
+            qr.add_data(data.encode('utf-8'))
             qr.make(fit=True)
 
             img = qr.make_image(fill_color="black", back_color="white")
@@ -215,13 +217,14 @@ class EncodingTools:
                 filepath = filename
                 url = None
 
+            result_url = url if save_to_static else filepath
             return {
+                'url': url if save_to_static else None,
+                'result': result_url,
                 'success': True,
                 'data': data,
                 'image_size': image_size,
-                'filename': filename,
-                'filepath': filepath,
-                'url': url
+                'filename': filename
             }
 
         except Exception as e:
@@ -246,24 +249,73 @@ class EncodingTools:
             # 解码Base64数据
             image_bytes = base64.b64decode(image_data)
 
-            # 创建PIL Image对象
-            image = Image.open(BytesIO(image_bytes))
+            # 验证数据是否为有效的图像
+            try:
+                # 创建PIL Image对象
+                image = Image.open(BytesIO(image_bytes))
+                # 验证图像格式
+                image.verify()
+                # 重新打开图像，因为verify()会将文件指针移到末尾
+                image = Image.open(BytesIO(image_bytes))
+            except Exception as img_error:
+                error_msg = f"无效的图像文件: {str(img_error)}"
+                logger.error(error_msg)
+                return {'error': error_msg}
 
             # 解码二维码
             decoded_objects = decode(image)
 
             if not decoded_objects:
                 return {
-                    'success': False,
                     'message': '未检测到二维码',
-                    'result': None
+                    'result': False
                 }
 
             # 提取所有解码结果
             results = []
             for obj in decoded_objects:
+                # 尝试多种编码解码，解决中文乱码问题
+                data_str = None
+                # 增加更多编码尝试
+                encodings = [
+                    'utf-8', 'gbk', 'gb2312', 'big5',
+                    'utf-16', 'utf-16le', 'utf-16be',
+                    'euc-jp', 'shift_jis', 'euc-kr'
+                ]
+                
+                # 尝试所有编码
+                for encoding in encodings:
+                    try:
+                        decoded = obj.data.decode(encoding)
+                        # 优先选择UTF-8编码的结果
+                        if encoding == 'utf-8':
+                            data_str = decoded
+                            break
+                        # 保存第一次成功的解码结果
+                        if data_str is None:
+                            data_str = decoded
+                    except UnicodeDecodeError:
+                        continue
+                
+                # 如果所有编码都失败，尝试使用chardet库自动检测编码
+                if data_str is None:
+                    try:
+                        import chardet
+                        detection = chardet.detect(obj.data)
+                        if detection['confidence'] > 0.6:
+                            try:
+                                data_str = obj.data.decode(detection['encoding'])
+                            except:
+                                pass
+                    except ImportError:
+                        pass
+                
+                # 如果所有编码都失败，使用原始字节
+                if data_str is None:
+                    data_str = str(obj.data)
+                
                 result = {
-                    'data': obj.data.decode('utf-8'),
+                    'data': data_str,
                     'type': obj.type,
                     'rect': {
                         'left': obj.rect.left,
@@ -283,13 +335,22 @@ class EncodingTools:
             }
 
         except Exception as e:
-            logger.error(f"二维码解析失败: {str(e)}")
-            return {'error': f'二维码解析失败: {str(e)}'}
+            error_msg = f"二维码解析失败: {str(e)}"
+            logger.error(error_msg)
+            # 同时打印到控制台，确保错误信息可见
+            print(f"[ERROR] {error_msg}")
+            return {'error': error_msg}
 
     @staticmethod
     def timestamp_convert(timestamp: Any, convert_type: str = 'to_datetime', timestamp_unit: str = 'auto') -> Dict[
         str, Any]:
         """时间戳转换"""
+
+        def get_local_timezone_name():
+            # 获取当前时间并附带本地时区信息
+            local_dt = datetime.now().astimezone()
+            return local_dt.tzname()
+
         try:
             if convert_type == 'to_datetime':
                 # 时间戳转日期时间
@@ -314,7 +375,7 @@ class EncodingTools:
                     'iso_format': dt.isoformat(),
                     'date': dt.strftime('%Y-%m-%d'),
                     'time': dt.strftime('%H:%M:%S'),
-                    'timezone': dt.tzname(),
+                    'timezone': get_local_timezone_name(),
                     'timestamp_unit': timestamp_unit
                 }
             elif convert_type == 'to_timestamp':
@@ -331,6 +392,7 @@ class EncodingTools:
                 current_timestamp = time.time()
                 dt = datetime.fromtimestamp(current_timestamp)
                 return {
+                    'result': int(current_timestamp),
                     'timestamp': int(current_timestamp),
                     'timestamp_millisecond': int(current_timestamp * 1000),
                     'datetime': dt.strftime('%Y-%m-%d %H:%M:%S')
@@ -581,7 +643,6 @@ class EncodingTools:
             return {
                 'result': decoded,
                 'header': header,
-                'payload': decoded,
                 'token': token
             }
         except jwt.ExpiredSignatureError:

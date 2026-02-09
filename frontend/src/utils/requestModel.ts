@@ -62,7 +62,7 @@ export class RequestModelParser {
       const entry = har.log.entries[0]
       const request = entry.request
       
-      console.log('HAR request URL:', request.url)
+      // console.log('HAR request URL:', request.url)
       // console.log('HAR request queryString:', request.queryString)
       
       const url = new URL(request.url)
@@ -81,7 +81,7 @@ export class RequestModelParser {
         })
       }
       
-      console.log('Parsed URL:', { baseURL, path, search: url.search, searchParams: Array.from(url.searchParams.entries()), query })
+      // console.log('Parsed URL:', { baseURL, path, search: url.search, searchParams: Array.from(url.searchParams.entries()), query })
       
       const headers: Header[] = []
       
@@ -98,7 +98,7 @@ export class RequestModelParser {
       
       // console.log('HAR headers:', request.headers)
       // console.log('HAR cookies:', request.cookies)
-      console.log('Parsed headers:', headers)
+      // console.log('Parsed headers:', headers)
       
       const body: Body = { mode: 'none' }
       if (request.postData) {
@@ -189,7 +189,17 @@ export class RequestModelParser {
   static toCurl(model: RequestModel): string {
     let curl = `curl -X ${model.method}`
     
-    const url = new URL(model.baseURL + model.path)
+    let url: URL
+    if (model.baseURL && model.path) {
+      url = new URL(model.baseURL + model.path)
+    } else if (model.baseURL) {
+      url = new URL(model.baseURL)
+    } else if (model.path) {
+      url = new URL(model.path)
+    } else {
+      throw new Error('Invalid URL: both baseURL and path are empty')
+    }
+    
     model.query.forEach(param => {
       if (param.enabled && param.key) {
         url.searchParams.append(param.key, param.value)

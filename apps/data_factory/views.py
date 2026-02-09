@@ -6,16 +6,23 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.views import APIView
+from rest_framework.viewsets import GenericViewSet
 from django.contrib.auth.models import User
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.utils import timezone
 from django.http import HttpResponse
+from django.core.cache import cache
+from django.views.decorators.csrf import csrf_exempt
+from asgiref.sync import sync_to_async
+import asyncio
 
+import logging
 from pathlib import Path
 
 from .models import DataFactoryRecord
 from .serializers import DataFactoryRecordSerializer, ToolExecuteSerializer
-from .tool_list import get_categories
+from .tool_list import get_categories, get_tool_list
 from .tools.string_tools import StringTools
 from .tools.encoding_tools import EncodingTools
 from .tools.random_tools import RandomTools
@@ -25,6 +32,7 @@ from .tools.json_tools import JsonTools
 from .tools.crontab_tools import CrontabTools
 from .tools.image_tools import ImageTools
 
+logger = logging.getLogger(__name__)
 
 class DataFactoryPagination(PageNumberPagination):
     """数据工厂自定义分页"""
@@ -33,7 +41,7 @@ class DataFactoryPagination(PageNumberPagination):
     max_page_size = 100
 
 
-class DataFactoryViewSet(viewsets.ModelViewSet):
+class DataFactoryViewSet(viewsets.GenericViewSet):
     """数据工厂视图集"""
     queryset = DataFactoryRecord.objects.all()
     serializer_class = DataFactoryRecordSerializer
@@ -42,21 +50,16 @@ class DataFactoryViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """获取当前用户的记录"""
-        queryset = super().get_queryset()
-        # 只选择必要的字段，减少内存使用
-        return queryset.filter(user=self.request.user).only(
+        return DataFactoryRecord.objects.filter(user=self.request.user).only(
             'id', 'user', 'tool_name', 'tool_category', 'tool_scenario',
             'input_data', 'output_data', 'is_saved', 'tags', 'created_at', 'updated_at'
         ).order_by('-created_at')
 
     def filter_queryset(self, queryset):
         """自定义过滤逻辑，支持JSONField的过滤"""
-        queryset = super().filter_queryset(queryset)
-
         # 支持tags字段的过滤（JSONField）
         tags_contains = self.request.query_params.get('tags__contains')
         if tags_contains:
-            # 使用JSON查询过滤包含指定标签的记录
             queryset = queryset.filter(tags__contains=tags_contains)
 
         # 支持tool_name的模糊查询
@@ -74,17 +77,38 @@ class DataFactoryViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         """重写list方法以正确处理分页"""
         try:
-            queryset = self.filter_queryset(self.get_queryset())
+            # 生成缓存键
+            cache_key = f'data_factory_history_{request.user.id}_{request.query_params.get("page", 1)}_{request.query_params.get("page_size", 10)}_{request.query_params.get("tool_category", "")}_{request.query_params.get("tool_name__icontains", "")}_{request.query_params.get("tags__contains", "")}'
+            
+            # 检查缓存
+            cached_data = cache.get(cache_key)
+            if cached_data:
+                return Response(cached_data)
+            
+            # 获取并过滤查询集
+            queryset = self.get_queryset()
+            queryset = self.filter_queryset(queryset)
+            
+            # 分页处理
             page = self.paginate_queryset(queryset)
             if page is not None:
+                # 序列化数据
                 serializer = self.get_serializer(page, many=True)
-                return self.get_paginated_response(serializer.data)
+                serializer_data = serializer.data
+                
+                # 获取分页响应
+                paginated_response = self.get_paginated_response(serializer_data)
+                
+                # 缓存结果，3分钟过期
+                cache.set(cache_key, paginated_response.data, 180)
+                
+                return paginated_response
+            
             serializer = self.get_serializer(queryset, many=True)
-            return Response(serializer.data)
+            serializer_data = serializer.data
+            return Response(serializer_data)
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f'Error in list method: {str(e)}', exc_info=True)
+            logger.error(f'列表方法错误: {str(e)}', exc_info=True)
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def create(self, request, *args, **kwargs):
@@ -103,6 +127,7 @@ class DataFactoryViewSet(viewsets.ModelViewSet):
 
             if data.get('is_saved', True):
                 try:
+                    # 创建记录
                     record = DataFactoryRecord.objects.create(
                         user=request.user,
                         tool_name=data['tool_name'],
@@ -115,6 +140,9 @@ class DataFactoryViewSet(viewsets.ModelViewSet):
                     )
                     result['record_id'] = str(record.id)
                     result['created_at'] = record.created_at.isoformat()
+                    
+                    # 清除相关缓存
+                    self.clear_user_cache(request.user.id)
                 except Exception as e:
                     return Response({'error': f'保存记录失败: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -122,37 +150,56 @@ class DataFactoryViewSet(viewsets.ModelViewSet):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def clear_user_cache(self, user_id):
+        """清除用户相关的缓存"""
+        # 清除统计信息缓存
+        cache.delete(f'data_factory_statistics_{user_id}')
+        # 清除标签缓存
+        cache.delete(f'data_factory_tags_{user_id}')
+        # 注意：历史记录缓存使用了复杂的键（包含分页和过滤参数），
+        # LocMemCache不支持delete_pattern方法，所以这里不清除历史记录缓存
+        # 历史记录缓存会在3分钟后自动过期
+
     def execute_tool(self, tool_name: str, tool_category: str, input_data: dict):
         """执行工具"""
         try:
+            logger.info(f'开始执行工具: {tool_name}, 分类: {tool_category}, 输入数据: {input_data}')
+            
             # 字符工具
             if tool_category == 'string':
-                return self.execute_string_tool(tool_name, input_data)
+                result = self.execute_string_tool(tool_name, input_data)
             # 编码工具
             elif tool_category == 'encoding':
-                return self.execute_encoding_tool(tool_name, input_data)
+                result = self.execute_encoding_tool(tool_name, input_data)
             # 随机工具
             elif tool_category == 'random':
-                return self.execute_random_tool(tool_name, input_data)
+                result = self.execute_random_tool(tool_name, input_data)
             # 加密工具
             elif tool_category == 'encryption':
-                return self.execute_encryption_tool(tool_name, input_data)
+                result = self.execute_encryption_tool(tool_name, input_data)
             # 测试数据（包含测试数据和Mock数据）
             elif tool_category == 'test_data':
                 if tool_name.startswith('mock_'):
-                    return self.execute_mock_tool(tool_name, input_data)
+                    result = self.execute_mock_tool(tool_name, input_data)
                 else:
-                    return self.execute_test_data_tool(tool_name, input_data)
+                    result = self.execute_test_data_tool(tool_name, input_data)
             # JSON工具
             elif tool_category == 'json':
-                return self.execute_json_tool(tool_name, input_data)
+                result = self.execute_json_tool(tool_name, input_data)
             # Crontab工具
             elif tool_category == 'crontab':
-                return self.execute_crontab_tool(tool_name, input_data)
+                result = self.execute_crontab_tool(tool_name, input_data)
             else:
-                return {'error': f'不支持的工具分类: {tool_category}'}
+                error_msg = f'不支持的工具分类: {tool_category}'
+                logger.error(error_msg)
+                return {'error': error_msg}
+            
+            logger.info(f'工具执行完成: {tool_name}, 结果: {"成功" if "error" not in result else "失败"}')
+            return result
         except Exception as e:
-            return {'error': f'工具执行失败: {str(e)}'}
+            error_msg = f'工具执行失败: {str(e)}'
+            logger.error(error_msg, exc_info=True)
+            return {'error': error_msg}
 
     def execute_string_tool(self, tool_name: str, input_data: dict | str):
         """执行字符工具"""
@@ -373,34 +420,34 @@ class DataFactoryViewSet(viewsets.ModelViewSet):
                 input_data = {'json_str': input_data}
         return tool_mapping[tool_name](**input_data)
 
-    # def execute_mock_tool(self, tool_name: str, input_data: dict | str):
-    #     """执行Mock数据工具"""
-    #     tool_mapping = {
-    #         'mock_string': JsonTools.mock_data,
-    #         'mock_number': JsonTools.mock_data,
-    #         'mock_boolean': JsonTools.mock_data,
-    #         'mock_email': JsonTools.mock_data,
-    #         'mock_phone': JsonTools.mock_data,
-    #         'mock_date': JsonTools.mock_data,
-    #         'mock_datetime': JsonTools.mock_data,
-    #         'mock_name': JsonTools.mock_data,
-    #         'mock_address': JsonTools.mock_data,
-    #         'mock_url': JsonTools.mock_data,
-    #         'mock_uuid': JsonTools.mock_data,
-    #         'mock_ip': JsonTools.mock_data
-    #     }
-    #
-    #     if tool_name not in tool_mapping:
-    #         return {'error': f'不支持的Mock工具: {tool_name}'}
-    #
-    #     data_type = tool_name.replace('mock_', '')
-    #
-    #     if isinstance(input_data, str):
-    #         input_data = {'data_type': data_type, 'count': 1}
-    #     else:
-    #         input_data['data_type'] = data_type
-    #
-    #     return tool_mapping[tool_name](**input_data)
+    def execute_mock_tool(self, tool_name: str, input_data: dict | str):
+        """执行Mock数据工具"""
+        tool_mapping = {
+            'mock_string': JsonTools.mock_data,
+            'mock_number': JsonTools.mock_data,
+            'mock_boolean': JsonTools.mock_data,
+            'mock_email': JsonTools.mock_data,
+            'mock_phone': JsonTools.mock_data,
+            'mock_date': JsonTools.mock_data,
+            'mock_datetime': JsonTools.mock_data,
+            'mock_name': JsonTools.mock_data,
+            'mock_address': JsonTools.mock_data,
+            'mock_url': JsonTools.mock_data,
+            'mock_uuid': JsonTools.mock_data,
+            'mock_ip': JsonTools.mock_data
+        }
+
+        if tool_name not in tool_mapping:
+            return {'error': f'不支持的Mock工具: {tool_name}'}
+
+        data_type = tool_name.replace('mock_', '')
+
+        if isinstance(input_data, str):
+            input_data = {'data_type': data_type, 'count': 1}
+        else:
+            input_data['data_type'] = data_type
+
+        return tool_mapping[tool_name](**input_data)
 
     def execute_crontab_tool(self, tool_name: str, input_data: dict | str):
         """执行Crontab工具"""
@@ -430,41 +477,70 @@ class DataFactoryViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def categories(self, request):
         """获取所有工具分类"""
-        from .tool_list import get_categories, get_tool_list
-
-        categories = get_categories()
-
-        # 为每个分类添加工具列表
-        tool_list = get_tool_list()
-        for category in categories:
-            category['tools'] = [tool for tool in tool_list if tool['scenario'] == category['scenario']]
-
-        return Response({
-            'categories': categories,
-            'total_tools': sum(len(cat['tools']) for cat in categories)
-        })
+        try:
+            # 生成缓存键（分类数据是静态的，不需要用户ID）
+            cache_key = 'data_factory_categories'
+            
+            # 检查缓存
+            cached_categories = cache.get(cache_key)
+            if cached_categories:
+                return Response(cached_categories)
+            
+            # 获取分类数据
+            categories = get_categories()
+            
+            # 为每个分类添加工具列表
+            tool_list = get_tool_list()
+            for category in categories:
+                category['tools'] = [tool for tool in tool_list if tool['scenario'] == category['scenario']]
+            
+            categories_data = {
+                'categories': categories,
+                'total_tools': sum(len(cat['tools']) for cat in categories)
+            }
+            
+            # 缓存结果，30分钟过期（分类数据很少变化）
+            cache.set(cache_key, categories_data, 1800)
+            
+            return Response(categories_data)
+        except Exception as e:
+            logger.error(f'获取分类列表失败: {str(e)}', exc_info=True)
+            return Response(
+                {'error': f'获取分类列表失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=False, methods=['get'])
     def tags(self, request):
         """获取所有标签列表"""
         try:
-            from django.db.models import Q
-
-            # 获取当前用户的所有记录
+            # 生成缓存键
+            cache_key = f'data_factory_tags_{request.user.id}'
+            
+            # 检查缓存
+            cached_tags = cache.get(cache_key)
+            if cached_tags:
+                return Response(cached_tags)
+            
+            # 同步获取标签，获取当前用户的所有记录
             queryset = DataFactoryRecord.objects.filter(user=request.user)
-
+            
             # 获取所有唯一的标签
             tag_set = set()
             for record in queryset:
                 if record.tags and isinstance(record.tags, list):
                     tag_set.update(record.tags)
-
+            
             tags = sorted(list(tag_set))
-
-            return Response({
+            
+            # 缓存结果，5分钟过期
+            cache_data = {
                 'tags': tags,
                 'count': len(tags)
-            })
+            }
+            cache.set(cache_key, cache_data, 300)
+
+            return Response(cache_data)
         except Exception as e:
             return Response(
                 {'error': f'获取标签列表失败: {str(e)}'},
@@ -486,6 +562,39 @@ class DataFactoryViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # 检查是否适合缓存（如随机工具不适合缓存）
+        import hashlib
+        import json
+        non_cacheable_tools = ['random_', 'mock_']
+        is_cacheable = not any(tool_name.startswith(prefix) for prefix in non_cacheable_tools)
+        
+        if is_cacheable:
+            # 生成缓存键
+            cache_key = f'data_factory_batch_{tool_name}_{tool_category}_{count}_{hashlib.md5(json.dumps(input_data, sort_keys=True).encode()).hexdigest()}'
+            
+            # 检查缓存
+            cached_result = cache.get(cache_key)
+            if cached_result:
+                # 如果需要保存记录
+                if request.data.get('is_saved', True):
+                    try:
+                        # 创建记录
+                        record = DataFactoryRecord.objects.create(
+                            user=request.user,
+                            tool_name=tool_name,
+                            tool_category=tool_category,
+                            tool_scenario=tool_scenario,
+                            input_data=input_data,
+                            output_data={'results': cached_result['results'], 'count': len(cached_result['results'])},
+                            is_saved=True
+                        )
+                        # 清除相关缓存
+                        self.clear_user_cache(request.user.id)
+                    except Exception as e:
+                        logger.error(f'保存记录失败: {str(e)}', exc_info=True)
+                        pass  # 保存失败不影响返回结果
+                return Response(cached_result)
+
         # 批量生成
         results = []
         for i in range(count):
@@ -493,8 +602,21 @@ class DataFactoryViewSet(viewsets.ModelViewSet):
             if 'error' not in result:
                 results.append(result)
 
+        # 构建响应数据
+        response_data = {
+            'results': results,
+            'count': len(results),
+            'total_requested': count
+        }
+
+        # 缓存结果（如果适合缓存）
+        if is_cacheable:
+            # 设置缓存，5分钟过期
+            cache.set(cache_key, response_data, 300)
+
         # 保存记录
         if request.data.get('is_saved', True):
+            # 创建记录
             record = DataFactoryRecord.objects.create(
                 user=request.user,
                 tool_name=tool_name,
@@ -504,46 +626,91 @@ class DataFactoryViewSet(viewsets.ModelViewSet):
                 output_data={'results': results, 'count': len(results)},
                 is_saved=True
             )
+            # 清除相关缓存
+            self.clear_user_cache(request.user.id)
 
-        return Response({
-            'results': results,
-            'count': len(results),
-            'total_requested': count
-        })
+        return Response(response_data)
 
     @action(detail=False, methods=['get'])
     def statistics(self, request):
         """获取使用统计"""
-        user_records = self.get_queryset()
-
-        # 按分类统计
+        # 生成缓存键
+        cache_key = f'data_factory_statistics_{request.user.id}'
+        
+        # 检查缓存
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return Response(cached_data)
+        
+        # 预计算映射
+        category_map = dict(DataFactoryRecord.TOOL_CATEGORIES)
+        scenario_map = dict(DataFactoryRecord.TOOL_SCENARIOS)
+        
+        # 1. 计算总记录数（使用聚合查询）
+        total_records = DataFactoryRecord.objects.filter(
+            user=request.user
+        ).count()
+        
+        # 2. 按分类统计（使用聚合查询）
         category_stats = {}
+        category_counts = DataFactoryRecord.objects.filter(
+            user=request.user
+        ).values('tool_category').annotate(count=Count('tool_category')).order_by()
+        
+        for item in category_counts:
+            cat_name = item['tool_category']
+            cat_display = category_map.get(cat_name, cat_name)
+            category_stats[cat_display] = item['count']
+        
+        # 确保所有分类都有统计数据
         for cat_name, cat_display in DataFactoryRecord.TOOL_CATEGORIES:
-            count = user_records.filter(tool_category=cat_name).count()
-            category_stats[cat_display] = count
-
-        # 按场景统计
+            if cat_display not in category_stats:
+                category_stats[cat_display] = 0
+        
+        # 3. 按场景统计（使用聚合查询）
         scenario_stats = {}
+        scenario_counts = DataFactoryRecord.objects.filter(
+            user=request.user
+        ).values('tool_scenario').annotate(count=Count('tool_scenario')).order_by()
+        
+        for item in scenario_counts:
+            sce_name = item['tool_scenario']
+            sce_display = scenario_map.get(sce_name, sce_name)
+            scenario_stats[sce_display] = item['count']
+        
+        # 确保所有场景都有统计数据
         for sce_name, sce_display in DataFactoryRecord.TOOL_SCENARIOS:
-            count = user_records.filter(tool_scenario=sce_name).count()
-            scenario_stats[sce_display] = count
-
-        # 最近使用
+            if sce_display not in scenario_stats:
+                scenario_stats[sce_display] = 0
+        
+        # 4. 获取最近使用的工具（只选择需要的字段）
         recent_tools = []
-        for record in user_records[:10]:
+        recent_records = DataFactoryRecord.objects.filter(
+            user=request.user
+        ).only(
+            'tool_name', 'tool_category', 'tool_scenario', 'created_at'
+        ).order_by('-created_at')[:10]
+        
+        for record in recent_records:
             recent_tools.append({
                 'tool_name': record.tool_name,
                 'tool_category_display': record.get_tool_category_display(),
                 'tool_scenario_display': record.get_tool_scenario_display(),
                 'created_at': record.created_at
             })
-
-        return Response({
-            'total_records': user_records.count(),
+        
+        # 构建响应数据
+        stats_data = {
+            'total_records': total_records,
             'category_stats': category_stats,
             'scenario_stats': scenario_stats,
             'recent_tools': recent_tools
-        })
+        }
+        
+        # 缓存结果，5分钟过期
+        cache.set(cache_key, stats_data, 300)
+        
+        return Response(stats_data)
 
     @action(detail=False, methods=['get'])
     def download_static_file(self, request):
@@ -572,6 +739,7 @@ class DataFactoryViewSet(viewsets.ModelViewSet):
         file_path = Path(result['file_path'])
 
         try:
+            # 同步读取文件
             with open(file_path, 'rb') as f:
                 file_content = f.read()
 
@@ -600,3 +768,337 @@ class DataFactoryViewSet(viewsets.ModelViewSet):
                 {'error': f'文件读取失败: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+    @action(detail=False, methods=['get'])
+    def variable_functions(self, request):
+        """获取所有变量函数列表（用于变量助手）
+        
+        返回格式：
+        [
+            {
+                'name': 'random_int',
+                'syntax': '${random_int(min, max, count)}',
+                'desc': '生成随机整数',
+                'example': '${random_int(100, 999, 1)}'
+                'category': '随机数'
+            },
+            ...
+        ]
+        """
+        # 生成缓存键（变量函数列表是静态的）
+        cache_key = 'data_factory_variable_functions'
+        
+        # 检查缓存
+        cached_functions = cache.get(cache_key)
+        if cached_functions:
+            return Response(cached_functions)
+        
+        # 获取变量函数列表
+        tool_list = get_tool_list()
+        logger.info(f'获取到工具列表，共 {len(tool_list)} 个工具')
+        
+        # 定义工具函数的语法模板
+        syntax_templates = {
+            # 随机工具
+            'random_int': '${random_int(min, max, count)}',
+            'random_float': '${random_float(min, max, precision, count)}',
+            'random_digits': '${random_digits(length, count)}',
+            'random_string': '${random_string(length, char_type, count)}',
+            'random_letters': '${random_letters(length, count)}',
+            'random_chinese': '${random_chinese(length, count)}',
+            'random_uuid': '${random_uuid(version, count)}',
+            'random_guid': '${random_guid(version, count)}',
+            'random_mac': '${random_mac(separator, count)}',
+            'random_mac_address': '${random_mac_address(separator, count)}',
+            'random_ip': '${random_ip(ip_version, count)}',
+            'random_ip_address': '${random_ip_address(ip_version, count)}',
+            'random_boolean': '${random_boolean(count)}',
+            'random_color': '${random_color(format, count)}',
+            'random_password': '${random_password(length, count)}',
+            'random_sequence': '${random_sequence(sequence, count, unique)}',
+            'random_date': '${random_date(start_date, end_date, count, date_format)}',
+            
+            # 测试数据工具
+            'random_phone': '${random_phone(count)}',
+            'random_email': '${random_email(count)}',
+            'random_id_card': '${random_id_card(count)}',
+            'random_name': '${random_name(count)}',
+            'random_company': '${random_company(count)}',
+            'random_address': '${random_address(count)}',
+            'generate_chinese_name': '${generate_chinese_name(gender, count)}',
+            'generate_chinese_phone': '${generate_chinese_phone(count)}',
+            'generate_chinese_email': '${generate_chinese_email(count)}',
+            'generate_chinese_address': '${generate_chinese_address(full_address, count)}',
+            'generate_id_card': '${generate_id_card(count)}',
+            'generate_company_name': '${generate_company_name(count)}',
+            'generate_bank_card': '${generate_bank_card(count)}',
+            'generate_hk_id_card': '${generate_hk_id_card(count)}',
+            'generate_business_license': '${generate_business_license(count)}',
+            'generate_user_profile': '${generate_user_profile(count)}',
+            'generate_coordinates': '${generate_coordinates(count)}',
+            
+            # 字符工具
+            'remove_whitespace': '${remove_whitespace(text, type)}',
+            'replace_string': '${replace_string(text, old, new, count)}',
+            'word_count': '${word_count(text)}',
+            'regex_test': '${regex_test(pattern, text, flags)}',
+            'case_convert': '${case_convert(text, case_type)}',
+            
+            # 编码工具
+            'timestamp_convert': '${timestamp_convert(timestamp, convert_type)}',
+            'base64_encode': '${base64_encode(text, encoding)}',
+            'base64_decode': '${base64_decode(text, encoding)}',
+            'url_encode': '${url_encode(data, encoding)}',
+            'url_decode': '${url_decode(data, encoding)}',
+            'unicode_convert': '${unicode_convert(text, convert_type)}',
+            'ascii_convert': '${ascii_convert(text, convert_type)}',
+            'color_convert': '${color_convert(color, from_type, to_type)}',
+            'base_convert': '${base_convert(number, from_base, to_base)}',
+            'generate_barcode': '${generate_barcode(data, format)}',
+            'generate_qrcode': '${generate_qrcode(data)}',
+            'decode_qrcode': '${decode_qrcode(image_path)}',
+            'image_to_base64': '${image_to_base64(image_path)}',
+            'base64_to_image': '${base64_to_image(base64_data, output_path)}',
+            
+            # 加密工具
+            'md5': '${md5(text)}',
+            'sha1': '${sha1(text)}',
+            'sha256': '${sha256(text)}',
+            'md5_hash': '${md5_hash(text)}',
+            'sha1_hash': '${sha1_hash(text)}',
+            'sha256_hash': '${sha256_hash(text)}',
+            'sha512_hash': '${sha512_hash(text)}',
+            'hash_comparison': '${hash_comparison(hash1, hash2)}',
+            'aes_encrypt': '${aes_encrypt(text, password, mode)}',
+            'aes_decrypt': '${aes_decrypt(encrypted_text, password, mode)}',
+            'jwt_decode': '${jwt_decode(token, verify, secret)}',
+            'password_strength': '${password_strength(password)}',
+            'generate_salt': '${generate_salt(length)}',
+            
+            # Crontab工具
+            'generate_expression': '${generate_expression(minute, hour, day, month, weekday)}',
+            'parse_expression': '${parse_expression(expression)}',
+            'get_next_runs': '${get_next_runs(expression, count)}',
+            'validate_expression': '${validate_expression(expression)}',
+            
+            # 时间日期函数
+            'timestamp': '${timestamp()}',
+            'timestamp_sec': '${timestamp_sec()}',
+            'datetime': '${datetime(format_str)}',
+            'date': '${date(format_str)}',
+            'time': '${time(format_str)}',
+            'date_offset': '${date_offset(days, hours, minutes, format_str)}',
+        }
+        
+        # 定义示例模板
+        example_templates = {
+            # 随机工具
+            'random_int': '${random_int(100, 999, 1)}',
+            'random_float': '${random_float(0, 1, 2, 1)}',
+            'random_digits': '${random_digits(6, 1)}',
+            'random_string': '${random_string(8, all, 1)}',
+            'random_letters': '${random_letters(8, 1)}',
+            'random_chinese': '${random_chinese(2, 1)}',
+            'random_uuid': '${random_uuid(4, 1)}',
+            'random_guid': '${random_guid(4, 1)}',
+            'random_mac': '${random_mac(:, 1)}',
+            'random_mac_address': '${random_mac_address(:, 1)}',
+            'random_ip': '${random_ip(4, 1)}',
+            'random_ip_address': '${random_ip_address(4, 1)}',
+            'random_boolean': '${random_boolean(1)}',
+            'random_color': '${random_color(hex, 1)}',
+            'random_password': '${random_password(12, 1)}',
+            'random_sequence': '${random_sequence([a,b,c], 1, false)}',
+            'random_date': '${random_date(2024-01-01, 2024-12-31, 1, %Y-%m-%d)}',
+            
+            # 测试数据工具
+            'random_phone': '${random_phone(1)}',
+            'random_email': '${random_email(1)}',
+            'random_id_card': '${random_id_card(1)}',
+            'random_name': '${random_name(1)}',
+            'random_company': '${random_company(1)}',
+            'random_address': '${random_address(1)}',
+            'generate_chinese_name': '${generate_chinese_name(random, 1)}',
+            'generate_chinese_phone': '${generate_chinese_phone(1)}',
+            'generate_chinese_email': '${generate_chinese_email(1)}',
+            'generate_chinese_address': '${generate_chinese_address(true, 1)}',
+            'generate_id_card': '${generate_id_card(1)}',
+            'generate_company_name': '${generate_company_name(1)}',
+            'generate_bank_card': '${generate_bank_card(1)}',
+            'generate_hk_id_card': '${generate_hk_id_card(1)}',
+            'generate_business_license': '${generate_business_license(1)}',
+            'generate_user_profile': '${generate_user_profile(1)}',
+            'generate_coordinates': '${generate_coordinates(1)}',
+            
+            # 字符工具
+            'remove_whitespace': '${remove_whitespace(hello world, all)}',
+            'replace_string': '${replace_string(hello world, world, test, 1)}',
+            'word_count': '${word_count(hello world)}',
+            'regex_test': '${regex_test(hello123, ^[a-z]+\\d+$, gi)}',
+            'case_convert': '${case_convert(hello, upper)}',
+            
+            # 编码工具
+            'timestamp_convert': '${timestamp_convert(1234567890, to_datetime)}',
+            'base64_encode': '${base64_encode(123456, utf-8)}',
+            'base64_decode': '${base64_decode(MTIzNDU2, utf-8)}',
+            'url_encode': '${url_encode(hello world, utf-8)}',
+            'url_decode': '${url_decode(hello%20world, utf-8)}',
+            'unicode_convert': '${unicode_convert(你好, to_unicode)}',
+            'ascii_convert': '${ascii_convert(ABC, to_ascii)}',
+            'color_convert': '${color_convert(#ff0000, hex, rgb)}',
+            'base_convert': '${base_convert(10, 10, 16)}',
+            'generate_barcode': '${generate_barcode(123456, code128)}',
+            'generate_qrcode': '${generate_qrcode(https://example.com)}',
+            'decode_qrcode': '${decode_qrcode(/path/to/qrcode.png)}',
+            'image_to_base64': '${image_to_base64(/path/to/image.png)}',
+            'base64_to_image': '${base64_to_image(data:image/png;base64,..., /path/to/output.png)}',
+            
+            # 加密工具
+            'md5': '${md5(123456)}',
+            'sha1': '${sha1(123456)}',
+            'sha256': '${sha256(123456)}',
+            'md5_hash': '${md5_hash(123456)}',
+            'sha1_hash': '${sha1_hash(123456)}',
+            'sha256_hash': '${sha256_hash(123456)}',
+            'sha512_hash': '${sha512_hash(123456)}',
+            'hash_comparison': '${hash_comparison(hash1, hash2)}',
+            'aes_encrypt': '${aes_encrypt(hello, password, CBC)}',
+            'aes_decrypt': '${aes_decrypt(encrypted, password, CBC)}',
+            'jwt_decode': '${jwt_decode(token, false, secret)}',
+            'password_strength': '${password_strength(myPassword123)}',
+            'generate_salt': '${generate_salt(16)}',
+            
+            # Crontab工具
+            'generate_expression': '${generate_expression(*, *, *, *, *)}',
+            'parse_expression': '${parse_expression(0 0 * * *)}',
+            'get_next_runs': '${get_next_runs(0 0 * * *, 5)}',
+            'validate_expression': '${validate_expression(0 0 * * *)}',
+            
+            # 时间日期函数
+            'timestamp': '${timestamp()}',
+            'timestamp_sec': '${timestamp_sec()}',
+            'datetime': '${datetime(%Y-%m-%d %H:%M:%S)}',
+            'date': '${date(%Y-%m-%d)}',
+            'time': '${time(%H:%M:%S)}',
+            'date_offset': '${date_offset(1, 0, 0, %Y-%m-%d)}',
+        }
+        
+        # 定义分类映射
+        category_map = {
+            'random_int': '随机数',
+            'random_float': '随机数',
+            'random_digits': '随机数',
+            'random_string': '随机数',
+            'random_letters': '随机数',
+            'random_chinese': '随机数',
+            'random_uuid': '随机数',
+            'random_guid': '随机数',
+            'random_mac': '随机数',
+            'random_mac_address': '随机数',
+            'random_ip': '随机数',
+            'random_ip_address': '随机数',
+            'random_boolean': '随机数',
+            'random_color': '随机数',
+            'random_password': '随机数',
+            'random_sequence': '随机数',
+            'random_date': '随机数',
+            'random_phone': '测试数据',
+            'random_email': '测试数据',
+            'random_id_card': '测试数据',
+            'random_name': '测试数据',
+            'random_company': '测试数据',
+            'random_address': '测试数据',
+            'generate_chinese_name': '测试数据',
+            'generate_chinese_phone': '测试数据',
+            'generate_chinese_email': '测试数据',
+            'generate_chinese_address': '测试数据',
+            'generate_id_card': '测试数据',
+            'generate_company_name': '测试数据',
+            'generate_bank_card': '测试数据',
+            'generate_hk_id_card': '测试数据',
+            'generate_business_license': '测试数据',
+            'generate_user_profile': '测试数据',
+            'generate_coordinates': '测试数据',
+            'remove_whitespace': '字符串',
+            'replace_string': '字符串',
+            'word_count': '字符串',
+            'regex_test': '字符串',
+            'case_convert': '字符串',
+            'timestamp_convert': '编码转换',
+            'base64_encode': '编码转换',
+            'base64_decode': '编码转换',
+            'url_encode': '编码转换',
+            'url_decode': '编码转换',
+            'unicode_convert': '编码转换',
+            'ascii_convert': '编码转换',
+            'color_convert': '编码转换',
+            'base_convert': '编码转换',
+            'generate_barcode': '编码转换',
+            'generate_qrcode': '编码转换',
+            'decode_qrcode': '编码转换',
+            'image_to_base64': '编码转换',
+            'base64_to_image': '编码转换',
+            'md5': '加密',
+            'sha1': '加密',
+            'sha256': '加密',
+            'md5_hash': '加密',
+            'sha1_hash': '加密',
+            'sha256_hash': '加密',
+            'sha512_hash': '加密',
+            'hash_comparison': '加密',
+            'aes_encrypt': '加密',
+            'aes_decrypt': '加密',
+            'jwt_decode': '加密',
+            'password_strength': '加密',
+            'generate_salt': '加密',
+            'generate_expression': 'Crontab',
+            'parse_expression': 'Crontab',
+            'get_next_runs': 'Crontab',
+            'validate_expression': 'Crontab',
+            'timestamp': '时间日期',
+            'timestamp_sec': '时间日期',
+            'datetime': '时间日期',
+            'date': '时间日期',
+            'time': '时间日期',
+            'date_offset': '时间日期',
+        }
+        
+        # 生成变量函数列表
+        variable_functions = []
+        
+        # 从工具列表生成函数信息
+        for tool in tool_list:
+            tool_name = tool['name']
+            if tool_name in syntax_templates:
+                variable_functions.append({
+                    'name': tool_name,
+                    'syntax': syntax_templates[tool_name],
+                    'desc': tool.get('description', '无描述'),
+                    'example': example_templates.get(tool_name, syntax_templates[tool_name]),
+                    'category': category_map.get(tool_name, '其他')
+                })
+        
+        # 添加时间日期函数
+        time_functions = ['timestamp', 'timestamp_sec', 'datetime', 'date', 'time', 'date_offset']
+        time_function_descriptions = {
+            'timestamp': '获取当前时间戳（毫秒）',
+            'timestamp_sec': '获取当前时间戳（秒）',
+            'datetime': '获取当前日期时间，支持自定义格式',
+            'date': '获取当前日期，支持自定义格式',
+            'time': '获取当前时间，支持自定义格式',
+            'date_offset': '获取偏移后的日期时间，支持自定义格式'
+        }
+        for func_name in time_functions:
+            if func_name not in [f['name'] for f in variable_functions]:
+                variable_functions.append({
+                    'name': func_name,
+                    'syntax': syntax_templates[func_name],
+                    'desc': time_function_descriptions[func_name],
+                    'example': example_templates.get(func_name, syntax_templates[func_name]),
+                    'category': '时间日期'
+                })
+        
+        # 缓存结果，30分钟过期（静态数据）
+        cache.set(cache_key, variable_functions, 1800)
+
+        return Response(variable_functions)

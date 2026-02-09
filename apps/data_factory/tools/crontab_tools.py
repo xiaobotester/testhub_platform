@@ -17,8 +17,8 @@ class CrontabTools:
             expression = f"{minute} {hour} {day} {month} {weekday}"
             
             return {
+                'result': expression,
                 'success': True,
-                'expression': expression,
                 'minute': minute,
                 'hour': hour,
                 'day': day,
@@ -38,13 +38,16 @@ class CrontabTools:
             
             minute, hour, day, month, weekday = parts
             
-            return {
-                'success': True,
+            parsed_result = {
                 'minute': minute,
                 'hour': hour,
                 'day': day,
                 'month': month,
                 'weekday': weekday
+            }
+            return {
+                'result': parsed_result,
+                'success': True
             }
         except Exception as e:
             return {'error': f'解析Crontab表达式失败: {str(e)}'}
@@ -64,9 +67,9 @@ class CrontabTools:
                 next_runs.append(next_run.strftime('%Y-%m-%d %H:%M:%S'))
             
             return {
+                'result': next_runs,
                 'success': True,
                 'expression': expression,
-                'next_runs': next_runs,
                 'count': count
             }
         except ImportError:
@@ -81,7 +84,7 @@ class CrontabTools:
             parts = expression.strip().split()
             if len(parts) != 5:
                 return {
-                    'success': False,
+                    'result': False,
                     'valid': False,
                     'error': 'Crontab表达式格式错误，必须包含5个字段'
                 }
@@ -125,47 +128,47 @@ class CrontabTools:
             
             if not validate_field(minute, 0, 59, '分钟'):
                 return {
-                    'success': False,
+                    'result': False,
                     'valid': False,
                     'error': '分钟字段值无效，范围应为0-59'
                 }
             
             if not validate_field(hour, 0, 23, '小时'):
                 return {
-                    'success': False,
+                    'result': False,
                     'valid': False,
                     'error': '小时字段值无效，范围应为0-23'
                 }
             
             if not validate_field(day, 1, 31, '日'):
                 return {
-                    'success': False,
+                    'result': False,
                     'valid': False,
                     'error': '日字段值无效，范围应为1-31'
                 }
             
             if not validate_field(month, 1, 12, '月'):
                 return {
-                    'success': False,
+                    'result': False,
                     'valid': False,
                     'error': '月字段值无效，范围应为1-12'
                 }
             
             if not validate_field(weekday, 0, 6, '星期'):
                 return {
-                    'success': False,
+                    'result': False,
                     'valid': False,
                     'error': '星期字段值无效，范围应为0-6（0是周日）'
                 }
             
             return {
-                'success': True,
+                'result': True,
                 'valid': True,
                 'message': 'Crontab表达式格式正确'
             }
         except Exception as e:
             return {
-                'success': False,
+                'result': False,
                 'valid': False,
                 'error': f'验证Crontab表达式失败: {str(e)}'
             }
@@ -206,33 +209,38 @@ class CrontabTools:
             }
         }
         
-        return descriptions.get(field, {})
+        field_desc = descriptions.get(field, {})
+        return {
+            'result': field_desc,
+            **field_desc
+        }
 
     @staticmethod
     def get_special_symbols() -> Dict[str, Any]:
         """获取特殊符号说明"""
+        symbols = [
+            {
+                'symbol': '*',
+                'name': '所有值',
+                'description': '代表所有可能的值'
+            },
+            {
+                'symbol': ',',
+                'name': '列表',
+                'description': '用于列出多个值，如 1,3,5 表示第1、3、5个单位'
+            },
+            {
+                'symbol': '-',
+                'name': '范围',
+                'description': '用于指定范围，如 1-5 表示从1到5'
+            },
+            {
+                'symbol': '/',
+                'name': '步长',
+                'description': '用于指定步长，如 */5 表示每5个单位'
+            }
+        ]
         return {
-            'success': True,
-            'symbols': [
-                {
-                    'symbol': '*',
-                    'name': '所有值',
-                    'description': '代表所有可能的值'
-                },
-                {
-                    'symbol': ',',
-                    'name': '列表',
-                    'description': '用于列出多个值，如 1,3,5 表示第1、3、5个单位'
-                },
-                {
-                    'symbol': '-',
-                    'name': '范围',
-                    'description': '用于指定范围，如 1-5 表示从1到5'
-                },
-                {
-                    'symbol': '/',
-                    'name': '步长',
-                    'description': '用于指定步长，如 */5 表示每5个单位'
-                }
-            ]
+            'result': symbols,
+            'success': True
         }

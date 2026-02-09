@@ -11,7 +11,10 @@
 import re
 import json
 import difflib
+import logging
 from typing import Dict, List, Any
+
+logger = logging.getLogger(__name__)
 
 
 class StringTools:
@@ -37,6 +40,7 @@ class StringTools:
                     'replacements': text.count(old_str) if old_str in text else 0
                 }
             except re.error as e:
+                logger.error(f'正则表达式错误: {str(e)}')
                 return {'error': f'正则表达式错误: {str(e)}'}
         else:
             result = text.replace(old_str, new_str)
@@ -56,6 +60,7 @@ class StringTools:
         }
 
         if escape_type not in escape_mapping:
+            logger.error(f'不支持的转义类型: {escape_type}')
             return {'error': f'不支持的转义类型: {escape_type}'}
 
         return {
@@ -69,6 +74,7 @@ class StringTools:
             try:
                 return {'result': json.loads(text)}
             except json.JSONDecodeError as e:
+                logger.error(f'JSON解析错误: {str(e)}')
                 return {'error': f'JSON解析错误: {str(e)}'}
         elif unescape_type == 'html':
             html_unescape = {
@@ -82,6 +88,7 @@ class StringTools:
             import urllib.parse
             return {'result': urllib.parse.unquote(text)}
         else:
+            logger.error(f'不支持的反转义类型: {unescape_type}')
             return {'error': f'不支持的反转义类型: {unescape_type}'}
 
     @staticmethod
@@ -96,7 +103,7 @@ class StringTools:
         # 统计标点符号
         punctuation = len(re.findall(r'[^\w\s\u4e00-\u9fff]', text))
 
-        return {
+        result = {
             'total_length': len(text),
             'chinese_chars': chinese_chars,
             'english_words': english_words,
@@ -104,6 +111,11 @@ class StringTools:
             'punctuation': punctuation,
             'lines': len(text.split('\n')),
             'paragraphs': len([p for p in text.split('\n') if p.strip()])
+        }
+
+        return {
+            'result': len(text),
+            **result
         }
 
     @staticmethod
@@ -132,12 +144,17 @@ class StringTools:
             elif line.startswith('  '):
                 unchanged += 1
 
-        return {
+        result = {
             'diff': diff,
             'added': added,
             'removed': removed,
             'unchanged': unchanged,
             'total_changes': added + removed
+        }
+
+        return {
+            'result': added + removed + unchanged,
+            **result
         }
 
     @staticmethod
@@ -168,6 +185,7 @@ class StringTools:
             groupdict = match.groupdict() if match else {}
 
             return {
+                'result': True,
                 'matches': matches,
                 'match_count': len(matches),
                 'groups': groups,
@@ -175,6 +193,7 @@ class StringTools:
                 'is_valid': True
             }
         except re.error as e:
+            logger.error(f'正则表达式错误: {str(e)}')
             return {
                 'error': f'正则表达式错误: {str(e)}',
                 'is_valid': False
@@ -184,14 +203,15 @@ class StringTools:
     def case_convert(text: str, convert_type: str) -> Dict[str, Any]:
         """大小写转换"""
         convert_functions = {
-            'upper': str.upper,
-            'lower': str.lower,
-            'capitalize': str.capitalize,
-            'title': str.title,
-            'swapcase': str.swapcase
+            'upper': lambda s: s.upper(),
+            'lower': lambda s: s.lower(),
+            'capitalize': lambda s: s.capitalize(),
+            'title': lambda s: s.title(),
+            'swapcase': lambda s: s.swapcase()
         }
 
         if convert_type not in convert_functions:
+            logger.error(f'不支持的转换类型: {convert_type}')
             return {'error': f'不支持的转换类型: {convert_type}'}
 
         return {
@@ -211,4 +231,5 @@ class StringTools:
         elif format_type == 'join':
             return {'result': ''.join(text.split())}
         else:
+            logger.error(f'不支持的格式化类型: {format_type}')
             return {'error': f'不支持的格式化类型: {format_type}'}

@@ -130,6 +130,10 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static_files')
 
+# 数据工厂的静态文件目录
+STATIC_FILES_URL = '/static_files/'
+STATIC_FILES_ROOT = os.path.join(BASE_DIR, 'static_files')
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
@@ -279,8 +283,18 @@ SPECTACULAR_SETTINGS = {
 }
 
 # Celery Configuration
-CELERY_BROKER_URL = config('REDIS_URL', default='redis://:1234@127.0.0.1:6379/0')
-CELERY_RESULT_BACKEND = config('REDIS_URL', default='redis://:1234@127.0.0.1:6379/0')
+CELERY_BROKER_URL = config('REDIS_URL', default='redis://:127.0.0.1:6379/0')
+CELERY_RESULT_BACKEND = config('REDIS_URL', default='redis://:127.0.0.1:6379/0')
+
+# Cache Configuration
+# 默认缓存配置
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 300,  # 默认缓存超时5分钟
+    }
+}
 
 # Email Configuration
 EMAIL_BACKEND = 'apps.api_testing.custom_email_backend.CustomEmailBackend'
@@ -333,6 +347,7 @@ LOGGING = {
         },
     },
     'loggers': {
+        # 其他具体模块的 logger 配置
         'django': {
             'handlers': ['file', 'error_file', 'console'],
             'level': 'INFO',
@@ -348,6 +363,21 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+        'apps.data_factory.tools.encoding_tools': {
+            'handlers': ['file', 'error_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'apps.data_factory.tools': {
+            'handlers': ['file', 'error_file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+    'root': {
+        'handlers': ['file', 'error_file', 'console'],
+        'level': 'INFO',
+        # 'propagate': True,
     },
 }
 

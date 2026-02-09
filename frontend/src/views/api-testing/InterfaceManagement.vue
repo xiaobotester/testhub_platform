@@ -4,7 +4,7 @@
       <!-- 左侧集合树 -->
       <div class="sidebar">
         <div class="sidebar-header">
-          <el-select v-model="selectedProject" :placeholder="$t('apiTesting.common.selectProject')" @change="onProjectChange">
+          <el-select v-model="selectedProject" :placeholder="$t('apiTesting.common.selectProject')" @change="onProjectChange" style="width: 100%;">
             <el-option
               v-for="project in projects"
               :key="project.id"
@@ -13,7 +13,20 @@
             />
           </el-select>
           <div class="header-actions">
-            <el-button type="primary" size="small" @click="showCreateCollectionDialog = true" :title="$t('apiTesting.interface.createCollection')">
+            <el-input
+              v-model="searchKeyword"
+              :placeholder="$t('apiTesting.interface.searchInterface')"
+              size="small"
+              clearable
+              @input="onSearchDebounced"
+              @keyup.enter="onSearch(searchKeyword)"
+              style="flex: 1; min-width: 0;"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+            <el-button type="primary" size="small" @click="openCreateCollectionDialog" :title="$t('apiTesting.interface.createCollection')">
               <el-icon><Folder /></el-icon>
             </el-button>
             <el-button type="success" size="small" @click="createEmptyRequest" :title="$t('apiTesting.interface.addInterface')">
@@ -21,8 +34,8 @@
             </el-button>
           </div>
         </div>
-        
-        <div class="collection-tree">
+
+        <div class="collection-tree" v-show="!searchKeyword || searchKeyword.trim() === ''">
           <el-tree
             ref="treeRef"
             :data="collections"
@@ -43,7 +56,7 @@
                 <el-icon v-else>
                   <Document />
                 </el-icon>
-                
+
                 <!-- 集合名称编辑 -->
                 <div v-if="data.type === 'collection' && editingNodeId === data.id" class="node-edit">
                   <el-input
@@ -55,16 +68,43 @@
                     ref="editInputRef"
                   />
                 </div>
-                
+
                 <!-- 普通显示模式 -->
                 <span v-else class="node-label">{{ node.label }}</span>
-                
-                <span v-if="data.type === 'request' && data.request_type !== 'WEBSOCKET'" class="method-tag" :class="data.method?.toLowerCase()">
-                  {{ data.method }}
+
+                <span v-if="data.type === 'request' && data.request_type !== 'WEBSOCKET'" class="method-tag" :class="(data.method || 'GET').toLowerCase()">
+                  {{ data.method || 'GET' }}
                 </span>
               </div>
             </template>
           </el-tree>
+
+          <!-- 搜索结果 -->
+          <div v-if="filteredCollections.length > 0" class="search-results">
+            <div class="search-results-header">
+              <span>{{ $t('apiTesting.interface.searchResults', { count: filteredCollections.length }) }}</span>
+              <el-button size="small" text @click="clearSearch">
+                <el-icon><Close /></el-icon>
+              </el-button>
+            </div>
+            <div class="search-results-list">
+              <div
+                v-for="item in filteredCollections"
+                :key="item.id"
+                class="search-result-item"
+                @click="selectSearchResult(item)"
+              >
+                <el-icon><Document /></el-icon>
+                <div class="search-result-content">
+                  <div class="search-result-name">{{ item.name }}</div>
+                  <div class="search-result-url">{{ item.url }}</div>
+                </div>
+                <el-tag v-if="item.matchType === 'name'" type="primary" size="small">{{ $t('apiTesting.interface.name') }}</el-tag>
+                <el-tag v-else-if="item.matchType === 'method'" type="warning" size="small">{{ $t('apiTesting.interface.method') }}</el-tag>
+                <el-tag v-else type="success" size="small">{{ $t('apiTesting.interface.url') }}</el-tag>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -75,28 +115,35 @@
             <el-button type="primary" @click="createEmptyRequest">{{ $t('apiTesting.interface.createNewInterface') }}</el-button>
           </el-empty>
         </div>
-        
+
         <div v-else class="request-detail">
           <!-- 请求基本信息 -->
           <div class="request-header">
             <div class="request-line">
               <!-- HTTP接口显示方法选择器 -->
-              <el-select 
-                v-if="!selectedRequest || selectedRequest.request_type !== 'WEBSOCKET'" 
-                v-model="selectedRequest.method" 
-                style="width: 100px;"
+              <el-select
+                v-model="requestMethod"
+                class="method-select"
+                :class="requestMethod.toLowerCase()"
+                :placeholder="'GET'"
+                :popper-class="'method-select-dropdown'"
               >
-                <el-option v-for="method in availableMethods" :key="method" :label="method" :value="method" />
+                <el-option
+                  v-for="method in availableMethods"
+                  :key="method"
+                  :label="method"
+                  :value="method"
+                  :class="method.toLowerCase()"
+                />
               </el-select>
-              
+
               <el-input
-                v-model="selectedRequest.url"
+                v-model="requestUrl"
                 :placeholder="$t('apiTesting.interface.inputRequestUrl')"
                 class="url-input"
-                :class="{ 'websocket-url': selectedRequest && selectedRequest.request_type === 'WEBSOCKET' }"
               >
                 <template #prepend>
-                  <el-select v-model="selectedEnvironment" :placeholder="$t('apiTesting.interface.environment')" style="width: 120px;">
+                  <el-select v-model="selectedEnvironment" :placeholder="$t('apiTesting.interface.environment')" class="env-select">
                     <el-option :label="$t('apiTesting.common.noEnvironment')" :value="null" />
                     <el-option
                       v-for="env in environments"
@@ -114,6 +161,7 @@
                 :type="websocketConnectionStatus === 'disconnected' ? 'primary' : 'info'"
                 :loading="websocketConnectionStatus === 'connecting'"
                 @click="toggleWebSocketConnection"
+                class="send-button"
               >
                 <span v-if="websocketConnectionStatus === 'disconnected'">{{ $t('apiTesting.interface.connect') }}</span>
                 <span v-else-if="websocketConnectionStatus === 'connecting'">{{ $t('apiTesting.interface.connecting') }}</span>
@@ -122,25 +170,48 @@
 
               <!-- HTTP发送按钮 -->
               <el-button
-                v-else
+                v-if="!selectedRequest || !selectedRequest.request_type || selectedRequest.request_type !== 'WEBSOCKET'"
                 type="primary"
                 @click="sendRequest"
                 :loading="sending"
+                class="send-button"
               >
                 {{ $t('apiTesting.interface.send') }}
               </el-button>
             </div>
 
-            <div class="request-name">
+            <div class="request-meta">
               <el-input
                 v-model="selectedRequest.name"
                 :placeholder="$t('apiTesting.interface.requestName')"
                 size="small"
-                style="width: 300px;"
+                class="name-input"
               />
-              <el-button size="small" @click="saveRequest" :loading="saving" ref="saveButtonRef">
-                {{ $t('apiTesting.common.save') }}
-              </el-button>
+              <div class="action-buttons">
+                <el-button size="small" @click="saveRequest" :loading="saving" ref="saveButtonRef">
+                  {{ $t('apiTesting.common.save') }}
+                </el-button>
+                <el-dropdown split-button type="default" size="small" @click="importCurl">
+                  {{ $t('apiTesting.common.import') }}
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item @click="importCurl">{{ $t('apiTesting.interface.importCurl') }}</el-dropdown-item>
+                      <el-dropdown-item @click="exportRequest">{{ $t('apiTesting.interface.exportCurl') }}</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+                <el-dropdown split-button type="default" size="small" @click="generateCode('javascript')">
+                  {{ $t('apiTesting.interface.generateCode') }}
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item @click="generateCode('javascript')">JavaScript</el-dropdown-item>
+                      <el-dropdown-item @click="generateCode('python')">Python</el-dropdown-item>
+                      <el-dropdown-item @click="generateCode('java')">Java</el-dropdown-item>
+                      <el-dropdown-item @click="generateCode('curl')">cURL</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </div>
             </div>
           </div>
 
@@ -163,7 +234,7 @@
                 @update:modelValue="onHeadersUpdate"
               />
             </el-tab-pane>
-            
+
             <el-tab-pane label="Body" name="body" v-if="hasBody">
               <div class="body-container">
                 <el-radio-group v-model="bodyType" @change="onBodyTypeChange">
@@ -173,7 +244,7 @@
                   <el-radio value="raw">raw</el-radio>
                   <el-radio value="binary">binary</el-radio>
                 </el-radio-group>
-                
+
                 <div v-if="bodyType === 'form-data'" class="body-content">
                   <KeyValueEditor
                     v-model="formData"
@@ -199,6 +270,25 @@
                       <el-option label="HTML" value="html" />
                       <el-option label="XML" value="xml" />
                     </el-select>
+
+                    <el-button
+                      size="small"
+                      :icon="MagicStick"
+                      @click="openDataFactorySelectorForBody('rawBody')"
+                      :title="$t('apiTesting.interface.referDataFactory')"
+                      class="data-factory-btn"
+                    >
+                      {{ $t('apiTesting.interface.referDataFactory') }}
+                    </el-button>
+                    <el-button
+                      size="small"
+                      :icon="MagicStick"
+                      @click="openVariableHelper('rawBody')"
+                      :title="$t('apiTesting.interface.variableHelper')"
+                      class="variable-helper-btn"
+                    >
+                      {{ $t('apiTesting.interface.variableHelper') }}
+                    </el-button>
                   </div>
                   <el-input
                     v-model="rawBody"
@@ -210,25 +300,69 @@
                 </div>
               </div>
             </el-tab-pane>
-            
+
             <!-- HTTP接口专用标签页 -->
             <template v-if="!selectedRequest || selectedRequest.request_type !== 'WEBSOCKET'">
               <el-tab-pane label="Pre-request Script" name="pre-script">
-                <el-input
-                  v-model="selectedRequest.pre_request_script"
-                  type="textarea"
-                  :rows="10"
-                  :placeholder="$t('apiTesting.interface.preRequestScript')"
-                />
+                <div class="script-editor-container">
+                  <el-input
+                    v-model="selectedRequest.pre_request_script"
+                    type="textarea"
+                    :rows="10"
+                    placeholder="// 请求前脚本，使用JavaScript语法"
+                  />
+                  <div class="script-buttons">
+                    <el-button
+                      size="small"
+                      :icon="MagicStick"
+                      @click="openDataFactorySelectorForScript('pre_request_script')"
+                      :title="$t('apiTesting.interface.referDataFactory')"
+                      class="script-factory-btn"
+                    >
+                      {{ $t('apiTesting.interface.referDataFactory') }}
+                    </el-button>
+                    <el-button
+                      size="small"
+                      :icon="MagicStick"
+                      @click="openVariableHelper('pre_request_script')"
+                      :title="$t('apiTesting.interface.variableHelper')"
+                      class="script-variable-btn"
+                    >
+                      {{ $t('apiTesting.interface.variableHelper') }}
+                    </el-button>
+                  </div>
+                </div>
               </el-tab-pane>
 
               <el-tab-pane label="Tests" name="tests">
-                <el-input
-                  v-model="selectedRequest.post_request_script"
-                  type="textarea"
-                  :rows="10"
-                  :placeholder="$t('apiTesting.interface.postRequestScript')"
-                />
+                <div class="script-editor-container">
+                  <el-input
+                    v-model="selectedRequest.post_request_script"
+                    type="textarea"
+                    :rows="10"
+                    placeholder="// 请求后脚本和测试，使用JavaScript语法"
+                  />
+                  <div class="script-buttons">
+                    <el-button
+                      size="small"
+                      :icon="MagicStick"
+                      @click="openDataFactorySelectorForScript('post_request_script')"
+                      :title="$t('apiTesting.interface.referDataFactory')"
+                      class="script-factory-btn"
+                    >
+                      {{ $t('apiTesting.interface.referDataFactory') }}
+                    </el-button>
+                    <el-button
+                      size="small"
+                      :icon="MagicStick"
+                      @click="openVariableHelper('post_request_script')"
+                      :title="$t('apiTesting.interface.variableHelper')"
+                      class="script-variable-btn"
+                    >
+                      {{ $t('apiTesting.interface.variableHelper') }}
+                    </el-button>
+                  </div>
+                </div>
               </el-tab-pane>
 
               <el-tab-pane :label="$t('apiTesting.interface.assertions')" name="assertions">
@@ -239,11 +373,11 @@
                       {{ $t('apiTesting.interface.addAssertion') }}
                     </el-button>
                   </div>
-                  
+
                   <div class="assertions-list">
-                    <div 
-                      v-for="(assertion, index) in selectedRequest.assertions" 
-                      :key="index" 
+                    <div
+                      v-for="(assertion, index) in selectedRequest.assertions"
+                      :key="index"
                       class="assertion-item"
                     >
                       <div class="assertion-header">
@@ -299,30 +433,65 @@
                               :placeholder="$t('apiTesting.interface.maxResponseTime')"
                             />
                           </div>
-                          
+
                           <!-- 包含文本断言 -->
                           <div v-else-if="assertion.type === 'contains'">
-                            <el-input
-                              v-model="assertion.expected"
-                              :placeholder="$t('apiTesting.interface.expectedContains')"
-                              size="small"
-                            />
+                            <div style="display: flex; align-items: center; width: 100%">
+                              <el-input
+                                v-model="assertion.expected"
+                                :placeholder="$t('apiTesting.interface.expectedContains')"
+                                size="small"
+                                style="flex: 1"
+                              >
+                                <template #append>
+                                  <el-button
+                                    size="small"
+                                    :icon="MagicStick"
+                                    @click="openDataFactorySelector(assertion, 'expected', index)"
+                                    :title="$t('apiTesting.interface.referDataFactory')"
+                                    class="data-factory-btn"
+                                  />
+                                </template>
+                              </el-input>
+                              <el-tooltip :content="$t('apiTesting.interface.insertDynamicVariable')" placement="top">
+                                <el-button size="small" style="margin-left: 5px" @click="openVariableHelperForAssertion(assertion, 'expected', index)" class="variable-helper-btn">
+                                  <el-icon><MagicStick /></el-icon>
+                                </el-button>
+                              </el-tooltip>
+                            </div>
                           </div>
 
                           <!-- JSON路径断言 -->
                           <div v-else-if="assertion.type === 'json_path'">
                             <el-input
                               v-model="assertion.json_path"
-                              :placeholder="$t('apiTesting.interface.jsonPathExpression')"
+                              :placeholder="$t('apiTesting.interface.jsonPathExample')"
                               size="small"
                               class="assertion-input"
                             />
-                            <el-input
-                              v-model="assertion.expected"
-                              :placeholder="$t('apiTesting.interface.expectedValue')"
-                              size="small"
-                              class="assertion-input"
-                            />
+                            <div style="display: flex; align-items: center; width: 100%">
+                              <el-input
+                                v-model="assertion.expected"
+                                :placeholder="$t('apiTesting.interface.expectedValue')"
+                                size="small"
+                                style="flex: 1"
+                              >
+                                <template #append>
+                                  <el-button
+                                    size="small"
+                                    :icon="MagicStick"
+                                    @click="openDataFactorySelector(assertion, 'expected', index)"
+                                    :title="$t('apiTesting.interface.referDataFactory')"
+                                    class="data-factory-btn"
+                                  />
+                                </template>
+                              </el-input>
+                              <el-tooltip :content="$t('apiTesting.interface.insertDynamicVariable')" placement="top">
+                                <el-button size="small" style="margin-left: 5px" @click="openVariableHelperForAssertion(assertion, 'expected', index)" class="variable-helper-btn">
+                                  <el-icon><MagicStick /></el-icon>
+                                </el-button>
+                              </el-tooltip>
+                            </div>
                           </div>
 
                           <!-- 响应头断言 -->
@@ -333,21 +502,56 @@
                               size="small"
                               class="assertion-input"
                             />
-                            <el-input
-                              v-model="assertion.expected_value"
-                              :placeholder="$t('apiTesting.interface.expectedValue')"
-                              size="small"
-                              class="assertion-input"
-                            />
+                            <div style="display: flex; align-items: center; width: 100%">
+                              <el-input
+                                v-model="assertion.expected_value"
+                                :placeholder="$t('apiTesting.interface.expectedValue')"
+                                size="small"
+                                style="flex: 1"
+                              >
+                                <template #append>
+                                  <el-button
+                                    size="small"
+                                    :icon="MagicStick"
+                                    @click="openDataFactorySelector(assertion, 'expected_value', index)"
+                                    :title="$t('apiTesting.interface.referDataFactory')"
+                                    class="data-factory-btn"
+                                  />
+                                </template>
+                              </el-input>
+                              <el-tooltip :content="$t('apiTesting.interface.insertDynamicVariable')" placement="top">
+                                <el-button size="small" style="margin-left: 5px" @click="openVariableHelperForAssertion(assertion, 'expected_value', index)" class="variable-helper-btn">
+                                  <el-icon><MagicStick /></el-icon>
+                                </el-button>
+                              </el-tooltip>
+                            </div>
                           </div>
 
                           <!-- 完全匹配断言 -->
                           <div v-else-if="assertion.type === 'equals'">
-                            <el-input
-                              v-model="assertion.expected"
-                              :placeholder="$t('apiTesting.interface.expectedMatch')"
-                              size="small"
-                            />
+                            <div style="display: flex; align-items: center; width: 100%">
+                              <el-input
+                                v-model="assertion.expected"
+                                :placeholder="$t('apiTesting.interface.expectedMatch')"
+                                size="small"
+                                style="flex: 1"
+                              >
+                                <template #append>
+                                  <el-button
+                                    size="small"
+                                    :icon="MagicStick"
+                                    @click="openDataFactorySelector(assertion, 'expected', index)"
+                                    :title="$t('apiTesting.interface.referDataFactory')"
+                                    class="data-factory-btn"
+                                  />
+                                </template>
+                              </el-input>
+                              <el-tooltip :content="$t('apiTesting.interface.insertDynamicVariable')" placement="top">
+                                <el-button size="small" style="margin-left: 5px" @click="openVariableHelperForAssertion(assertion, 'expected', index)" class="variable-helper-btn">
+                                  <el-icon><MagicStick /></el-icon>
+                                </el-button>
+                              </el-tooltip>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -364,7 +568,7 @@
                 </div>
               </el-tab-pane>
             </template>
-            
+
             <!-- WebSocket接口专用标签页 -->
             <template v-else-if="selectedRequest && selectedRequest.request_type === 'WEBSOCKET'">
               <el-tab-pane label="Message" name="message">
@@ -460,26 +664,47 @@
                 <el-tag :type="getStatusType(response.status_code)">
                   {{ response.status_code }}
                 </el-tag>
-                <span class="response-time">{{ response.response_time?.toFixed(0) }}ms</span>
+                <span class="response-time">{{ response.response_time ? response.response_time.toFixed(0) : 0 }}ms</span>
               </div>
             </div>
 
             <el-tabs v-model="responseActiveTab">
-              <el-tab-pane :label="$t('apiTesting.interface.responseBody')" name="body">
+              <el-tab-pane label="Body" name="body">
                 <div class="response-body">
                   <div class="response-actions">
                     <el-button-group>
                       <el-button size="small" @click="formatResponse">{{ $t('apiTesting.interface.format') }}</el-button>
-                      <el-button size="small" @click="copyResponse">{{ $t('apiTesting.common.copy') }}</el-button>
+                      <el-button size="small" @click="copyResponse">{{ $t('apiTesting.interface.copy') }}</el-button>
+                      <el-button size="small" @click="toggleJsonPathExtractor">
+                        {{ $t('apiTesting.interface.jsonPathExtract') }}
+                      </el-button>
                     </el-button-group>
                   </div>
-                  <pre class="response-content">{{ responseBody }}</pre>
+                  <div v-if="showJsonPathExtractor" class="jsonpath-extractor">
+                    <div class="jsonpath-input">
+                      <el-input
+                        v-model="jsonPathExpression"
+                        :placeholder="$t('apiTesting.interface.jsonPathExample')"
+                        size="small"
+                        @input="evaluateJsonPath"
+                      >
+                        <template #append>
+                          <el-button size="small" @click="copyJsonPathResult">{{ $t('apiTesting.interface.copyResult') }}</el-button>
+                        </template>
+                      </el-input>
+                    </div>
+                    <div v-if="jsonPathResult !== null" class="jsonpath-result">
+                      <strong>{{ $t('apiTesting.interface.extractResult') }}</strong>
+                      <pre>{{ jsonPathResult }}</pre>
+                    </div>
+                  </div>
+                  <div class="response-content" v-html="highlightedResponseBody"></div>
                 </div>
               </el-tab-pane>
 
-              <el-tab-pane :label="$t('apiTesting.interface.responseHeaders')" name="headers">
+              <el-tab-pane label="Headers" name="headers">
                 <div class="response-headers">
-                  <div v-for="(value, key) in response.response_data?.headers" :key="key" class="header-row">
+                  <div v-for="(value, key) in (response.response_data?.headers || {})" :key="key" class="header-row">
                     <strong>{{ key }}:</strong> {{ value }}
                   </div>
                 </div>
@@ -502,11 +727,11 @@
                     <div class="assertion-result-details">
                       <div class="result-row">
                         <span class="label">{{ $t('apiTesting.interface.expected') }}</span>
-                        <span class="value">{{ result.expected !== null && result.expected !== undefined ? result.expected : $t('apiTesting.interface.notSet') }}</span>
+                        <span class="value">{{ formatAssertionValue(result.expected) }}</span>
                       </div>
                       <div class="result-row">
                         <span class="label">{{ $t('apiTesting.interface.actual') }}</span>
-                        <span class="value">{{ result.actual !== null && result.actual !== undefined ? result.actual : $t('apiTesting.interface.notObtained') }}</span>
+                        <span class="value">{{ formatAssertionValue(result.actual) }}</span>
                       </div>
                       <div class="result-row" v-if="result.error">
                         <span class="label">{{ $t('apiTesting.interface.error') }}</span>
@@ -523,13 +748,13 @@
     </div>
 
     <!-- 创建集合对话框 -->
-    <el-dialog v-model="showCreateCollectionDialog" :title="$t('apiTesting.interface.createCollection')" width="500px" :close-on-click-modal="false">
-      <el-form ref="collectionFormRef" :model="collectionForm" :rules="collectionRules" label-width="80px">
+    <el-dialog v-model="showCreateCollectionDialog" :title="$t('apiTesting.interface.createCollection')" :close-on-click-modal="false" :close-on-press-escape="false" :modal="true" :destroy-on-close="false" width="500px">
+      <el-form ref="collectionFormRef" :model="collectionForm" :rules="collectionRules" label-width="100px">
         <el-form-item :label="$t('apiTesting.interface.collectionName')" prop="name">
           <el-input v-model="collectionForm.name" :placeholder="$t('apiTesting.interface.inputCollectionName')" />
         </el-form-item>
         <el-form-item :label="$t('apiTesting.common.description')" prop="description">
-          <el-input v-model="collectionForm.description" type="textarea" :rows="3" :placeholder="$t('apiTesting.common.pleaseInput')" />
+          <el-input v-model="collectionForm.description" type="textarea" :rows="3" :placeholder="`${$t('apiTesting.common.pleaseInput')}${$t('apiTesting.common.description')}`" />
         </el-form-item>
         <el-form-item :label="$t('apiTesting.interface.parentCollection')" prop="parent">
           <el-select v-model="collectionForm.parent" :placeholder="$t('apiTesting.interface.selectParentCollection')" clearable>
@@ -544,19 +769,19 @@
       </el-form>
 
       <template #footer>
-        <el-button @click="showCreateCollectionDialog = false">{{ $t('apiTesting.common.cancel') }}</el-button>
+        <el-button @click="closeCreateCollectionDialog">{{ $t('apiTesting.common.cancel') }}</el-button>
         <el-button type="primary" @click="createCollection">{{ $t('apiTesting.common.create') }}</el-button>
       </template>
     </el-dialog>
 
     <!-- 编辑集合对话框 -->
-    <el-dialog v-model="showEditCollectionDialog" :title="$t('apiTesting.common.edit')" width="500px" :close-on-click-modal="false">
-      <el-form ref="editCollectionFormRef" :model="editCollectionForm" :rules="collectionRules" label-width="80px">
+    <el-dialog v-model="showEditCollectionDialog" :title="$t('apiTesting.interface.editCollection')" :close-on-click-modal="false" width="500px">
+      <el-form ref="editCollectionFormRef" :model="editCollectionForm" :rules="collectionRules" label-width="100px">
         <el-form-item :label="$t('apiTesting.interface.collectionName')" prop="name">
           <el-input v-model="editCollectionForm.name" :placeholder="$t('apiTesting.interface.inputCollectionName')" />
         </el-form-item>
         <el-form-item :label="$t('apiTesting.common.description')" prop="description">
-          <el-input v-model="editCollectionForm.description" type="textarea" :rows="3" :placeholder="$t('apiTesting.common.pleaseInput')" />
+          <el-input v-model="editCollectionForm.description" type="textarea" :rows="3" :placeholder="`${$t('apiTesting.common.pleaseInput')}${$t('apiTesting.common.description')}`" />
         </el-form-item>
         <el-form-item :label="$t('apiTesting.interface.parentCollection')" prop="parent">
           <el-select v-model="editCollectionForm.parent" :placeholder="$t('apiTesting.interface.selectParentCollection')" clearable>
@@ -571,8 +796,8 @@
       </el-form>
 
       <template #footer>
-        <el-button @click="showEditCollectionDialog = false">{{ $t('apiTesting.common.cancel') }}</el-button>
-        <el-button type="primary" @click="updateCollection">{{ $t('apiTesting.common.save') }}</el-button>
+        <el-button @click="closeEditCollectionDialog">{{ $t('apiTesting.common.cancel') }}</el-button>
+        <el-button type="primary" @click="editCollection">{{ $t('apiTesting.common.save') }}</el-button>
       </template>
     </el-dialog>
 
@@ -583,16 +808,138 @@
       <li @click="editNode">{{ $t('apiTesting.interface.contextMenu.edit') }}</li>
       <li @click="deleteNode">{{ $t('apiTesting.interface.contextMenu.delete') }}</li>
     </ul>
+
+    <!-- 数据工厂选择器 -->
+    <DataFactorySelector
+      v-model="showDataFactorySelector"
+      @select="handleDataFactorySelect"
+    />
+
+    <!-- 变量助手对话框 -->
+    <el-dialog
+      :close-on-press-escape="false"
+      :modal="true"
+      :destroy-on-close="false"
+      v-model="showVariableHelper"
+      :title="$t('apiTesting.interface.variableHelper') + ' (点击插入)'"
+      :close-on-click-modal="false"
+      width="900px"
+    >
+      <div v-if="variableCategories.length === 0" style="padding: 20px; text-align: center; color: #999;">
+        <p>{{ $t('apiTesting.interface.variableCategoriesLoading') }}</p>
+        <p>{{ $t('apiTesting.interface.variableCategoriesCount', { count: variableCategories.length }) }}</p>
+      </div>
+      <el-tabs v-else tab-position="left" style="height: 450px">
+        <el-tab-pane
+          v-for="(category, index) in variableCategories"
+          :key="index"
+          :label="category.label"
+        >
+          <div style="height: 450px; overflow-y: auto; padding: 10px;">
+            <el-table :data="category.variables" style="width: 100%" @row-click="insertVariable" highlight-current-row>
+              <el-table-column prop="name" :label="$t('apiTesting.interface.functionName')" width="150">
+                <template #default="{ row }">
+                  <el-tag size="small">{{ row.name }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="desc" :label="$t('apiTesting.interface.description')" min-width="150" />
+              <el-table-column prop="syntax" :label="$t('apiTesting.interface.syntax')" min-width="200" show-overflow-tooltip />
+              <el-table-column prop="example" :label="$t('apiTesting.interface.example')" min-width="200" show-overflow-tooltip />
+              <el-table-column :label="$t('apiTesting.interface.operation')" width="80" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="primary" size="small">{{ $t('apiTesting.interface.insert') }}</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+    </el-dialog>
+
+    <!-- CURL导入对话框 -->
+    <el-dialog
+      v-model="showCurlImportDialog"
+      :title="$t('apiTesting.interface.importCurlCommand')"
+      width="800px"
+      :close-on-click-modal="false"
+    >
+      <el-input
+        v-model="curlCommand"
+        type="textarea"
+        :rows="15"
+        :placeholder="$t('apiTesting.interface.pasteCurlCommand')"
+      />
+      <template #footer>
+        <el-button @click="closeCurlImportDialog">{{ $t('apiTesting.common.cancel') }}</el-button>
+        <el-button type="primary" @click="parseAndImportCurl">{{ $t('apiTesting.interface.parseAndImport') }}</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 代码生成对话框 -->
+    <el-dialog
+      v-model="showCodeGenerateDialog"
+      :title="$t('apiTesting.interface.generateCode')"
+      width="900px"
+      :close-on-click-modal="false"
+    >
+      <el-select v-model="codeLanguage" :placeholder="$t('apiTesting.interface.selectLanguage')" style="width: 150px; margin-bottom: 10px" @change="generateCode(codeLanguage)">
+        <el-option label="JavaScript" value="javascript" />
+        <el-option label="Python" value="python" />
+        <el-option label="Java" value="java" />
+        <el-option label="Node.js" value="node" />
+        <el-option label="cURL" value="curl" />
+        <el-option label="PHP" value="php" />
+        <el-option label="Go" value="go" />
+        <el-option label="C#" value="csharp" />
+        <el-option label="Ruby" value="ruby" />
+        <el-option label="Swift" value="swift" />
+        <el-option label="Kotlin" value="kotlin" />
+        <el-option label="Rust" value="rust" />
+        <el-option label="Dart" value="dart" />
+        <el-option label="Objective-C" value="objc" />
+        <el-option label="PowerShell" value="powershell" />
+        <el-option label="MATLAB" value="matlab" />
+        <el-option label="R" value="r" />
+        <el-option label="Ansible" value="ansible" />
+        <el-option label="C" value="c" />
+        <el-option label="CFML" value="cfml" />
+        <el-option label="Clojure" value="clojure" />
+        <el-option label="Elixir" value="elixir" />
+        <el-option label="HTTP" value="http" />
+        <el-option label="HTTPie" value="httpie" />
+        <el-option label="Julia" value="julia" />
+        <el-option label="Lua" value="lua" />
+        <el-option label="OCaml" value="ocaml" />
+        <el-option label="Perl" value="perl" />
+        <el-option label="Wget" value="wget" />
+      </el-select>
+      <el-input
+        v-model="generatedCode"
+        type="textarea"
+        :rows="20"
+        readonly
+        class="code-generate"
+      />
+      <template #footer>
+        <el-button @click="closeCodeGenerateDialog">{{ $t('apiTesting.common.cancel') }}</el-button>
+        <el-button type="primary" @click="copyGeneratedCode">{{ $t('apiTesting.common.copy') }}</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { useI18n } from 'vue-i18n'
-import { Plus, Folder, Document } from '@element-plus/icons-vue'
+import { Plus, Folder, Document, MagicStick, Search, Close } from '@element-plus/icons-vue'
 import api from '@/utils/api'
 import KeyValueEditor from './components/KeyValueEditor.vue'
+import DataFactorySelector from '@/components/DataFactorySelector.vue'
+import { RequestModelParser } from '@/utils/requestModel'
+import { getVariableFunctions } from '@/api/data-factory'
+import { CodeGenerator } from '@/utils/codeGenerator'
+import { debounce } from 'lodash-es'
+import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
@@ -620,166 +967,195 @@ const headersEditorRef = ref(null)
 const editingNodeId = ref(null)
 const editingNodeName = ref('')
 const editInputRef = ref(null)
+const currentHeaders = ref({})
 
-// 辅助函数：将对象或数组转换为键值对数组（用于KeyValueEditor组件）
-const convertObjectToKeyValueArray = (obj) => {
-  if (!obj) return []
-  
-  // 如果已经是数组格式（新的完整格式），直接返回
-  if (Array.isArray(obj)) {
-    console.log('Input is already array format:', obj)
-    return obj.map(item => ({
-      key: item.key || '',
-      value: item.value || '',
-      enabled: item.enabled !== false,
-      description: item.description || ''
-    }))
-  }
-  
-  // 如果是对象格式（旧的简单key-value格式），转换为数组
-  if (typeof obj === 'object') {
-    console.log('Converting object to array:', obj)
-    return Object.entries(obj).map(([key, value]) => ({
-      key,
-      value: String(value),
-      enabled: true,
-      description: ''
-    }))
-  }
-  
-  return []
-}
-
-// 辅助函数：将键值对数组转换为对象（保存时使用）
-const convertKeyValueArrayToObject = (input) => {
-  console.log('convertKeyValueArrayToObject input:', input)
-  
-  // 如果输入已经是普通对象，直接返回
-  if (input && typeof input === 'object' && !Array.isArray(input)) {
-    console.log('Input is already an object, returning as-is')
-    return input
-  }
-  
-  // 如果输入是数组，转换为对象
-  if (!Array.isArray(input)) return {}
-  
-  const obj = {}
-  input.forEach(item => {
-    console.log('Processing item:', item, 'enabled:', item.enabled)
-    if (item.enabled !== false && item.key) {
-      obj[item.key] = item.value || ''
-      console.log('Added to obj:', item.key, '=', item.value)
-    }
-  })
-  console.log('convertKeyValueArrayToObject output:', obj)
-  return obj
-}
-
-const httpMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']
-const websocketMethods = ['CONNECT', 'SUBSCRIBE', 'UNSUBSCRIBE', 'SEND', 'PING', 'PONG']
-
-const availableMethods = computed(() => {
-  return selectedRequest.value && selectedRequest.value.request_type === 'WEBSOCKET' 
-    ? websocketMethods 
-    : httpMethods
-})
-
-// WebSocket消息相关数据
-const websocketMessageType = ref('text')
-const websocketMessageContent = ref('')
-const websocketBinaryFile = ref(null)
-const websocketConnectionStatus = ref('disconnected') // disconnected, connecting, connected
-const websocketConnection = ref(null)
-const websocketMessages = ref([]) // WebSocket消息历史记录
-const bodyType = ref('none')
-const rawType = ref('json')
-const formData = ref({})
-const formUrlEncoded = ref({})
-const rawBody = ref('')
+const searchKeyword = ref('')
+const filteredCollections = ref([])
 
 const treeProps = {
   children: 'children',
   label: 'name'
 }
 
-const collectionForm = reactive({
-  name: '',
-  description: '',
-  parent: null
-})
+// 数据工厂选择器相关
+const showDataFactorySelector = ref(false)
+const showVariableHelper = ref(false)
+const currentEditingField = ref('')
+const currentBodyField = ref('')
+const currentAssertion = ref(null)
+const currentAssertionField = ref('')
+const currentAssertionIndex = ref(-1)
+const currentScriptField = ref('')
+const variableCategories = ref([])
+const loading = ref(false)
 
-const editCollectionForm = reactive({
-  id: null,
-  name: '',
-  description: '',
-  parent: null
-})
+// CURL导入相关
+const showCurlImportDialog = ref(false)
+const curlCommand = ref('')
 
-const collectionRules = computed(() => ({
-  name: [{ required: true, message: t('apiTesting.interface.inputCollectionName'), trigger: 'blur' }]
-}))
+// 代码生成相关
+const showCodeGenerateDialog = ref(false)
+const codeLanguage = ref('javascript')
+const generatedCode = ref('')
 
-const hasBody = computed(() => {
-  return selectedRequest.value && ['POST', 'PUT', 'PATCH'].includes(selectedRequest.value.method)
-})
+// WebSocket相关
+const websocketConnectionStatus = ref('disconnected') // disconnected, connecting, connected
+const websocketConnection = ref(null)
+const websocketMessages = ref([]) // WebSocket消息历史记录
+const websocketMessageType = ref('text')
+const websocketMessageContent = ref('')
+const websocketBinaryFile = ref(null)
 
-const responseBody = computed(() => {
-  if (!response.value?.response_data) return ''
-  
-  try {
-    if (response.value.response_data.json) {
-      return JSON.stringify(response.value.response_data.json, null, 2)
-    } else {
-      return response.value.response_data.body || ''
-    }
-  } catch (e) {
-    return response.value.response_data.body || ''
+// JSONPath提取相关
+const showJsonPathExtractor = ref(false)
+const jsonPathExpression = ref('')
+const jsonPathResult = ref(null)
+
+// Body相关
+const bodyType = ref('none')
+const rawType = ref('text')
+const formData = ref([])
+const formUrlEncoded = ref([])
+const rawBody = ref('')
+
+const availableMethods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'CONNECT', 'TRACE']
+
+const onSearchDebounced = debounce((value) => {
+  onSearch(value)
+}, 300)
+
+const onSearch = async (value) => {
+  if (!value || value.trim() === '') {
+    filteredCollections.value = []
+    return
   }
-})
 
-const getStatusType = (status) => {
-  if (status >= 200 && status < 300) return 'success'
-  if (status >= 300 && status < 400) return 'warning'
-  if (status >= 400) return 'danger'
-  return 'info'
+  try {
+    const response = await api.get('/api-testing/collections/search', {
+      params: {
+        project: selectedProject.value,
+        keyword: value
+      }
+    })
+    // 后端可能返回分页格式 { results: [...] } 或直接返回数组
+    filteredCollections.value = response.data.results || response.data || []
+  } catch (error) {
+    ElMessage.error('搜索失败')
+    console.error('搜索失败:', error)
+  }
+}
+
+const selectSearchResult = (item) => {
+  selectedRequest.value = item
+  searchKeyword.value = ''
+  filteredCollections.value = []
+}
+
+const onProjectChange = async (projectId) => {
+  if (!projectId) return
+
+  try {
+    await loadCollections(projectId)
+    await loadEnvironments(projectId)
+  } catch (error) {
+    ElMessage.error('切换项目失败')
+    console.error('切换项目失败:', error)
+  }
 }
 
 const loadProjects = async () => {
   try {
-    const res = await api.get('/api-testing/projects/')
-    projects.value = res.data.results || res.data
-    if (projects.value.length > 0 && !selectedProject.value) {
+    const response = await api.get('/api-testing/projects/')
+    // 后端可能返回分页格式 { results: [...] } 或直接返回数组
+    projects.value = response.data.results || response.data || []
+    if (projects.value.length > 0) {
       selectedProject.value = projects.value[0].id
-      await onProjectChange()
+      await loadCollections(selectedProject.value)
+      await loadEnvironments(selectedProject.value)
     }
   } catch (error) {
-    ElMessage.error(t('apiTesting.messages.error.loadProjects'))
+    ElMessage.error('加载项目失败')
+    console.error('加载项目失败:', error)
   }
 }
 
-const loadCollections = async (preserveExpandState = true) => {
-  if (!selectedProject.value) return
-
+const loadCollections = async (projectId) => {
   try {
-    const res = await api.get('/api-testing/collections/', {
-      params: { project: selectedProject.value }
+    const response = await api.get('/api-testing/collections/', {
+      params: {
+        project: projectId
+      }
     })
-    const collectionsData = res.data.results || res.data
+    // 后端可能返回分页格式 { results: [...] } 或直接返回数组
+    const collectionsData = response.data.results || response.data || []
 
     // 构建树形结构
     collections.value = buildTree(collectionsData)
     flatCollections.value = collectionsData
 
-    // 加载每个集合的请求
+    // 加载请求
     await loadRequests()
-
-    // 如果不保留展开状态，清空展开键
-    if (!preserveExpandState) {
-      expandedKeys.value = []
-    }
-
   } catch (error) {
-    ElMessage.error(t('apiTesting.messages.error.loadCollections'))
+    ElMessage.error('加载集合失败')
+    console.error('加载集合失败:', error)
+  }
+}
+
+const loadEnvironments = async (projectId) => {
+  try {
+    const response = await api.get('/api-testing/environments/', {
+      params: {
+        project: projectId
+      }
+    })
+    // 后端可能返回分页格式 { results: [...] } 或直接返回数组
+    environments.value = response.data.results || response.data || []
+  } catch (error) {
+    ElMessage.error('加载环境失败')
+    console.error('加载环境失败:', error)
+  }
+}
+
+const buildTree = (items) => {
+  const map = {}
+  const roots = []
+
+  items.forEach(item => {
+    map[item.id] = {
+      ...item,
+      type: 'collection',
+      children: []
+    }
+  })
+
+  items.forEach(item => {
+    if (item.parent) {
+      if (map[item.parent]) {
+        map[item.parent].children.push(map[item.id])
+      }
+    } else {
+      roots.push(map[item.id])
+    }
+  })
+
+  return roots
+}
+
+const findCollectionById = (collections, id) => {
+  for (const collection of collections) {
+    if (collection.id === id) return collection
+    if (collection.children) {
+      const found = findCollectionById(collection.children, id)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+const clearCollectionChildren = (collection) => {
+  if (collection.children) {
+    collection.children = collection.children.filter(child => child.type === 'collection')
+    collection.children.forEach(child => clearCollectionChildren(child))
   }
 }
 
@@ -787,8 +1163,8 @@ const loadRequests = async () => {
   if (!selectedProject.value) return
 
   try {
-    const res = await api.get('/api-testing/requests/')
-    const requests = res.data.results || res.data
+    const response = await api.get('/api-testing/requests/')
+    const requests = response.data.results || response.data || []
 
     // 清空所有集合的子节点（请求）
     collections.value.forEach(collection => {
@@ -808,144 +1184,270 @@ const loadRequests = async () => {
       }
     })
   } catch (error) {
-    ElMessage.error(t('apiTesting.messages.error.loadRequests'))
+    ElMessage.error('加载请求失败')
+    console.error('加载请求失败:', error)
   }
 }
 
-const clearCollectionChildren = (collection) => {
-  if (collection.children) {
-    collection.children = collection.children.filter(child => child.type === 'collection')
-    collection.children.forEach(child => clearCollectionChildren(child))
-  }
-}
-
-const loadEnvironments = async () => {
-  try {
-    // 获取全局环境 + 当前项目环境，不传递project参数
-    const res = await api.get('/api-testing/environments/')
-    const allEnvironments = res.data.results || res.data
-
-    // 过滤全局环境和当前项目环境
-    environments.value = allEnvironments.filter(env =>
-      env.scope === 'GLOBAL' ||
-      (env.scope === 'LOCAL' && (!selectedProject.value || env.project === selectedProject.value))
-    )
-  } catch (error) {
-    ElMessage.error(t('apiTesting.messages.error.loadEnvironments'))
-  }
-}
-
-const buildTree = (items) => {
-  const map = {}
-  const roots = []
-  
-  items.forEach(item => {
-    map[item.id] = { ...item, type: 'collection', children: [] }
-  })
-  
-  items.forEach(item => {
-    if (item.parent) {
-      if (map[item.parent]) {
-        map[item.parent].children.push(map[item.id])
+const flattenCollections = (items, parent = null) => {
+  let result = []
+  for (const item of items) {
+    if (item.type === 'collection') {
+      result.push(item)
+      if (item.children && item.children.length > 0) {
+        result = result.concat(flattenCollections(item.children, item))
       }
-    } else {
-      roots.push(map[item.id])
-    }
-  })
-  
-  return roots
-}
-
-const findCollectionById = (collections, id) => {
-  for (const collection of collections) {
-    if (collection.id === id) return collection
-    if (collection.children) {
-      const found = findCollectionById(collection.children, id)
-      if (found) return found
     }
   }
-  return null
+  return result
 }
 
-const onProjectChange = async () => {
-  await Promise.all([loadCollections(false), loadEnvironments()])
-}
-
-const onNodeClick = (data) => {
+const onNodeClick = async (data) => {
   if (data.type === 'request') {
-    console.log('onNodeClick - original data.headers:', data.headers)
-    const convertedHeaders = convertObjectToKeyValueArray(data.headers || {})
-    console.log('onNodeClick - converted headers:', convertedHeaders)
-    
-    // 初始化currentHeaders
-    currentHeaders.value = data.headers || {}
-    console.log('onNodeClick - initialized currentHeaders:', currentHeaders.value)
-    
-    selectedRequest.value = {
-      ...data,
-      params: convertObjectToKeyValueArray(data.params || {}),
-      headers: convertedHeaders,
-      body: data.body || {},
-      auth: data.auth || {}
-    }
-    
-    console.log('onNodeClick - selectedRequest.value.headers:', selectedRequest.value.headers)
+    try {
+      const apiResponse = await api.get(`/api-testing/requests/${data.id}/`)
+      const requestData = apiResponse.data
 
-    // 解析body数据
-    if (data.body && data.body.type) {
-      if (data.body.type === 'json' && data.body.data) {
-        bodyType.value = 'raw'
-        rawType.value = 'json'
-        rawBody.value = JSON.stringify(data.body.data, null, 2)
-      } else if (data.body.type === 'raw' && data.body.data) {
-        bodyType.value = 'raw'
-        rawType.value = 'text'
-        rawBody.value = data.body.data
-      } else if (data.body.type === 'form-data') {
-        bodyType.value = 'form-data'
-        formData.value = data.body.data || {}
-      } else if (data.body.type === 'x-www-form-urlencoded') {
-        bodyType.value = 'x-www-form-urlencoded'
-        formUrlEncoded.value = data.body.data || {}
-      } else if (data.body.type === 'binary') {
-        bodyType.value = 'binary'
+      // 初始化currentHeaders
+      currentHeaders.value = requestData.headers || {}
+
+      // 将 params 从字典格式转换为数组格式
+      if (requestData.params && typeof requestData.params === 'object' && !Array.isArray(requestData.params)) {
+        const paramsArray = []
+        Object.keys(requestData.params).forEach(key => {
+          if (key && requestData.params[key] !== undefined) {
+            paramsArray.push({
+              enabled: true,
+              key,
+              value: requestData.params[key],
+              description: '',
+              type: 'text'
+            })
+          }
+        })
+        requestData.params = paramsArray
+      }
+
+      // 将 headers 从字典格式转换为数组格式
+      if (requestData.headers && typeof requestData.headers === 'object' && !Array.isArray(requestData.headers)) {
+        const headersArray = []
+        Object.keys(requestData.headers).forEach(key => {
+          if (key && requestData.headers[key] !== undefined) {
+            headersArray.push({
+              enabled: true,
+              key,
+              value: requestData.headers[key],
+              description: '',
+              type: 'text'
+            })
+          }
+        })
+        requestData.headers = headersArray
+      }
+
+      // 解析body数据
+      if (requestData.body && requestData.body.type) {
+        if (requestData.body.type === 'json' && requestData.body.data) {
+          bodyType.value = 'raw'
+          rawType.value = 'json'
+          rawBody.value = JSON.stringify(requestData.body.data, null, 2)
+        } else if (requestData.body.type === 'raw' && requestData.body.data) {
+          bodyType.value = 'raw'
+          rawType.value = 'text'
+          rawBody.value = requestData.body.data
+        } else if (requestData.body.type === 'form-data') {
+          bodyType.value = 'form-data'
+          formData.value = requestData.body.data || []
+        } else if (requestData.body.type === 'x-www-form-urlencoded') {
+          bodyType.value = 'x-www-form-urlencoded'
+          formUrlEncoded.value = requestData.body.data || []
+        } else if (requestData.body.type === 'binary') {
+          bodyType.value = 'binary'
+        } else {
+          bodyType.value = 'none'
+          rawBody.value = ''
+        }
       } else {
         bodyType.value = 'none'
         rawBody.value = ''
       }
-    } else {
-      bodyType.value = 'none'
-      rawBody.value = ''
+
+      response.value = null
+      selectedRequest.value = requestData
+    } catch (error) {
+      ElMessage.error('加载请求失败')
+      console.error('加载请求失败:', error)
     }
-    
-    response.value = null
   }
 }
 
-const onNodeRightClick = (event, data) => {
+const onNodeRightClick = (event, node, treeNode) => {
   event.preventDefault()
-  rightClickedNode.value = data
+  showContextMenu.value = true
   contextMenuX.value = event.clientX
   contextMenuY.value = event.clientY
-  showContextMenu.value = true
-  
-  nextTick(() => {
-    document.addEventListener('click', hideContextMenu)
-  })
+  rightClickedNode.value = node
 }
 
-const hideContextMenu = () => {
+const onNodeExpand = (node) => {
+  expandedKeys.value.push(node.id)
+}
+
+const onNodeCollapse = (node) => {
+  expandedKeys.value = expandedKeys.value.filter(key => key !== node.id)
+}
+
+const createEmptyRequest = () => {
+  if (!selectedProject.value) {
+    ElMessage.warning('请先选择项目')
+    return
+  }
+
+  const newRequest = {
+    id: null,
+    collection: null,
+    name: '未命名接口',
+    url: '',
+    method: 'GET',
+    params: {},
+    headers: {},
+    pre_request_script: '',
+    post_request_script: '',
+    assertions: [],
+    request_type: 'HTTP'
+  }
+
+  selectedRequest.value = newRequest
+}
+
+const openCreateCollectionDialog = () => {
+  showCreateCollectionDialog.value = true
+}
+
+const clearSearch = () => {
+  searchKeyword.value = ''
+  filteredCollections.value = []
+}
+
+const closeCreateCollectionDialog = () => {
+  showCreateCollectionDialog.value = false
+}
+
+const closeEditCollectionDialog = () => {
+  showEditCollectionDialog.value = false
+}
+
+const closeCurlImportDialog = () => {
+  showCurlImportDialog.value = false
+}
+
+const closeCodeGenerateDialog = () => {
+  showCodeGenerateDialog.value = false
+}
+
+const toggleJsonPathExtractor = () => {
+  showJsonPathExtractor.value = !showJsonPathExtractor.value
+}
+
+const addRequest = () => {
+  if (!rightClickedNode.value) return
+
+  const parentNode = rightClickedNode.value
+  if (!parentNode || parentNode.type !== 'collection') {
+    ElMessage.warning('只能在集合下添加接口')
+    return
+  }
+
+  const newRequest = {
+    id: null,
+    collection: parentNode.id,
+    name: '未命名接口',
+    url: '',
+    method: 'GET',
+    params: {},
+    headers: {},
+    pre_request_script: '',
+    post_request_script: '',
+    assertions: [],
+    request_type: 'HTTP'
+  }
+
+  selectedRequest.value = newRequest
   showContextMenu.value = false
-  document.removeEventListener('click', hideContextMenu)
 }
 
-const startEditCollection = (collection) => {
-  editingNodeId.value = collection.id
-  editingNodeName.value = collection.name
-  nextTick(() => {
-    if (editInputRef.value) {
-      editInputRef.value.focus()
+const addCollection = () => {
+  if (!rightClickedNode.value) return
+
+  const parentNode = rightClickedNode.value
+  if (!parentNode || parentNode.type !== 'collection') {
+    ElMessage.warning('只能在集合下添加子集合')
+    return
+  }
+
+  collectionForm.parent = parentNode.id
+  showCreateCollectionDialog.value = true
+  showContextMenu.value = false
+}
+
+const editNode = () => {
+  if (!rightClickedNode.value) return
+
+  const node = rightClickedNode.value
+  if (!node) {
+    ElMessage.warning('无法编辑此节点')
+    return
+  }
+
+  if (node.type === 'collection') {
+    editingNodeId.value = node.id
+    editingNodeName.value = node.name
+    showContextMenu.value = false
+
+    nextTick(() => {
+      editInputRef.value?.focus()
+    })
+  } else {
+    ElMessage.warning('只能编辑集合名称')
+  }
+}
+
+const deleteNode = () => {
+  if (!rightClickedNode.value) return
+
+  const node = rightClickedNode.value
+  if (!node) {
+    ElMessage.warning('无法删除此节点')
+    return
+  }
+
+  const nodeName = node.name
+
+  ElMessageBox.confirm(
+    `确定要删除${node.type === 'collection' ? '集合' : '接口'}「${nodeName}」吗？`,
+    '确认删除',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
     }
+  ).then(async () => {
+    try {
+      if (node.type === 'collection') {
+        await api.delete(`/api-testing/collections/${node.id}/`)
+      } else {
+        await api.delete(`/api-testing/requests/${node.id}/`)
+      }
+      ElMessage.success('删除成功')
+      await loadCollections(selectedProject.value)
+      showContextMenu.value = false
+    } catch (error) {
+      ElMessage.error('删除失败')
+      console.error('删除失败:', error)
+    }
+  }).catch(() => {
+    // 取消删除
+    showContextMenu.value = false
   })
 }
 
@@ -956,50 +1458,15 @@ const saveCollectionName = async () => {
   }
 
   try {
-    const collection = flatCollections.value.find(c => c.id === editingNodeId.value)
-    if (!collection) {
-      ElMessage.error(t('apiTesting.messages.error.operationFailed'))
-      cancelEdit()
-      return
-    }
-
-    const data = {
-      name: editingNodeName.value.trim(),
-      description: collection.description,
-      parent: collection.parent,
-      project: selectedProject.value
-    }
-
-    await api.put(`/api-testing/collections/${editingNodeId.value}/`, data)
-    
-    // 直接更新本地数据，避免重新加载
-    const updateCollectionName = (collections, id, newName) => {
-      for (const collection of collections) {
-        // 只更新集合类型的节点，跳过接口类型的节点
-        if (collection.type === 'collection' && collection.id === id) {
-          collection.name = newName
-          return true
-        }
-        if (collection.children && updateCollectionName(collection.children, id, newName)) {
-          return true
-        }
-      }
-      return false
-    }
-    
-    // 更新树中的集合名称
-    updateCollectionName(collections.value, editingNodeId.value, editingNodeName.value.trim())
-    
-    // 更新平均集合列表
-    const flatCollection = flatCollections.value.find(c => c.id === editingNodeId.value)
-    if (flatCollection) {
-      flatCollection.name = editingNodeName.value.trim()
-    }
-    
-    ElMessage.success(t('apiTesting.messages.success.collectionNameUpdated'))
-    cancelEdit()
+    await api.put(`/api-testing/collections/${editingNodeId.value}/`, {
+      name: editingNodeName.value.trim()
+    })
+    ElMessage.success('保存成功')
+    await loadCollections(selectedProject.value)
   } catch (error) {
-    ElMessage.error(t('apiTesting.messages.error.updateFailed'))
+    ElMessage.error('保存失败')
+    console.error('保存失败:', error)
+  } finally {
     cancelEdit()
   }
 }
@@ -1009,629 +1476,147 @@ const cancelEdit = () => {
   editingNodeName.value = ''
 }
 
-const onNodeExpand = (data) => {
-  if (!expandedKeys.value.includes(data.id)) {
-    expandedKeys.value.push(data.id)
+const collectionForm = reactive({
+  name: '',
+  description: '',
+  parent: null
+})
+
+const editCollectionForm = reactive({
+  id: null,
+  name: '',
+  description: '',
+  parent: null
+})
+
+const collectionRules = {
+  name: [{ required: true, message: '请输入集合名称', trigger: 'blur' }]
+}
+
+const methodClass = computed(() => {
+  const method = selectedRequest.value?.method || 'GET'
+  return `method-${method.toLowerCase()}`
+})
+
+const getMethodClass = (method) => {
+  return method ? method.toLowerCase() : 'get'
+}
+
+const getMethodColor = (method) => {
+  const colors = {
+    'get': '#61affe',
+    'post': '#49cc90',
+    'put': '#fca130',
+    'delete': '#f93e3e',
+    'patch': '#50e3c2',
+    'head': '#9013fe',
+    'options': '#0ebeff',
+    'connect': '#7f8c8d',
+    'trace': '#e67e22'
   }
+  return colors[(method || 'GET').toLowerCase()] || '#61affe'
 }
 
-const onNodeCollapse = (data) => {
-  const index = expandedKeys.value.indexOf(data.id)
-  if (index > -1) {
-    expandedKeys.value.splice(index, 1)
-  }
-}
-
-const addRequest = () => {
-  // 创建新请求
-  const newRequest = {
-    name: t('apiTesting.interface.newRequest'),
-    method: 'GET',
-    url: '',
-    headers: {},
-    params: {},
-    body: {},
-    collection: rightClickedNode.value.type === 'collection' ? rightClickedNode.value.id : rightClickedNode.value.collection,
-    type: 'request'
-  }
-  selectedRequest.value = newRequest
-  hideContextMenu()
-}
-
-const addCollection = () => {
-  collectionForm.parent = rightClickedNode.value.type === 'collection' ? rightClickedNode.value.id : null
-  showCreateCollectionDialog.value = true
-  hideContextMenu()
-}
-
-const editNode = () => {
-  if (rightClickedNode.value.type === 'request') {
-    // 使用与onNodeClick相同的逻辑来正确设置selectedRequest
-    const data = rightClickedNode.value
-    console.log('editNode - original data.headers:', data.headers)
-    const convertedHeaders = convertObjectToKeyValueArray(data.headers || {})
-    console.log('editNode - converted headers:', convertedHeaders)
-    
-    // 初始化currentHeaders
-    currentHeaders.value = data.headers || {}
-    console.log('editNode - initialized currentHeaders:', currentHeaders.value)
-    
-    selectedRequest.value = {
-      ...data,
-      params: convertObjectToKeyValueArray(data.params || {}),
-      headers: convertedHeaders,
-      body: data.body || {},
-      auth: data.auth || {}
-    }
-    
-    console.log('editNode - selectedRequest.value.headers:', selectedRequest.value.headers)
-
-    // 解析body数据
-    if (data.body && data.body.type) {
-      if (data.body.type === 'json' && data.body.data) {
-        bodyType.value = 'raw'
-        rawType.value = 'json'
-        rawBody.value = JSON.stringify(data.body.data, null, 2)
-      } else if (data.body.type === 'raw' && data.body.data) {
-        bodyType.value = 'raw'
-        rawType.value = 'text'
-        rawBody.value = data.body.data
-      } else if (data.body.type === 'form-data') {
-        bodyType.value = 'form-data'
-        formData.value = data.body.data || {}
-      } else if (data.body.type === 'x-www-form-urlencoded') {
-        bodyType.value = 'x-www-form-urlencoded'
-        formUrlEncoded.value = data.body.data || {}
-      } else if (data.body.type === 'binary') {
-        bodyType.value = 'binary'
-      } else {
-        bodyType.value = 'none'
-        rawBody.value = ''
+const requestMethod = computed({
+  get: () => selectedRequest.value?.method || 'GET',
+  set: (value) => {
+    if (!selectedRequest.value) {
+      // 如果selectedRequest为null，创建一个新的请求对象
+      const newRequest = {
+        method: value,
+        url: '',
+        type: 'request',
+        request_type: 'HTTP',
+        headers: [],
+        params: [],
+        body: {
+          type: 'none',
+          content: ''
+        }
       }
+      selectedRequest.value = newRequest
     } else {
-      bodyType.value = 'none'
-      rawBody.value = ''
+      selectedRequest.value.method = value
     }
-    
-    response.value = null
-  } else if (rightClickedNode.value.type === 'collection') {
-    // 打开集合编辑对话框
-    const collection = rightClickedNode.value
-    editCollectionForm.id = collection.id
-    editCollectionForm.name = collection.name
-    editCollectionForm.description = collection.description
-    editCollectionForm.parent = collection.parent
-    showEditCollectionDialog.value = true
   }
-  hideContextMenu()
-}
+})
 
-const deleteNode = async () => {
-  if (!rightClickedNode.value) {
-    hideContextMenu()
-    return
+const requestUrl = computed({
+  get: () => selectedRequest.value?.url || '',
+  set: (value) => {
+    if (selectedRequest.value) {
+      selectedRequest.value.url = value
+    }
   }
+})
 
-  const nodeType = rightClickedNode.value.type
-  const nodeName = rightClickedNode.value.name
+const hasBody = computed(() => {
+  return selectedRequest.value && selectedRequest.value.method && ['POST', 'PUT', 'PATCH'].includes(selectedRequest.value.method)
+})
 
-  // 显示确认对话框
+const responseBody = computed(() => {
+  if (!response.value || !response.value.response_data) return ''
+
   try {
-    const typeText = nodeType === 'collection' ? t('apiTesting.interface.collection') : t('apiTesting.interface.request')
-    const extra = nodeType === 'collection' ? t('apiTesting.interface.deleteCollectionExtra') : ''
-    await ElMessageBox.confirm(
-      t('apiTesting.interface.confirmDeleteNode', { type: typeText, name: nodeName, extra: extra }),
-      t('apiTesting.messages.confirm.deleteTitle'),
-      {
-        confirmButtonText: t('apiTesting.interface.confirmDeleteBtn'),
-        cancelButtonText: t('apiTesting.common.cancel'),
-        type: 'warning',
-        confirmButtonClass: 'el-button--danger'
-      }
-    )
-
-    // 用户确认删除，执行删除操作
-    if (nodeType === 'collection') {
-      await deleteCollection(rightClickedNode.value.id)
-    } else if (nodeType === 'request') {
-      await deleteRequest(rightClickedNode.value.id)
-    }
-  } catch (error) {
-    // 用户取消删除或删除失败，不做任何处理
-    console.log('删除操作被取消或失败:', error)
-  }
-  
-  hideContextMenu()
-}
-
-const deleteCollection = async (collectionId) => {
-  try {
-    await api.delete(`/api-testing/collections/${collectionId}/`)
-    ElMessage.success(t('apiTesting.messages.success.collectionDeleted'))
-    
-    // 如果当前选中的请求属于被删除的集合，清空选中状态
-    if (selectedRequest.value && selectedRequest.value.collection === collectionId) {
-      selectedRequest.value = null
-      response.value = null
-    }
-    
-    // 直接从树中移除集合，而不是重新加载
-    const removeCollectionFromTree = (collections, id) => {
-      for (let i = 0; i < collections.length; i++) {
-        if (collections[i].id === id) {
-          collections.splice(i, 1)
-          return true
-        }
-        if (collections[i].children && removeCollectionFromTree(collections[i].children, id)) {
-          return true
-        }
-      }
-      return false
-    }
-    
-    removeCollectionFromTree(collections.value, collectionId)
-    
-    // 从平集合列表中移除
-    const index = flatCollections.value.findIndex(c => c.id === collectionId)
-    if (index > -1) {
-      flatCollections.value.splice(index, 1)
-    }
-    
-    // 从展开键中移除
-    const expandedIndex = expandedKeys.value.indexOf(collectionId)
-    if (expandedIndex > -1) {
-      expandedKeys.value.splice(expandedIndex, 1)
-    }
-    
-  } catch (error) {
-    ElMessage.error(t('apiTesting.messages.error.deleteFailed'))
-    console.error('Delete collection error:', error)
-  }
-}
-
-const deleteRequest = async (requestId) => {
-  try {
-    await api.delete(`/api-testing/requests/${requestId}/`)
-    ElMessage.success(t('apiTesting.messages.success.interfaceDeleted'))
-    
-    // 如果当前选中的是被删除的请求，清空选中状态
-    if (selectedRequest.value && selectedRequest.value.id === requestId) {
-      selectedRequest.value = null
-      response.value = null
-    }
-    
-    // 直接从树中移除请求，而不是重新加载
-    const removeRequestFromTree = (collections, requestId) => {
-      for (const collection of collections) {
-        if (collection.children) {
-          const requestIndex = collection.children.findIndex(child => child.type === 'request' && child.id === requestId)
-          if (requestIndex > -1) {
-            collection.children.splice(requestIndex, 1)
-            return true
-          }
-        }
-        if (collection.children && removeRequestFromTree(collection.children, requestId)) {
-          return true
-        }
-      }
-      return false
-    }
-    
-    removeRequestFromTree(collections.value, requestId)
-    
-  } catch (error) {
-    ElMessage.error(t('apiTesting.messages.error.deleteFailed'))
-    console.error('Delete request error:', error)
-  }
-}
-
-const createCollection = async () => {
-  try {
-    const data = {
-      ...collectionForm,
-      project: selectedProject.value
-    }
-    const res = await api.post('/api-testing/collections/', data)
-    const newCollection = res.data
-
-    ElMessage.success(t('apiTesting.messages.success.collectionCreated'))
-    showCreateCollectionDialog.value = false
-    Object.assign(collectionForm, { name: '', description: '', parent: null })
-    
-    // 直接添加到本地数据，避免重新加载
-    const newTreeNode = {
-      ...newCollection,
-      type: 'collection',
-      children: []
-    }
-    
-    // 添加到平集合列表
-    flatCollections.value.push(newCollection)
-    
-    // 添加到树结构
-    if (newCollection.parent) {
-      // 找到父节点并添加
-      const findAndAddToParent = (collections, parentId, newNode) => {
-        for (const collection of collections) {
-          if (collection.id === parentId) {
-            if (!collection.children) collection.children = []
-            collection.children.push(newNode)
-            return true
-          }
-          if (collection.children && findAndAddToParent(collection.children, parentId, newNode)) {
-            return true
-          }
-        }
-        return false
-      }
-      
-      findAndAddToParent(collections.value, newCollection.parent, newTreeNode)
-      
-      // 自动展开父节点
-      if (!expandedKeys.value.includes(newCollection.parent)) {
-        expandedKeys.value.push(newCollection.parent)
-      }
+    if (response.value.response_data.json) {
+      return JSON.stringify(response.value.response_data.json, null, 2)
     } else {
-      // 添加到根级
-      collections.value.push(newTreeNode)
+      return response.value.response_data.body || ''
     }
-    
-    // 自动展开新创建的集合
-    if (!expandedKeys.value.includes(newCollection.id)) {
-      expandedKeys.value.push(newCollection.id)
-    }
-    
-  } catch (error) {
-    ElMessage.error(t('apiTesting.messages.error.createFailed'))
-  }
-}
-
-const updateCollection = async () => {
-  try {
-    const data = {
-      name: editCollectionForm.name,
-      description: editCollectionForm.description,
-      parent: editCollectionForm.parent,
-      project: selectedProject.value
-    }
-    await api.put(`/api-testing/collections/${editCollectionForm.id}/`, data)
-    
-    ElMessage.success(t('apiTesting.messages.success.collectionUpdated'))
-    showEditCollectionDialog.value = false
-    
-    // 更新本地树数据
-    const updateCollectionInTree = (collections, id, newData) => {
-      for (const collection of collections) {
-        if (collection.id === id) {
-          collection.name = newData.name
-          collection.description = newData.description
-          collection.parent = newData.parent
-          return true
-        }
-        if (collection.children && updateCollectionInTree(collection.children, id, newData)) {
-          return true
-        }
-      }
-      return false
-    }
-    
-    updateCollectionInTree(collections.value, editCollectionForm.id, data)
-    
-    // 更新平集合列表
-    const flatCollection = flatCollections.value.find(c => c.id === editCollectionForm.id)
-    if (flatCollection) {
-      flatCollection.name = editCollectionForm.name
-      flatCollection.description = editCollectionForm.description
-      flatCollection.parent = editCollectionForm.parent
-    }
-    
-    // 重置表单
-    Object.assign(editCollectionForm, { id: null, name: '', description: '', parent: null })
-    
-  } catch (error) {
-    ElMessage.error(t('apiTesting.messages.error.updateFailed'))
-  }
-}
-
-// 断言相关方法
-const addAssertion = () => {
-  if (!selectedRequest.value.assertions) {
-    selectedRequest.value.assertions = []
-  }
-
-  selectedRequest.value.assertions.push({
-    name: `${t('apiTesting.interface.assertion')}${selectedRequest.value.assertions.length + 1}`,
-    type: '',
-    expected: null,
-    json_path: '',
-    header_name: ''
-  })
-}
-
-const removeAssertion = (index) => {
-  if (selectedRequest.value.assertions) {
-    selectedRequest.value.assertions.splice(index, 1)
-  }
-}
-
-const onAssertionTypeChange = (assertion) => {
-  // 重置断言参数
-  assertion.expected = null
-  assertion.json_path = ''
-  assertion.header_name = ''
-}
-
-// WebSocket消息处理函数
-const handleWebSocketFileUpload = (file) => {
-  websocketBinaryFile.value = file.raw
-  return false
-}
-
-const clearWebSocketBinaryFile = () => {
-  websocketBinaryFile.value = null
-}
-
-const sendWebSocketMessage = () => {
-  if (websocketConnectionStatus.value !== 'connected') {
-    ElMessage.warning(t('apiTesting.messages.warning.pleaseConnect'))
-    return
-  }
-
-  if (!websocketConnection.value) {
-    ElMessage.error(t('apiTesting.messages.error.connectFailed'))
-    return
-  }
-
-  try {
-    let messageToSend = ''
-
-    if (websocketMessageType.value === 'text' || websocketMessageType.value === 'json') {
-      messageToSend = websocketMessageContent.value
-    } else if (websocketMessageType.value === 'binary' && websocketBinaryFile.value) {
-      // 对于二进制文件，需要读取文件内容
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        websocketConnection.value.send(e.target.result)
-        addWebSocketMessage('sent', '[Binary Data]')
-        ElMessage.success(t('apiTesting.messages.success.binaryMessageSent'))
-      }
-      reader.onerror = () => {
-        ElMessage.error(t('apiTesting.messages.error.readFileFailed'))
-      }
-      reader.readAsArrayBuffer(websocketBinaryFile.value)
-      return
-    } else {
-      ElMessage.warning(t('apiTesting.messages.warning.pleaseInputContent'))
-      return
-    }
-
-    websocketConnection.value.send(messageToSend)
-    addWebSocketMessage('sent', messageToSend)
-    ElMessage.success(t('apiTesting.messages.success.messageSent'))
-
-  } catch (error) {
-    const errorMsg = t('apiTesting.messages.error.sendFailed') + ': ' + error.message
-    addWebSocketMessage('error', errorMsg)
-    ElMessage.error(errorMsg)
-  }
-}
-
-const clearWebSocketMessage = () => {
-  websocketMessageContent.value = ''
-  websocketBinaryFile.value = null
-  websocketMessageType.value = 'text'
-}
-
-// WebSocket消息历史记录相关方法
-const addWebSocketMessage = (type, content) => {
-  const timestamp = new Date().toLocaleTimeString()
-  websocketMessages.value.push({
-    type,
-    content,
-    timestamp
-  })
-}
-
-const clearWebSocketMessages = () => {
-  websocketMessages.value = []
-}
-
-const isJsonString = (str) => {
-  try {
-    JSON.parse(str)
-    return true
   } catch (e) {
-    return false
+    return response.value.response_data?.body || ''
   }
+})
+
+const convertKeyValueArrayToObject = (input) => {
+  if (input && typeof input === 'object' && !Array.isArray(input)) {
+    return input
+  }
+
+  if (!Array.isArray(input)) return {}
+
+  const obj = {}
+  input.forEach(item => {
+    if (item.enabled !== false && item.key) {
+      obj[item.key] = item.value || ''
+    }
+  })
+  return obj
 }
 
-const formatJson = (str) => {
+const highlightedResponseBody = computed(() => {
+  if (!responseBody.value) return ''
+
   try {
-    return JSON.stringify(JSON.parse(str), null, 2)
+    // 简单的 JSON 语法高亮
+    return responseBody.value
+      .replace(/"([^"]+)"\s*:/g, '<span style="color: #268bd2;">"$1"</span>:')
+      .replace(/:\s*"([^"]+)"/g, ': <span style="color: #2aa198;">"$1"</span>')
+      .replace(/:\s*(true|false|null)/g, ': <span style="color: #cb4b16;">$1</span>')
+      .replace(/:\s*([0-9]+(\.[0-9]+)?)/g, ': <span style="color: #d33682;">$1</span>')
   } catch (e) {
-    return str
+    return responseBody.value
   }
-}
+})
 
-// WebSocket连接管理函数
-const toggleWebSocketConnection = () => {
-  if (websocketConnectionStatus.value === 'disconnected') {
-    connectWebSocket()
-  } else {
-    disconnectWebSocket()
-  }
-}
-
-const connectWebSocket = () => {
-  if (!selectedRequest.value || !selectedRequest.value.url) {
-    ElMessage.warning(t('apiTesting.messages.warning.pleaseInputUrl'))
-    return
-  }
-
-  websocketConnectionStatus.value = 'connecting'
-
-  try {
-    // 替换环境变量
-    let url = selectedRequest.value.url
-    if (selectedEnvironment.value) {
-      const env = environments.value.find(e => e.id === selectedEnvironment.value)
-      if (env && env.variables) {
-        Object.entries(env.variables).forEach(([key, value]) => {
-          url = url.replace(`{{${key}}}`, value.currentValue || value.initialValue || '')
-        })
-      }
-    }
-
-    // 创建WebSocket连接
-    websocketConnection.value = new WebSocket(url)
-
-    websocketConnection.value.onopen = () => {
-      websocketConnectionStatus.value = 'connected'
-      // 添加连接成功的特殊消息
-      addWebSocketMessage('connected', t('apiTesting.messages.info.websocketConnectedTo', { url }))
-      ElMessage.success(t('apiTesting.messages.success.connect'))
-    }
-
-    websocketConnection.value.onmessage = (event) => {
-      // 处理接收到的消息
-      console.log('WebSocket message received:', event.data)
-      addWebSocketMessage('received', event.data)
-      ElMessage.info(t('apiTesting.messages.info.websocketMessageReceived'))
-    }
-
-    websocketConnection.value.onclose = () => {
-      websocketConnectionStatus.value = 'disconnected'
-      addWebSocketMessage('info', t('apiTesting.messages.info.websocketClosed'))
-      ElMessage.info(t('apiTesting.messages.info.websocketClosed'))
-    }
-
-    websocketConnection.value.onerror = (error) => {
-      websocketConnectionStatus.value = 'disconnected'
-      const errorMsg = t('apiTesting.messages.error.websocketError') + ': ' + (error.message || '')
-      addWebSocketMessage('error', errorMsg)
-      ElMessage.error(errorMsg)
-    }
-
-  } catch (error) {
-    websocketConnectionStatus.value = 'disconnected'
-    const errorMsg = t('apiTesting.messages.error.connectFailed') + ': ' + error.message
-    addWebSocketMessage('error', errorMsg)
-    ElMessage.error(errorMsg)
-  }
-}
-
-const disconnectWebSocket = () => {
-  if (websocketConnection.value) {
-    websocketConnection.value.close()
-    websocketConnection.value = null
-  }
-  websocketConnectionStatus.value = 'disconnected'
-  // 清空消息历史
-  clearWebSocketMessages()
-}
-
-const createEmptyRequest = async () => {
-  // 检查是否有选中的项目
-  if (!selectedProject.value) {
-    ElMessage.warning(t('apiTesting.messages.warning.pleaseSelectProject'))
-    return
-  }
-
-  // 检查是否有可用的集合
-  if (!flatCollections.value || flatCollections.value.length === 0) {
-    ElMessage.warning(t('apiTesting.messages.warning.pleaseCreateCollection'))
-    return
-  }
-  
-  // 使用第一个集合作为默认集合
-  const defaultCollection = flatCollections.value[0]
-  
-  // 获取当前项目信息
-  const currentProject = projects.value.find(p => p.id === selectedProject.value)
-  const isWebSocketProject = currentProject && currentProject.project_type === 'WEBSOCKET'
-  
-  saving.value = true
-  try {
-    // 创建一个空的接口，参照"获取宠物列表"的样式
-    const data = {
-      name: '新建接口',
-      method: isWebSocketProject ? 'CONNECT' : 'GET',
-      url: isWebSocketProject ? 'ws://{{host}}/websocket' : '{{base_url}}/api/new-endpoint',
-      description: '',
-      collection: defaultCollection.id,
-      project: selectedProject.value,
-      request_type: isWebSocketProject ? 'WEBSOCKET' : 'HTTP',
-      params: {},
-      headers: isWebSocketProject ? {} : {
-        'Content-Type': 'application/json'
-      },
-      body: {},
-      auth: {},
-      pre_request_script: '',
-      post_request_script: ''
-    }
-    
-    const res = await api.post('/api-testing/requests/', data)
-    ElMessage.success(t('apiTesting.messages.success.create'))
-
-    // 重新加载集合和请求
-    await Promise.all([loadCollections(), loadRequests()])
-    
-    // 自动选中新创建的请求并进入编辑状态
-    selectedRequest.value = {
-      id: res.data.id,
-      name: res.data.name,
-      method: res.data.method,
-      url: res.data.url,
-      description: res.data.description || '',
-      collection: res.data.collection,
-      project: res.data.project,
-      request_type: res.data.request_type,
-      params: convertObjectToKeyValueArray(res.data.params || {}),
-      headers: convertObjectToKeyValueArray(res.data.headers || {}),
-      body: res.data.body || {},
-      auth: res.data.auth || {},
-      pre_request_script: res.data.pre_request_script || '',
-      post_request_script: res.data.post_request_script || ''
-    }
-    
-    // 默认进入params标签页
-    activeTab.value = 'params'
-    
-    // 初始化body相关变量
-    bodyType.value = 'none'
-    rawType.value = 'json'
-    formData.value = {}
-    formUrlEncoded.value = {}
-    rawBody.value = ''
-    
-  } catch (error) {
-    ElMessage.error(t('apiTesting.messages.error.createFailed'))
-    console.error('Create request error:', error)
-  } finally {
-    saving.value = false
-  }
+const getStatusType = (status) => {
+  if (status >= 200 && status < 300) return 'success'
+  if (status >= 300 && status < 400) return 'warning'
+  if (status >= 400) return 'danger'
+  return 'info'
 }
 
 const sendRequest = async () => {
-  if (!selectedRequest.value) return
-
-  // 检查是否为WebSocket接口
-  if (selectedRequest.value.request_type === 'WEBSOCKET') {
-    ElMessage.warning(t('apiTesting.messages.warning.websocketNotSupported'))
+  if (!selectedRequest.value || !selectedRequest.value.url) {
+    ElMessage.warning('请填写请求URL')
     return
   }
 
-  // 检查是否选择了环境
-  if (!selectedEnvironment.value) {
-    ElMessage.warning(t('apiTesting.messages.warning.pleaseSelectEnvironment'))
-    return
-  }
-  
-  sending.value = true
   try {
+    sending.value = true
+
     // 发送请求前先自动保存当前的修改
-    await saveRequest()
+    // await saveRequest()
 
     // 准备请求体数据
     let bodyData = {}
@@ -1660,12 +1645,12 @@ const sendRequest = async () => {
       } else if (bodyType.value === 'form-data') {
         bodyData = {
           type: 'form-data',
-          data: formData.value || {}
+          data: formData.value || []
         }
       } else if (bodyType.value === 'x-www-form-urlencoded') {
         bodyData = {
           type: 'x-www-form-urlencoded',
-          data: formUrlEncoded.value || {}
+          data: formUrlEncoded.value || []
         }
       } else if (bodyType.value === 'binary') {
         bodyData = {
@@ -1674,49 +1659,48 @@ const sendRequest = async () => {
         }
       }
     }
-    
+
     const requestData = {
-      ...selectedRequest.value,
+      url: selectedRequest.value.url,
+      method: selectedRequest.value.method,
       params: convertKeyValueArrayToObject(selectedRequest.value.params || []),
-      headers: selectedRequest.value.headers,  // 现在直接使用数组格式
-      body: bodyData,
+      headers: selectedRequest.value.headers,
       environment_id: selectedEnvironment.value
     }
     
-    const res = await api.post(`/api-testing/requests/${selectedRequest.value.id}/execute/`, requestData)
-    response.value = res.data
-    ElMessage.success(t('apiTesting.messages.success.requestSent'))
-  } catch (error) {
-    ElMessage.error(t('apiTesting.messages.error.requestFailed'))
-    if (error.response?.data) {
-      response.value = error.response.data
+    // 对于GET请求，不发送body字段
+    if (hasBody.value) {
+      requestData.body = bodyData
     }
+
+    const apiResponse = await api.post(`/api-testing/requests/${selectedRequest.value.id}/execute/`, requestData)
+    response.value = apiResponse.data
+
+    ElMessage.success('请求成功')
+  } catch (error) {
+    ElMessage.error('请求失败')
+    console.error('请求失败:', error)
   } finally {
     sending.value = false
   }
 }
 
-// 存储最新的headers数据
-const currentHeaders = ref({})
-
-const onHeadersUpdate = (newHeaders) => {
-  console.log('Headers updated:', newHeaders)
-  currentHeaders.value = newHeaders
+const onHeadersUpdate = (headers) => {
   if (selectedRequest.value) {
-    // 强制更新整个selectedRequest对象以触发响应式更新
-    selectedRequest.value = {
-      ...selectedRequest.value,
-      headers: newHeaders
-    }
-    console.log('Updated selectedRequest.headers:', selectedRequest.value.headers)
+    currentHeaders.value = headers
+    selectedRequest.value.headers = headers
   }
 }
 
 const saveRequest = async () => {
-  if (!selectedRequest.value) return
+  if (!selectedRequest.value || !selectedRequest.value.url) {
+    ElMessage.warning('请填写请求URL')
+    return
+  }
 
-  saving.value = true
   try {
+    saving.value = true
+
     // 准备保存的数据
     let bodyData = {}
 
@@ -1743,33 +1727,27 @@ const saveRequest = async () => {
           }
         }
       } else if (bodyType.value === 'form-data') {
-        // 处理 form-data 类型
         bodyData = {
           type: 'form-data',
-          data: formData.value || {}
+          data: formData.value || []
         }
       } else if (bodyType.value === 'x-www-form-urlencoded') {
-        // 处理 x-www-form-urlencoded 类型
         bodyData = {
           type: 'x-www-form-urlencoded',
-          data: formUrlEncoded.value || {}
+          data: formUrlEncoded.value || []
         }
       } else if (bodyType.value === 'binary') {
-        // 处理 binary 类型
         bodyData = {
           type: 'binary',
           data: null
         }
       }
     }
-    
+
     // 直接从KeyValueEditor组件获取当前headers（完整数组格式）
     let finalHeaders = []
-    console.log('headersEditorRef.value:', headersEditorRef.value)
     if (headersEditorRef.value) {
-      // 直接访问KeyValueEditor的rows数据，保持完整的数组格式
       const rows = headersEditorRef.value.rows || []
-      console.log('Direct access to headers rows:', rows)
       finalHeaders = rows
         .filter(row => row.enabled && row.key && row.key.trim())
         .map(row => ({
@@ -1778,102 +1756,844 @@ const saveRequest = async () => {
           description: row.description || '',
           enabled: row.enabled !== false
         }))
-      console.log('Final headers array format:', finalHeaders)
     } else {
-      console.log('headersEditorRef.value is null or undefined')
-      // 如果无法获取，使用selectedRequest中的headers
       if (selectedRequest.value.headers && Array.isArray(selectedRequest.value.headers)) {
         finalHeaders = selectedRequest.value.headers.filter(item => item.enabled && item.key)
       }
     }
-    
-    console.log('Final headers to save:', finalHeaders)
-    console.log('selectedRequest.value.params:', selectedRequest.value.params)
-    
-    const data = {
+
+    const requestData = {
       ...selectedRequest.value,
-      params: convertKeyValueArrayToObject(selectedRequest.value.params || []),
-      headers: finalHeaders,  // 保存完整的数组格式，包含description
-      body: bodyData
+      params: Array.isArray(selectedRequest.value.params) ? convertKeyValueArrayToObject(selectedRequest.value.params || []) : selectedRequest.value.params,
+      headers: finalHeaders
     }
     
-    console.log('Data being sent to backend:', data)
-    
-    console.log('Final save data:', data)
-    console.log('Headers being saved:', data.headers)
-    
-    if (selectedRequest.value.id) {
-      await api.put(`/api-testing/requests/${selectedRequest.value.id}/`, data)
-      
-      // 更新树中的请求名称，避免重新加载
-      const updateRequestName = (collections, requestId, newName) => {
-        for (const collection of collections) {
-          if (collection.children) {
-            const request = collection.children.find(child => child.type === 'request' && child.id === requestId)
-            if (request) {
-              request.name = newName
-              return true
-            }
-          }
-          if (collection.children && updateRequestName(collection.children, requestId, newName)) {
-            return true
-          }
-        }
-        return false
-      }
-      
-      updateRequestName(collections.value, selectedRequest.value.id, selectedRequest.value.name)
-    } else {
-      const res = await api.post('/api-testing/requests/', data)
-      selectedRequest.value.id = res.data.id
-      // 新建的请求需要重新加载树以显示新请求
-      await loadCollections()
+    // 对于GET请求，不包含body字段
+    if (hasBody.value) {
+      requestData.body = bodyData
     }
 
-    ElMessage.success(t('apiTesting.messages.success.save'))
+    let response
+    if (selectedRequest.value.id) {
+      response = await api.put(`/api-testing/requests/${selectedRequest.value.id}/`, requestData)
+    } else {
+      response = await api.post('/api-testing/requests/', requestData)
+    }
+
+    selectedRequest.value = response.data
+    await loadCollections(selectedProject.value)
+    ElMessage.success('保存成功')
   } catch (error) {
-    ElMessage.error(t('apiTesting.messages.error.saveFailed'))
+    ElMessage.error('保存失败')
+    console.error('保存失败:', error)
   } finally {
     saving.value = false
   }
 }
 
 const onBodyTypeChange = () => {
-  if (bodyType.value === 'raw') {
-    rawType.value = 'json'
-    rawBody.value = ''
+  // 保存当前body数据到selectedRequest
+  if (selectedRequest.value) {
+    if (bodyType.value === 'raw' && rawBody.value) {
+      if (rawType.value === 'json') {
+        try {
+          selectedRequest.value.body = {
+            type: 'json',
+            data: JSON.parse(rawBody.value)
+          }
+        } catch (e) {
+          selectedRequest.value.body = {
+            type: 'raw',
+            data: rawBody.value
+          }
+        }
+      } else {
+        selectedRequest.value.body = {
+          type: 'raw',
+          data: rawBody.value
+        }
+      }
+    } else if (bodyType.value === 'form-data') {
+      selectedRequest.value.body = {
+        type: 'form-data',
+        data: formData.value || []
+      }
+    } else if (bodyType.value === 'x-www-form-urlencoded') {
+      selectedRequest.value.body = {
+        type: 'x-www-form-urlencoded',
+        data: formUrlEncoded.value || []
+      }
+    } else if (bodyType.value === 'binary') {
+      selectedRequest.value.body = {
+        type: 'binary',
+        data: null
+      }
+    } else {
+      selectedRequest.value.body = {
+        type: 'none',
+        data: null
+      }
+    }
+  }
+}
+
+const addAssertion = () => {
+  if (!selectedRequest.value) return
+
+  if (!selectedRequest.value.assertions) {
+    selectedRequest.value.assertions = []
+  }
+
+  selectedRequest.value.assertions.push({
+    name: `${t('apiTesting.interface.assertion')}${selectedRequest.value.assertions.length + 1}`,
+    type: 'status_code',
+    expected: 200
+  })
+}
+
+const removeAssertion = (index) => {
+  if (!selectedRequest.value || !selectedRequest.value.assertions) return
+
+  selectedRequest.value.assertions.splice(index, 1)
+}
+
+const onAssertionTypeChange = (assertion) => {
+  // 根据断言类型重置相关字段
+  if (assertion.type === 'status_code') {
+    assertion.expected = 200
+  } else if (assertion.type === 'response_time') {
+    assertion.expected = 1000
+  } else if (assertion.type === 'contains') {
+    assertion.expected = ''
+  } else if (assertion.type === 'json_path') {
+    assertion.json_path = ''
+    assertion.expected = ''
+  } else if (assertion.type === 'header') {
+    assertion.header_name = ''
+    assertion.expected_value = ''
+  } else if (assertion.type === 'equals') {
+    assertion.expected = ''
   }
 }
 
 const formatResponse = () => {
-  // 格式化响应内容
+  if (!response.value || !response.value.response_data) return
+
   try {
-    if (response.value?.response_data?.json) {
-      response.value.response_data.body = JSON.stringify(response.value.response_data.json, null, 2)
+    if (response.value.response_data.json) {
+      response.value.response_data.json = JSON.parse(JSON.stringify(response.value.response_data.json))
     }
+    ElMessage.success('格式化成功')
   } catch (e) {
-    ElMessage.error(t('apiTesting.messages.error.formatFailed'))
+    ElMessage.error('格式化失败')
   }
 }
 
 const copyResponse = () => {
   if (responseBody.value) {
     navigator.clipboard.writeText(responseBody.value)
-    ElMessage.success(t('apiTesting.messages.success.copiedToClipboard'))
+    ElMessage.success('已复制到剪贴板')
   }
 }
 
-onMounted(() => {
-  loadProjects()
+const evaluateJsonPath = () => {
+  if (!response.value || !response.value.response_data || !response.value.response_data.json || !jsonPathExpression.value) {
+    jsonPathResult.value = null
+    return
+  }
+
+  try {
+    // 简单的JSONPath实现
+    const json = response.value.response_data.json
+    let result = json
+
+    // 解析JSONPath表达式
+    const parts = jsonPathExpression.value.split('.').filter(p => p)
+
+    for (const part of parts) {
+      if (part === '$') {
+        result = json
+      } else if (part.includes('[')) {
+        // 处理数组索引
+        const [arrayName, indexStr] = part.split('[')
+        const index = parseInt(indexStr.replace(']', ''))
+        result = result[arrayName][index]
+      } else {
+        result = result[part]
+      }
+    }
+
+    jsonPathResult.value = JSON.stringify(result, null, 2)
+  } catch (e) {
+    jsonPathResult.value = 'JSONPath表达式错误'
+  }
+}
+
+const copyJsonPathResult = () => {
+  if (jsonPathResult.value) {
+    navigator.clipboard.writeText(jsonPathResult.value)
+    ElMessage.success('已复制到剪贴板')
+  }
+}
+
+const formatAssertionValue = (value) => {
+  if (typeof value === 'object' && value !== null) {
+    return JSON.stringify(value, null, 2)
+  }
+  return value
+}
+
+const createCollection = async () => {
+  if (!collectionForm.name.trim()) {
+    ElMessage.warning('请输入集合名称')
+    return
+  }
+
+  try {
+    const response = await api.post('/api-testing/collections/', {
+      ...collectionForm,
+      project: selectedProject.value
+    })
+    ElMessage.success('创建成功')
+    await loadCollections(selectedProject.value)
+    showCreateCollectionDialog.value = false
+    collectionForm.name = ''
+    collectionForm.description = ''
+    collectionForm.parent = null
+  } catch (error) {
+    ElMessage.error('创建失败')
+    console.error('创建失败:', error)
+  }
+}
+
+const updateCollection = async () => {
+  if (!editCollectionForm.name.trim()) {
+    ElMessage.warning('请输入集合名称')
+    return
+  }
+
+  try {
+    await api.put(`/api-testing/collections/${editCollectionForm.id}/`, editCollectionForm)
+    ElMessage.success('更新成功')
+    await loadCollections(selectedProject.value)
+    showEditCollectionDialog.value = false
+  } catch (error) {
+    ElMessage.error('更新失败')
+    console.error('更新失败:', error)
+  }
+}
+
+const importCurl = () => {
+  // 清空上次的 curl 命令
+  curlCommand.value = ''
+  showCurlImportDialog.value = true
+}
+
+const parseAndImportCurl = async () => {
+  if (!curlCommand.value.trim()) {
+    ElMessage.warning('请输入CURL命令')
+    return
+  }
+
+  try {
+    const requestModel = await RequestModelParser.parseCurl(curlCommand.value)
+
+    if (!selectedRequest.value) {
+      createEmptyRequest()
+    }
+
+    // 回填基本字段
+    selectedRequest.value.method = requestModel.method
+    selectedRequest.value.url = requestModel.baseURL + requestModel.path
+    selectedRequest.value.headers = requestModel.headers
+    selectedRequest.value.params = requestModel.query
+
+    // 回填 body 相关字段
+    if (requestModel.body.mode !== 'none') {
+      if (requestModel.body.mode === 'json') {
+        bodyType.value = 'raw'
+        rawType.value = 'json'
+        rawBody.value = requestModel.body.json || ''
+      } else if (requestModel.body.mode === 'raw') {
+        bodyType.value = 'raw'
+        rawType.value = 'text'
+        rawBody.value = requestModel.body.raw || ''
+      } else if (requestModel.body.mode === 'formdata') {
+        bodyType.value = 'form-data'
+        formData.value = requestModel.body.formdata || []
+      } else if (requestModel.body.mode === 'urlencoded') {
+        bodyType.value = 'x-www-form-urlencoded'
+        formUrlEncoded.value = requestModel.body.urlencoded || []
+      }
+    }
+
+    showCurlImportDialog.value = false
+    ElMessage.success('导入成功')
+  } catch (error) {
+    ElMessage.error('解析CURL命令失败')
+    console.error('解析CURL命令失败:', error)
+  }
+}
+
+const exportRequest = () => {
+  if (!selectedRequest.value) return
+
+  try {
+    let baseURL = ''
+    let path = ''
+    
+    if (selectedRequest.value.url) {
+      try {
+        const url = new URL(selectedRequest.value.url)
+        baseURL = `${url.protocol}//${url.host}`
+        path = url.pathname
+      } catch (error) {
+        baseURL = selectedRequest.value.url
+        path = ''
+      }
+    }
+    
+    const requestModel = {
+      method: selectedRequest.value?.method || 'GET',
+      baseURL: baseURL,
+      path: path,
+      query: selectedRequest.value?.params || [],
+      headers: selectedRequest.value?.headers || [],
+      body: {
+        mode: 'none',
+        raw: rawBody.value || ''
+      },
+      timeout: 30000
+    }
+    
+    const curlCommand = RequestModelParser.toCurl(requestModel)
+    navigator.clipboard.writeText(curlCommand)
+    ElMessage.success('已复制到剪贴板')
+  } catch (error) {
+    ElMessage.error('导出失败')
+    console.error('导出失败:', error)
+  }
+}
+
+const generateCode = async (language) => {
+  if (!selectedRequest.value) return
+
+  if (!selectedRequest.value.url) {
+    ElMessage.warning('请求URL不能为空')
+    return
+  }
+
+  try {
+    // 更新语言选择器的值
+    codeLanguage.value = language
+
+    // 构建完整的 requestModel 对象
+    let bodyMode = 'none'
+
+    if (bodyType.value === 'raw') {
+      bodyMode = rawType.value === 'json' ? 'json' : 'raw'
+    } else if (bodyType.value === 'form-data') {
+      bodyMode = 'formdata'
+    } else if (bodyType.value === 'x-www-form-urlencoded') {
+      bodyMode = 'urlencoded'
+    } else if (bodyType.value === 'binary') {
+      bodyMode = 'binary'
+    }
+
+    // 解析 URL 获取 baseURL 和 path
+    let baseURL = ''
+    let path = ''
+    try {
+      const url = new URL(selectedRequest.value.url)
+      baseURL = `${url.protocol}//${url.host}`
+      path = url.pathname
+    } catch (error) {
+      // 如果 URL 解析失败，使用整个 URL 作为 path
+      path = selectedRequest.value.url
+    }
+
+    // 构建完整的 requestModel 对象
+    const requestModel = {
+      method: selectedRequest.value.method || 'GET',
+      baseURL: baseURL,
+      path: path,
+      query: Array.isArray(selectedRequest.value.params) ? selectedRequest.value.params : [],
+      headers: Array.isArray(selectedRequest.value.headers) ? selectedRequest.value.headers : [],
+      body: {
+        mode: bodyMode,
+        raw: rawBody.value,
+        json: rawBody.value,
+        formdata: formData.value,
+        urlencoded: formUrlEncoded.value
+      },
+      timeout: 30000
+    }
+
+    const code = await CodeGenerator.generateCode(requestModel, language)
+    generatedCode.value = code
+    showCodeGenerateDialog.value = true
+  } catch (error) {
+    ElMessage.error('生成代码失败')
+    console.error('生成代码失败:', error)
+  }
+}
+
+const copyGeneratedCode = () => {
+  if (generatedCode.value) {
+    navigator.clipboard.writeText(generatedCode.value)
+    ElMessage.success('已复制到剪贴板')
+  }
+}
+
+const toggleWebSocketConnection = async () => {
+  if (!selectedRequest.value || !selectedRequest.value.url) {
+    ElMessage.warning('请填写WebSocket URL')
+    return
+  }
+
+  if (websocketConnectionStatus.value === 'connected') {
+    // 关闭连接
+    if (websocketConnection.value) {
+      websocketConnection.value.close()
+      websocketConnection.value = null
+    }
+    websocketConnectionStatus.value = 'disconnected'
+    ElMessage.success('WebSocket连接已关闭')
+  } else {
+    // 建立连接
+    try {
+      websocketConnectionStatus.value = 'connecting'
+      const wsUrl = selectedRequest.value.url.replace('http://', 'ws://').replace('https://', 'wss://')
+
+      websocketConnection.value = new WebSocket(wsUrl)
+
+      websocketConnection.value.onopen = () => {
+        websocketConnectionStatus.value = 'connected'
+        ElMessage.success('WebSocket连接成功')
+        websocketMessages.value.push({
+          type: 'connected',
+          content: 'WebSocket连接成功',
+          timestamp: new Date().toLocaleString()
+        })
+      }
+
+      websocketConnection.value.onmessage = (event) => {
+        websocketMessages.value.push({
+          type: 'received',
+          content: event.data,
+          timestamp: new Date().toLocaleString()
+        })
+      }
+
+      websocketConnection.value.onclose = () => {
+        websocketConnectionStatus.value = 'disconnected'
+        websocketConnection.value = null
+        websocketMessages.value.push({
+          type: 'info',
+          content: 'WebSocket连接已关闭',
+          timestamp: new Date().toLocaleString()
+        })
+      }
+
+      websocketConnection.value.onerror = (error) => {
+        websocketConnectionStatus.value = 'disconnected'
+        websocketConnection.value = null
+        ElMessage.error('WebSocket连接失败')
+        websocketMessages.value.push({
+          type: 'error',
+          content: `WebSocket连接失败: ${error.message}`,
+          timestamp: new Date().toLocaleString()
+        })
+      }
+    } catch (error) {
+      websocketConnectionStatus.value = 'disconnected'
+      ElMessage.error('WebSocket连接失败')
+      console.error('WebSocket连接失败:', error)
+    }
+  }
+}
+
+const sendWebSocketMessage = () => {
+  if (!websocketConnection.value || websocketConnectionStatus.value !== 'connected') {
+    ElMessage.warning('请先建立WebSocket连接')
+    return
+  }
+
+  if (websocketMessageType.value === 'binary' && !websocketBinaryFile.value) {
+    ElMessage.warning('请选择要发送的二进制文件')
+    return
+  }
+
+  try {
+    let message = websocketMessageContent.value
+    if (websocketMessageType.value === 'json') {
+
+      message = JSON.parse(message)
+    }
+
+    websocketConnection.value.send(message)
+    websocketMessages.value.push({
+      type: 'sent',
+      content: websocketMessageContent.value,
+      timestamp: new Date().toLocaleString()
+    })
+
+    if (websocketMessageType.value !== 'binary') {
+      websocketMessageContent.value = ''
+    }
+  } catch (error) {
+    ElMessage.error('发送消息失败')
+    console.error('发送消息失败:', error)
+  }
+}
+
+const clearWebSocketMessage = () => {
+  websocketMessageContent.value = ''
+  websocketBinaryFile.value = null
+}
+
+const clearWebSocketMessages = () => {
+  websocketMessages.value = []
+}
+
+const handleWebSocketFileUpload = (file) => {
+  websocketBinaryFile.value = file.raw
+}
+
+const clearWebSocketBinaryFile = () => {
+  websocketBinaryFile.value = null
+}
+
+const isJsonString = (str) => {
+  try {
+    JSON.parse(str)
+    return true
+  } catch (e) {
+    return false
+  }
+}
+
+const formatJson = (str) => {
+  try {
+    const obj = JSON.parse(str)
+    return JSON.stringify(obj, null, 2)
+  } catch (e) {
+    return str
+  }
+}
+
+const openDataFactorySelectorForBody = (field) => {
+  currentBodyField.value = field
+  currentAssertion.value = null
+  currentAssertionField.value = ''
+  currentAssertionIndex.value = -1
+  currentScriptField.value = ''
+  showDataFactorySelector.value = true
+}
+
+const openDataFactorySelectorForScript = (field) => {
+  currentScriptField.value = field
+  currentAssertion.value = null
+  currentAssertionField.value = ''
+  currentAssertionIndex.value = -1
+  showDataFactorySelector.value = true
+}
+
+const openDataFactorySelector = (assertion, field, index) => {
+  currentAssertion.value = assertion
+  currentAssertionField.value = field
+  currentAssertionIndex.value = index
+  currentScriptField.value = ''
+  showDataFactorySelector.value = true
+}
+
+const openVariableHelper = (field) => {
+  currentEditingField.value = field
+  currentAssertion.value = null
+  currentAssertionField.value = ''
+  currentAssertionIndex.value = -1
+  showVariableHelper.value = true
+}
+
+const openVariableHelperForAssertion = (assertion, field, index) => {
+  currentAssertion.value = assertion
+  currentAssertionField.value = field
+  currentAssertionIndex.value = index
+  currentEditingField.value = ''
+  showVariableHelper.value = true
+}
+
+const insertVariable = (variable) => {
+  // 确保variable是对象（处理行点击事件）
+  if (typeof variable === 'object' && variable !== null) {
+    if (currentEditingField.value && selectedRequest.value) {
+      const example = variable.example
+
+      if (currentEditingField.value === 'rawBody') {
+        const currentValue = rawBody.value || ''
+        if (!currentValue) {
+          rawBody.value = example
+        } else {
+          rawBody.value = currentValue + example
+        }
+      } else if (currentEditingField.value === 'pre_request_script') {
+        const currentValue = selectedRequest.value.pre_request_script || ''
+        if (!currentValue) {
+          selectedRequest.value.pre_request_script = example
+        } else {
+          selectedRequest.value.pre_request_script = currentValue + example
+        }
+      } else if (currentEditingField.value === 'post_request_script') {
+        const currentValue = selectedRequest.value.post_request_script || ''
+        if (!currentValue) {
+          selectedRequest.value.post_request_script = example
+        } else {
+          selectedRequest.value.post_request_script = currentValue + example
+        }
+      }
+
+      ElMessage.success(`已插入变量: ${variable.name}`)
+      showVariableHelper.value = false
+    } else if (currentAssertion.value && currentAssertionField.value) {
+      const example = variable.example
+      const field = currentAssertionField.value
+
+      const currentValue = currentAssertion.value[field] || ''
+      if (!currentValue) {
+        currentAssertion.value[field] = example
+      } else {
+        currentAssertion.value[field] = currentValue + example
+      }
+
+      ElMessage.success(`已插入变量: ${variable.name}`)
+      showVariableHelper.value = false
+    }
+  }
+}
+
+const handleDataFactorySelect = (record) => {
+  if (!record || !record.output_data) return
+
+  let valueToSet = ''
+
+  if (typeof record.output_data === 'string') {
+    valueToSet = record.output_data
+  } else if (record.output_data.result) {
+    valueToSet = record.output_data.result
+  } else if (record.output_data.output_data) {
+    valueToSet = record.output_data.output_data
+  } else if (typeof record.output_data === 'object') {
+
+    const possibleResultFields = ['result', 'value', 'data', 'output', 'content']
+    let foundResult = false
+    for (const field of possibleResultFields) {
+      if (record.output_data[field] !== undefined) {
+        valueToSet = record.output_data[field]
+        foundResult = true
+        break
+      }
+    }
+    // 如果没有找到可能的结果字段，将整个对象转为JSON字符串
+    if (!foundResult) {
+      valueToSet = JSON.stringify(record.output_data)
+    }
+  } else {
+    valueToSet = JSON.stringify(record.output_data)
+  }
+
+  // 确保valueToSet是字符串类型
+  if (typeof valueToSet !== 'string') {
+    valueToSet = JSON.stringify(valueToSet)
+  }
+
+  // 如果是断言字段
+  if (currentAssertion.value) {
+    currentAssertion.value[currentAssertionField.value] = valueToSet
+    ElMessage.success(`${t('apiTesting.interface.referencedToAssertion')}: ${record.tool_name}`)
+  }
+  // 如果是Body字段
+  else if (currentBodyField.value) {
+    if (currentBodyField.value === 'rawBody') {
+      rawBody.value = valueToSet
+    }
+    ElMessage.success(`已引用数据工厂数据到Body: ${record.tool_name}`)
+  }
+  // 如果是脚本字段
+  else if (currentScriptField.value && selectedRequest.value) {
+    // 将值插入到脚本中
+    const insertText = `\n// 来自数据工厂: ${record.tool_name}\nconst ${record.tool_name.replace(/\s+/g, '_')} = ${JSON.stringify(valueToSet)}\n`
+    const currentValue = selectedRequest.value[currentScriptField.value] || ''
+    selectedRequest.value[currentScriptField.value] = currentValue + insertText
+    ElMessage.success(`已引用数据工厂数据到脚本: ${record.tool_name}`)
+  }
+
+  showDataFactorySelector.value = false
+}
+
+// 加载变量函数
+const loadVariableFunctions = async () => {
+  try {
+    loading.value = true
+    console.log('开始加载变量函数...')
+    const apiResponse = await getVariableFunctions()
+    console.log('变量函数响应:', apiResponse)
+    console.log('变量函数响应.data:', apiResponse.data)
+    
+    // 更灵活地处理响应数据结构
+    let functionsData = null
+    
+    // 检查不同可能的数据结构
+    if (apiResponse && apiResponse.data) {
+      if (Array.isArray(apiResponse.data)) {
+        // 后端返回的是数组，直接使用
+        functionsData = apiResponse.data
+      } else if (apiResponse.data.functions) {
+        // 如果data中有functions字段，使用它
+        functionsData = apiResponse.data.functions
+      } else if (typeof apiResponse.data === 'object') {
+        // 如果data是对象但没有functions字段，假设整个对象就是按分类组织的函数
+        functionsData = apiResponse.data
+      }
+    }
+    
+    if (functionsData) {
+      const groupedFunctions = functionsData
+      console.log('处理后的 groupedFunctions:', groupedFunctions)
+
+      // 后端已经按分类分组了，直接转换为标签页所需的格式
+      if (typeof groupedFunctions === 'object' && !Array.isArray(groupedFunctions)) {
+        variableCategories.value = Object.entries(groupedFunctions).map(([label, variables]) => ({
+          label,
+          variables
+        }))
+      } else if (Array.isArray(groupedFunctions)) {
+        // 如果是数组，按分类分组
+        const grouped = {}
+        
+        // 创建分类名称映射表
+        const categoryMapping = {
+          '随机数': t('apiTesting.component.keyValueEditor.categories.randomNumber'),
+          '测试数据': t('apiTesting.component.keyValueEditor.categories.testData'),
+          '字符串': t('apiTesting.component.keyValueEditor.categories.string'),
+          '编码转换': t('apiTesting.component.keyValueEditor.categories.encodingConversion'),
+          '加密': t('apiTesting.component.keyValueEditor.categories.encryption'),
+          '时间日期': t('apiTesting.component.keyValueEditor.categories.datetime'),
+          'Crontab': t('apiTesting.component.keyValueEditor.categories.crontab'),
+          '未分类': t('apiTesting.component.keyValueEditor.categories.uncategorized')
+        }
+        
+        groupedFunctions.forEach(func => {
+          const rawCategory = func.category || '未分类'
+          // 使用映射表获取正确的分类名称
+          const category = categoryMapping[rawCategory] || rawCategory
+          if (!grouped[category]) {
+            grouped[category] = []
+          }
+          grouped[category].push(func)
+        })
+        
+        // 定义固定的分类顺序 ['随机数', '测试数据', '字符串', '编码转换', '加密', '时间日期', 'Crontab', '未分类']
+        const categoryOrder = [
+          t('apiTesting.component.keyValueEditor.categories.randomNumber'),
+          t('apiTesting.component.keyValueEditor.categories.testData'),
+          t('apiTesting.component.keyValueEditor.categories.string'),
+          t('apiTesting.component.keyValueEditor.categories.encodingConversion'),
+          t('apiTesting.component.keyValueEditor.categories.encryption'),
+          t('apiTesting.component.keyValueEditor.categories.datetime'),
+          t('apiTesting.component.keyValueEditor.categories.crontab'),
+          t('apiTesting.component.keyValueEditor.categories.uncategorized')
+        ]
+        
+        // 按固定顺序构建分类列表
+        const orderedCategories = []
+        categoryOrder.forEach(category => {
+          if (grouped[category]) {
+            orderedCategories.push({
+              label: category,
+              variables: grouped[category]
+            })
+            delete grouped[category]
+          }
+        })
+        
+        // 添加剩余的分类（如果有）
+        Object.entries(grouped).forEach(([label, variables]) => {
+          orderedCategories.push({
+            label,
+            variables
+          })
+        })
+        
+        variableCategories.value = orderedCategories
+      }
+
+      console.log('最终变量分类:', variableCategories.value)
+    } else {
+      console.error('响应数据格式错误，无法找到函数数据')
+      console.error('完整响应:', apiResponse)
+    }
+  } catch (error) {
+    console.error('加载变量函数失败:', error)
+    ElMessage.error('加载变量函数失败，使用本地数据')
+    // 加载失败时使用本地变量分类数据
+    useLocalVariableCategories()
+  } finally {
+    loading.value = false
+  }
+}
+
+// 生命周期钩子
+onMounted(async () => {
+  await loadProjects()
+  await loadVariableFunctions()
+
+  // 添加全局点击事件监听器，用于隐藏右键菜单
+  document.addEventListener('click', handleGlobalClick)
+  document.addEventListener('contextmenu', handleGlobalClick)
 })
 
 onBeforeUnmount(() => {
-  // 清理WebSocket连接
-  if (websocketConnection.value) {
-    websocketConnection.value.close()
-    websocketConnection.value = null
-  }
+  // 移除全局点击事件监听器
+  document.removeEventListener('click', handleGlobalClick)
+  document.removeEventListener('contextmenu', handleGlobalClick)
 })
+
+// 处理全局点击事件，隐藏右键菜单
+const handleGlobalClick = (event) => {
+  // 当显示右键菜单时，点击任何地方（除了菜单本身）都应该隐藏菜单
+  if (showContextMenu.value) {
+    const contextMenu = document.querySelector('.context-menu')
+    if (!contextMenu || !contextMenu.contains(event.target)) {
+      showContextMenu.value = false
+    }
+  }
+}
+
+// 使用本地变量分类数据
+const useLocalVariableCategories = () => {
+  variableCategories.value = [
+    {
+      label: t('apiTesting.component.keyValueEditor.categories.randomNumber'),
+      variables: [
+        { name: 'random_int', syntax: '${random_int(min, max, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomInt'), example: '${random_int(100, 999, 1)}' },
+        { name: 'random_float', syntax: '${random_float(min, max, precision, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomFloat'), example: '${random_float(0, 1, 2, 1)}' },
+        { name: 'random_boolean', syntax: '${random_boolean(count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomBoolean'), example: '${random_boolean(1)}' },
+        { name: 'random_date', syntax: '${random_date(start_date, end_date, count, date_format)}', desc: t('apiTesting.component.keyValueEditor.variables.randomDate'), example: '${random_date(2024-01-01, 2024-12-31, 1, %Y-%m-%d)}' }
+      ]
+    },
+    {
+      label: t('apiTesting.component.keyValueEditor.categories.randomString'),
+      variables: [
+        { name: 'random_string', syntax: '${random_string(length, char_type, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomString'), example: '${random_string(8, all, 1)}' },
+        { name: 'random_uuid', syntax: '${random_uuid(version, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomUuid'), example: '${random_uuid(4, 1)}' },
+        { name: 'random_mac_address', syntax: '${random_mac_address(separator, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomMacAddress'), example: '${random_mac_address(:, 1)}' },
+        { name: 'random_ip_address', syntax: '${random_ip_address(ip_version, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomIpAddress'), example: '${random_ip_address(4, 1)}' },
+        { name: 'random_sequence', syntax: '${random_sequence(sequence, count, unique)}', desc: t('apiTesting.component.keyValueEditor.variables.randomSequence'), example: '${random_sequence([a,b,c], 1, false)}' }
+      ]
+    }
+  ]
+  console.log('使用本地变量分类数据:', variableCategories.value)
+}
 </script>
 
 <style scoped>
@@ -1881,6 +2601,8 @@ onBeforeUnmount(() => {
   height: 100vh;
   display: flex;
   flex-direction: column;
+  background: #f5f7fa;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .interface-layout {
@@ -1889,26 +2611,48 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
+/* 左侧边栏 */
 .sidebar {
   width: 300px;
   border-right: 1px solid #e4e7ed;
-  background: #f8f9fa;
-  overflow: hidden;
+  background: #ffffff;
+  overflow: visible;
   display: flex;
   flex-direction: column;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.05);
 }
 
 .sidebar-header {
-  padding: 10px;
+  padding: 16px;
   border-bottom: 1px solid #e4e7ed;
   display: flex;
-  gap: 10px;
-  align-items: center;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+  position: relative;
+  background: #f8f9fa;
 }
 
 .header-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.header-actions .el-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.header-actions .el-button {
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.header-actions .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .collection-tree {
@@ -1917,15 +2661,29 @@ onBeforeUnmount(() => {
   padding: 10px;
 }
 
+/* 树节点样式 */
 .tree-node {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
   flex: 1;
+  padding: 4px 0;
+}
+
+.tree-node .el-icon {
+  font-size: 16px;
+  color: #606266;
 }
 
 .node-label {
   flex: 1;
+  font-size: 14px;
+  color: #303133;
+  transition: color 0.2s;
+}
+
+.tree-node:hover .node-label {
+  color: #409eff;
 }
 
 .node-edit {
@@ -1936,25 +2694,130 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
+/* 方法标签样式 */
 .method-tag {
   font-size: 10px;
-  padding: 1px 4px;
-  border-radius: 2px;
+  padding: 2px 8px;
+  border-radius: 10px;
   color: white;
   font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-block;
+  min-width: 40px;
+  text-align: center;
 }
 
-.method-tag.get { background: #67c23a; }
-.method-tag.post { background: #409eff; }
-.method-tag.put { background: #e6a23c; }
-.method-tag.delete { background: #f56c6c; }
-.method-tag.patch { background: #909399; }
+.method-tag.get {
+  background-color: #61affe;
+}
 
+.method-tag.post {
+  background-color: #49cc90;
+}
+
+.method-tag.put {
+  background-color: #fca130;
+}
+
+.method-tag.delete {
+  background-color: #f93e3e;
+}
+
+.method-tag.patch {
+  background-color: #50e3c2;
+}
+
+.method-tag.head {
+  background-color: #9013fe;
+}
+
+.method-tag.options {
+  background-color: #0ebeff;
+}
+
+.method-tag.connect {
+  background-color: #7f8c8d;
+}
+
+.method-tag.trace {
+  background-color: #e67e22;
+}
+
+/* 搜索结果 */
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-height: 400px;
+  overflow: auto;
+  margin-top: 8px;
+}
+
+.search-results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e4e7ed;
+  background: #f8f9fa;
+  font-weight: 500;
+  color: #303133;
+}
+
+.search-results-list {
+  padding: 8px 0;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.search-result-item:hover {
+  background: #ecf5ff;
+}
+
+.search-result-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-result-name {
+  font-weight: 500;
+  color: #303133;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.search-result-url {
+  font-size: 12px;
+  color: #909399;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 右侧主内容 */
 .main-content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: auto;
+  background: #f8f9fa;
 }
 
 .empty-state {
@@ -1962,286 +2825,1149 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #fafafa;
 }
 
 .request-detail {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 20px;
-  overflow: auto;
+  padding: 24px;
+  gap: 20px;
 }
 
+/* 请求头部 */
 .request-header {
-  margin-bottom: 20px;
+  margin-bottom: 0;
+  padding: 24px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.2s ease;
+}
+
+.request-header:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .request-line {
   display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* 方法选择器样式 */
+.method-select {
+  width: 120px;
+}
+
+.method-select :deep(.el-select) {
+  border-radius: 6px;
+}
+
+/* 为不同方法的选择器添加颜色 */
+.method-select.get :deep(.el-select .el-input__wrapper) {
+  background-color: #61affe !important;
+  color: white !important;
+  border-color: #61affe !important;
+}
+
+.method-select.post :deep(.el-select .el-input__wrapper) {
+  background-color: #49cc90 !important;
+  color: white !important;
+  border-color: #49cc90 !important;
+}
+
+.method-select.put :deep(.el-select .el-input__wrapper) {
+  background-color: #fca130 !important;
+  color: white !important;
+  border-color: #fca130 !important;
+}
+
+.method-select.delete :deep(.el-select .el-input__wrapper) {
+  background-color: #f93e3e !important;
+  color: white !important;
+  border-color: #f93e3e !important;
+}
+
+.method-select.patch :deep(.el-select .el-input__wrapper) {
+  background-color: #50e3c2 !important;
+  color: white !important;
+  border-color: #50e3c2 !important;
+}
+
+.method-select.head :deep(.el-select .el-input__wrapper) {
+  background-color: #9013fe !important;
+  color: white !important;
+  border-color: #9013fe !important;
+}
+
+.method-select.options :deep(.el-select .el-input__wrapper) {
+  background-color: #0ebeff !important;
+  color: white !important;
+  border-color: #0ebeff !important;
+}
+
+.method-select.connect :deep(.el-select .el-input__wrapper) {
+  background-color: #7f8c8d !important;
+  color: white !important;
+  border-color: #7f8c8d !important;
+}
+
+.method-select.trace :deep(.el-select .el-input__wrapper) {
+  background-color: #e67e22 !important;
+  color: white !important;
+  border-color: #e67e22 !important;
+}
+
+/* 方法选择器通用样式 */
+.method-select :deep(.el-select .el-input__inner) {
+  color: white !important;
+}
+
+.method-select :deep(.el-select .el-select__icon) {
+  color: white !important;
+}
+
+.method-select :deep(.el-select .el-select__selected-item),
+.method-select :deep(.el-select .el-select__selected-item span),
+.method-select :deep(.el-select .el-select__placeholder) {
+  background-color: transparent !important;
+  color: white !important;
+}
+
+.method-select :deep(.el-select .el-input__wrapper .el-select__placeholder) {
+  background-color: transparent !important;
+  color: white !important;
+}
+
+.method-select :deep(.el-select .el-input__wrapper .el-input__inner::placeholder) {
+  background-color: transparent !important;
+  color: white !important;
+}
+
+.method-select :deep(.el-select .el-input__wrapper .el-input__inner::-webkit-input-placeholder) {
+  background-color: transparent !important;
+  color: white !important;
+}
+
+.method-select :deep(.el-select .el-input__wrapper .el-input__inner::-moz-placeholder) {
+  background-color: transparent !important;
+  color: white !important;
+}
+
+.method-select :deep(.el-select .el-input__wrapper .el-input__inner:-ms-input-placeholder) {
+  background-color: transparent !important;
+  color: white !important;
+}
+
+/* 方法选择器下拉菜单样式 */
+.method-select :deep(.el-select-dropdown) {
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.method-select :deep(.el-select-dropdown__item) {
+  padding: 8px 16px;
+  border-radius: 4px;
+}
+
+.method-select :deep(.el-select-dropdown__item:hover) {
+  background-color: #f0f0f0;
+}
+
+.method-select :deep(.el-select-dropdown__item.selected) {
+  background-color: #ecf5ff;
+  color: #409eff;
+}
+
+/* 为不同方法的下拉选项添加颜色 */
+.method-select :deep(.el-select-dropdown__item[class*="method-"]) {
+  position: relative;
+}
+
+.method-select :deep(.el-select-dropdown__item[class*="method-"])::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+}
+
+.method-select :deep(.el-select-dropdown__item.method-get::before) {
+  background-color: #61affe;
+}
+
+.method-select :deep(.el-select-dropdown__item.method-post::before) {
+  background-color: #49cc90;
+}
+
+.method-select :deep(.el-select-dropdown__item.method-put::before) {
+  background-color: #fca130;
+}
+
+.method-select :deep(.el-select-dropdown__item.method-delete::before) {
+  background-color: #f93e3e;
+}
+
+.method-select :deep(.el-select-dropdown__item.method-patch::before) {
+  background-color: #50e3c2;
+}
+
+.method-select :deep(.el-select-dropdown__item.method-head::before) {
+  background-color: #9013fe;
+}
+
+.method-select :deep(.el-select-dropdown__item.method-options::before) {
+  background-color: #0ebeff;
+}
+
+.method-select :deep(.el-select-dropdown__item.method-connect::before) {
+  background-color: #7f8c8d;
+}
+
+.method-select :deep(.el-select-dropdown__item.method-trace::before) {
+  background-color: #e67e22;
 }
 
 .url-input {
   flex: 1;
+  min-width: 200px;
 }
 
-.request-name {
+.url-input .el-input {
+  border-radius: 6px;
+}
+
+.env-select {
+  width: 160px;
+}
+
+.env-select .el-select {
+  border-radius: 6px;
+}
+
+.send-button {
+  width: 100px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  background: #5046e5;
+  border: none;
+}
+
+.send-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(80, 70, 229, 0.4);
+  background: #4338ca;
+}
+
+/* 请求元数据 */
+.request-meta {
   display: flex;
-  gap: 10px;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.name-input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.name-input .el-input {
+  border-radius: 6px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
   align-items: center;
 }
 
-.request-tabs {
-  margin-bottom: 20px;
+.action-buttons .el-button {
+  border-radius: 6px;
+  transition: all 0.2s ease;
 }
 
-.body-container {
-  padding: 10px 0;
+.action-buttons .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.body-content {
-  margin-top: 15px;
+.action-buttons .el-dropdown {
+  border-radius: 6px;
 }
 
-.raw-options {
-  margin-bottom: 10px;
+/* 标签页内容 */
+.tab-content {
+  background: white;
+  border: 1px solid #e4e7ed;
+  border-radius: 10px;
+  padding: 24px;
+  margin-bottom: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.raw-body {
-  font-family: 'Courier New', monospace;
-}
-
+/* 响应区域 */
 .response-section {
-  border-top: 1px solid #e4e7ed;
-  padding-top: 20px;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.2s ease;
+}
+
+.response-section:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .response-header {
+  padding: 20px 24px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+}
+
+.response-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
 }
 
 .response-info {
   display: flex;
-  gap: 10px;
   align-items: center;
+  gap: 12px;
 }
 
 .response-time {
-  color: #909399;
-  font-size: 12px;
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+  background: #e9ecef;
+  padding: 4px 12px;
+  border-radius: 16px;
 }
 
+/* 响应体 */
 .response-body {
-  position: relative;
+  padding: 24px;
+  min-height: 400px;
+  max-height: 600px;
+  overflow: auto;
+  background: #f8f9fa;
+  border-radius: 10px;
+  margin: 20px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .response-actions {
-  margin-bottom: 10px;
+  margin-bottom: 16px;
+}
+
+.response-actions .el-button-group {
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.response-actions .el-button {
+  border-radius: 0;
+  transition: all 0.2s ease;
+  background: transparent;
+  border: none;
+  color: #666;
+}
+
+.response-actions .el-button:hover {
+  background: #f5f7fa;
+  color: #5046e5;
 }
 
 .response-content {
-  background: #f8f9fa;
-  padding: 15px;
-  border-radius: 4px;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  max-height: 400px;
-  overflow: auto;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #303133;
+  background: white;
+  padding: 20px 20px 20px 20px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
   white-space: pre-wrap;
-  word-break: break-all;
+  word-wrap: break-word;
 }
 
+/* 响应头 */
 .response-headers {
-  padding: 15px;
+  padding: 24px;
   background: #f8f9fa;
-  border-radius: 4px;
+  border-radius: 10px;
+  margin: 20px;
+  border: 1px solid #e9ecef;
+  max-height: 80vh;
+  overflow: auto;
 }
 
 .header-row {
-  margin-bottom: 5px;
-  font-size: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e9ecef;
 }
 
-/* 断言样式 */
+.header-row:last-child {
+  border-bottom: none;
+}
+
+/* 代码编辑器 */
+.code-editor {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+  min-height: 200px;
+  resize: vertical;
+  transition: all 0.2s ease;
+}
+
+.code-editor:focus {
+  outline: none;
+  border-color: #5046e5;
+  box-shadow: 0 0 0 2px rgba(80, 70, 229, 0.2);
+}
+
+.code-generate {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 16px;
+  min-height: 300px;
+  resize: vertical;
+}
+
+/* 上下文菜单 */
+.context-menu {
+  position: fixed;
+  z-index: 1000;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 8px 0;
+  min-width: 140px;
+  list-style: none;
+  margin: 0;
+}
+
+.context-menu li {
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  color: #303133;
+}
+
+.context-menu li:hover {
+  background: #f5f3ff;
+  color: #5046e5;
+  font-weight: 500;
+}
+
+/* 脚本编辑器容器 */
+.script-editor-container {
+  position: relative;
+}
+
+.script-editor-container .el-input {
+  border-radius: 6px;
+}
+
+.script-editor-container .el-input__textarea {
+  min-height: 200px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* 脚本按钮 */
+.script-buttons {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+  background: white;
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.script-buttons .el-button {
+  border-radius: 6px;
+  font-size: 11px;
+  padding: 4px 10px;
+  transition: all 0.2s ease;
+  background: transparent;
+  border: none;
+}
+
+.script-buttons .el-button:hover {
+  transform: none;
+  box-shadow: none;
+  background: #f5f7fa;
+}
+
+.script-factory-btn {
+  color: #10b981;
+}
+
+.script-factory-btn:hover {
+  background: #ecfdf5;
+}
+
+.script-variable-btn {
+  color: #5046e5;
+}
+
+.script-variable-btn:hover {
+  background: #f5f3ff;
+}
+
+/* Raw 选项 */
+.raw-options {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  background: white;
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.raw-options .el-select {
+  width: 150px;
+  border-radius: 6px;
+}
+
+.raw-options .el-button {
+  border-radius: 6px;
+  font-size: 11px;
+  padding: 4px 10px;
+  transition: all 0.2s ease;
+  background: transparent;
+  border: none;
+}
+
+.raw-options .el-button:hover {
+  transform: none;
+  box-shadow: none;
+  background: #f5f7fa;
+}
+
+.data-factory-btn {
+  background-color: #409eff !important;
+  border-color: #409eff !important;
+  color: white !important;
+}
+
+.data-factory-btn:hover {
+  background-color: #66b1ff !important;
+  border-color: #66b1ff !important;
+}
+
+.variable-helper-btn {
+  background-color: #67c23a !important;
+  border-color: #67c23a !important;
+  color: white !important;
+}
+
+.variable-helper-btn:hover {
+  background-color: #5daf34 !important;
+  border-color: #5daf34 !important;
+}
+
+.raw-body {
+  border-radius: 6px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* 断言编辑器 */
 .assertions-editor {
-  padding: 10px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
 }
 
 .assertions-header {
-  margin-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e9ecef;
 }
 
+.assertions-header .el-button {
+  border-radius: 8px;
+  background: #5046e5;
+  border: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.assertions-header .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(80, 70, 229, 0.4);
+  background: #4338ca;
+}
+
+.assertions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 断言项 */
 .assertion-item {
-  border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  margin-bottom: 15px;
-  background: #fafafa;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.assertion-item:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border-color: #dee2e6;
 }
 
 .assertion-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px;
-  border-bottom: 1px solid #e4e7ed;
-  background: white;
+  margin-bottom: 16px;
 }
 
 .assertion-name {
   flex: 1;
-  margin-right: 10px;
+  margin-right: 12px;
+  border-radius: 6px;
 }
 
 .assertion-config {
-  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .assertion-config .el-select {
-  width: 100%;
-  margin-bottom: 10px;
+  width: 200px;
+  border-radius: 6px;
 }
 
 .assertion-params {
+  margin-top: 8px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .assertion-input {
-  margin-bottom: 5px;
+  margin-bottom: 12px;
+  border-radius: 6px;
 }
 
-.no-assertions {
-  text-align: center;
-  padding: 30px;
-  color: #909399;
-}
-
-/* WebSocket信息样式 */
-.websocket-info-section {
-  padding: 20px;
-}
-
-.websocket-tips {
-  margin-top: 20px;
-  padding: 15px;
-  background-color: #f5f7fa;
-  border-radius: 4px;
-}
-
-.websocket-tips h4 {
-  margin-top: 0;
-  margin-bottom: 10px;
-}
-
-.websocket-tips ul {
-  margin: 0;
-  padding-left: 20px;
-}
-
-.websocket-tips li {
-  margin-bottom: 5px;
-}
-
-/* WebSocket消息样式 */
-.message-container {
-  padding: 15px;
-}
-
-.message-input-section {
+/* 标签页按钮 */
+.tab-buttons {
+  display: flex;
+  gap: 10px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
-.uploaded-file {
-  margin-top: 10px;
-  padding: 10px;
-  background-color: #f5f7fa;
-  border-radius: 4px;
+.tab-button {
+  padding: 10px 20px;
+  border: 1px solid #e4e7ed;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+  color: #606266;
+}
+
+.tab-button.active {
+  background: #409eff;
+  color: white;
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+}
+
+.tab-button:hover:not(.active) {
+  border-color: #c6e2ff;
+  color: #409eff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 表单行 */
+.form-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.form-label {
+  width: 100px;
+  font-weight: 500;
+  color: #303133;
+  flex-shrink: 0;
+}
+
+.form-input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.form-input .el-input {
+  border-radius: 6px;
+}
+
+/* 字符串构建器 */
+.string-builder {
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  overflow: hidden;
+  background: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.string-builder-header {
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e4e7ed;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-/* WebSocket响应区域样式 */
-.websocket-response-section {
+.string-builder-body {
+  padding: 16px;
+  min-height: 120px;
+  background: white;
+}
+
+.string-builder-footer {
+  padding: 12px 16px;
+  background: #f8f9fa;
   border-top: 1px solid #e4e7ed;
-  padding-top: 20px;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.string-builder-footer .el-button {
+  border-radius: 6px;
+}
+
+/* 变量助手 */
+.variable-assistant {
+  position: relative;
+}
+
+.variable-popup {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  width: 450px;
+  max-height: 500px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.variable-header {
+  padding: 16px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e4e7ed;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.variable-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.variable-content {
+  flex: 1;
+  overflow: auto;
+}
+
+.variable-categories {
+  padding: 16px;
+}
+
+.variable-category {
+  margin-bottom: 24px;
+}
+
+.variable-category-title {
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #303133;
+  font-size: 14px;
+  border-bottom: 1px solid #e4e7ed;
+  padding-bottom: 6px;
+}
+
+.variable-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.variable-item {
+  padding: 14px;
+  background: #f8f9fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.variable-item:hover {
+  background: #ecf5ff;
+  border-color: #c6e2ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.variable-name {
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: #303133;
+}
+
+.variable-syntax {
+  font-size: 12px;
+  color: #909399;
+  font-family: 'Courier New', Courier, monospace;
+  margin-bottom: 6px;
+  background: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #e4e7ed;
+}
+
+.variable-desc {
+  font-size: 12px;
+  color: #606266;
+  margin-bottom: 4px;
+}
+
+.variable-example {
+  font-size: 12px;
+  color: #67c23a;
+  font-family: 'Courier New', Courier, monospace;
+  margin-top: 4px;
+  background: #f0f9eb;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #c2e7b0;
+}
+
+/* JSONPath 部分 */
+.jsonpath-extractor {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+}
+
+.jsonpath-input {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+
+.jsonpath-input .el-input {
+  flex: 1;
+  border-radius: 6px;
+}
+
+.jsonpath-result {
+  background: white;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  padding: 12px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  min-height: 80px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow: auto;
+}
+
+/* 状态徽章 */
+.status-badge {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.status-badge.success {
+  background: #f0f9eb;
+  color: #67c23a;
+}
+
+.status-badge.warning {
+  background: #fdf6ec;
+  color: #e6a23c;
+}
+
+.status-badge.danger {
+  background: #fef0f0;
+  color: #f56c6c;
+}
+
+.status-badge.info {
+  background: #ecf5ff;
+  color: #409eff;
+}
+
+/* 断言结果 */
+.assertions-results {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.assertion-result-item {
+  background: white;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.assertion-result-item.passed {
+  border-left: 4px solid #67c23a;
+}
+
+.assertion-result-item.failed {
+  border-left: 4px solid #f56c6c;
+}
+
+.assertion-result-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.assertion-result-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: 20px;
+}
+
+.result-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.result-row .label {
+  width: 80px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #606266;
+  flex-shrink: 0;
+}
+
+.result-row .value {
+  flex: 1;
+  font-size: 14px;
+  color: #303133;
+  font-family: 'Courier New', Courier, monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.result-row .value.error {
+  color: #f56c6c;
+}
+
+/* WebSocket 相关 */
+.message-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.message-input-section {
+  background: #f8f9fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.message-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.message-actions .el-button {
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.message-actions .el-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.websocket-response-section {
+  background: #f8f9fa;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  padding: 20px;
 }
 
 .websocket-response-section h3 {
   margin-top: 0;
-  margin-bottom: 15px;
+  margin-bottom: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
 }
 
 .websocket-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   max-height: 400px;
-  overflow-y: auto;
-  margin-bottom: 15px;
+  overflow: auto;
+  padding: 10px;
+  background: white;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
 }
 
 .websocket-message-item {
+  padding: 12px;
+  border-radius: 6px;
   border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  margin-bottom: 10px;
-  background-color: #fafafa;
+  background: white;
 }
 
 .websocket-message-item.sent {
-  border-left: 3px solid #409eff;
+  border-left: 4px solid #409eff;
+  background: #ecf5ff;
 }
 
 .websocket-message-item.received {
-  border-left: 3px solid #67c23a;
-}
-
-.websocket-message-item.info {
-  border-left: 3px solid #909399;
-}
-
-.websocket-message-item.error {
-  border-left: 3px solid #f56c6c;
+  border-left: 4px solid #67c23a;
+  background: #f0f9eb;
 }
 
 .websocket-message-item.connected {
-  border-left: 3px solid #67c23a;
+  border-left: 4px solid #67c23a;
+  background: #f0f9eb;
+}
+
+.websocket-message-item.info {
+  border-left: 4px solid #909399;
+  background: #f5f7fa;
+}
+
+.websocket-message-item.error {
+  border-left: 4px solid #f56c6c;
+  background: #fef0f0;
 }
 
 .message-header {
   display: flex;
   justify-content: space-between;
-  padding: 8px 12px;
-  background-color: #f5f7fa;
-  border-bottom: 1px solid #e4e7ed;
+  align-items: center;
+  margin-bottom: 8px;
   font-size: 12px;
 }
 
+.message-type {
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
 .message-type.sent {
+  background: #d9ecff;
   color: #409eff;
-  font-weight: bold;
 }
 
 .message-type.received {
+  background: #e8f5e8;
   color: #67c23a;
-  font-weight: bold;
-}
-
-.message-type.info {
-  color: #909399;
-  font-weight: bold;
-}
-
-.message-type.error {
-  color: #f56c6c;
-  font-weight: bold;
 }
 
 .message-type.connected {
+  background: #e8f5e8;
   color: #67c23a;
-  font-weight: bold;
+}
+
+.message-type.info {
+  background: #f0f2f5;
+  color: #909399;
+}
+
+.message-type.error {
+  background: #fde2e2;
+  color: #f56c6c;
 }
 
 .message-time {
@@ -2249,99 +3975,241 @@ onBeforeUnmount(() => {
 }
 
 .message-content {
-  padding: 10px 12px;
-}
-
-.message-content pre {
-  margin: 0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  line-height: 1.4;
 }
 
-/* WebSocket URL样式 */
-.websocket-url {
-  flex: 1;
-}
-
-/* 断言结果样式 */
-.assertions-results {
-  padding: 15px;
-}
-
-.assertion-result-item {
+.uploaded-file {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #f8f9fa;
   border: 1px solid #e4e7ed;
-  border-radius: 4px;
-  margin-bottom: 10px;
-  padding: 10px;
-}
-
-.assertion-result-item.passed {
-  border-color: #67c23a;
-  background-color: #f0f9ff;
-}
-
-.assertion-result-item.failed {
-  border-color: #f56c6c;
-  background-color: #fef0f0;
-}
-
-.assertion-result-header {
+  border-radius: 6px;
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
 }
 
-.assertion-name {
-  margin-left: 8px;
-  font-weight: 500;
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .interface-layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    max-height: 300px;
+    border-right: none;
+    border-bottom: 1px solid #e4e7ed;
+  }
+
+  .request-line {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .method-select,
+  .url-input,
+  .env-select,
+  .send-button {
+    width: 100%;
+  }
+
+  .form-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-label {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .script-buttons {
+    position: static;
+    margin-top: 12px;
+    justify-content: flex-end;
+  }
+
+  .request-meta {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .name-input {
+    width: 100%;
+  }
+
+  .action-buttons {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .tab-buttons {
+    justify-content: flex-start;
+  }
+
+  .tab-button {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+
+  .raw-options {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .raw-options .el-select {
+    width: 100%;
+  }
+
+  .raw-options .el-button {
+    width: 100%;
+  }
 }
 
-.assertion-result-details {
-  padding-left: 24px;
-  font-size: 12px;
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-.result-row {
-  display: flex;
-  margin-bottom: 4px;
-}
-
-.label {
-  width: 50px;
-  font-weight: 500;
-}
-
-.value {
-  flex: 1;
-  word-break: break-all;
-}
-
-.value.error {
-  color: #f56c6c;
-}
-
-.context-menu {
-  position: fixed;
-  background: white;
-  border: 1px solid #e4e7ed;
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
   border-radius: 4px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  padding: 5px 0;
-  margin: 0;
-  list-style: none;
-  z-index: 9999;
 }
 
-.context-menu li {
-  padding: 8px 15px;
-  cursor: pointer;
-  font-size: 14px;
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
 }
 
-.context-menu li:hover {
-  background: #f5f7fa;
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
+
+/* 覆盖方法标签样式 */
+.method-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  color: white;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-block;
+  min-width: 40px;
+  text-align: center;
+}
+
+.method-tag.get {
+  background-color: #61affe !important;
+}
+
+.method-tag.post {
+  background-color: #49cc90 !important;
+}
+
+.method-tag.put {
+  background-color: #fca130 !important;
+}
+
+.method-tag.delete {
+  background-color: #f93e3e !important;
+}
+
+.method-tag.patch {
+  background-color: #50e3c2 !important;
+}
+
+.method-tag.head {
+  background-color: #9013fe !important;
+}
+
+.method-tag.options {
+  background-color: #0ebeff !important;
+}
+
+.method-tag.connect {
+  background-color: #7f8c8d !important;
+}
+
+.method-tag.trace {
+  background-color: #e67e22 !important;
+}
+
+/* 覆盖方法选择器样式 */
+.method-select.get :deep(.el-select .el-input__wrapper) {
+  background-color: #61affe !important;
+  color: white !important;
+  border-color: #61affe !important;
+}
+
+.method-select.post :deep(.el-select .el-input__wrapper) {
+  background-color: #49cc90 !important;
+  color: white !important;
+  border-color: #49cc90 !important;
+}
+
+.method-select.put :deep(.el-select .el-input__wrapper) {
+  background-color: #fca130 !important;
+  color: white !important;
+  border-color: #fca130 !important;
+}
+
+.method-select.delete :deep(.el-select .el-input__wrapper) {
+  background-color: #f93e3e !important;
+  color: white !important;
+  border-color: #f93e3e !important;
+}
+
+.method-select.patch :deep(.el-select .el-input__wrapper) {
+  background-color: #50e3c2 !important;
+  color: white !important;
+  border-color: #50e3c2 !important;
+}
+
+.method-select.head :deep(.el-select .el-input__wrapper) {
+  background-color: #9013fe !important;
+  color: white !important;
+  border-color: #9013fe !important;
+}
+
+.method-select.options :deep(.el-select .el-input__wrapper) {
+  background-color: #0ebeff !important;
+  color: white !important;
+  border-color: #0ebeff !important;
+}
+
+.method-select.connect :deep(.el-select .el-input__wrapper) {
+  background-color: #7f8c8d !important;
+  color: white !important;
+  border-color: #7f8c8d !important;
+}
+
+.method-select.trace :deep(.el-select .el-input__wrapper) {
+  background-color: #e67e22 !important;
+  color: white !important;
+  border-color: #e67e22 !important;
+}
+
+/* 覆盖方法选择器通用样式 */
+.method-select :deep(.el-select .el-input__inner) {
+  color: white !important;
+}
+
+.method-select :deep(.el-select .el-select__icon) {
+  color: white !important;
+}
+
+.method-select :deep(.el-select .el-select__selected-item),
+.method-select :deep(.el-select .el-select__selected-item span),
+.method-select :deep(.el-select .el-select__placeholder) {
+  background-color: transparent !important;
+  color: white !important;
+}
+
 </style>

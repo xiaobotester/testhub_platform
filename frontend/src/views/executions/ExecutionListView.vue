@@ -110,7 +110,7 @@
     </div>
 
     <!-- 创建测试计划对话框 -->
-    <el-dialog :title="$t('execution.createPlanDialog')" v-model="isCreatePlanDialogOpen" width="600px">
+    <el-dialog :title="$t('execution.createPlanDialog')" v-model="isCreatePlanDialogOpen" width="600px" :close-on-click-modal="false">
       <el-form :model="newPlanForm" :rules="planRules" ref="planFormRef" label-width="100px">
         <el-form-item :label="$t('execution.planName')" prop="name">
           <el-input v-model="newPlanForm.name" :placeholder="$t('execution.planNamePlaceholder')"></el-input>
@@ -168,7 +168,7 @@
     </el-dialog>
 
     <!-- 编辑测试计划对话框 -->
-    <el-dialog :title="$t('execution.editPlanDialog')" v-model="isEditPlanDialogOpen" width="600px">
+    <el-dialog :title="$t('execution.editPlanDialog')" v-model="isEditPlanDialogOpen" width="600px" :close-on-click-modal="false">
       <el-form :model="editPlanForm" :rules="planRules" ref="editPlanFormRef" label-width="100px">
         <el-form-item :label="$t('execution.planName')" prop="name">
           <el-input v-model="editPlanForm.name" :placeholder="$t('execution.planNamePlaceholder')"></el-input>

@@ -6,7 +6,7 @@
     </div>
 
     <!-- 配置引导弹出窗口 -->
-    <div v-if="showConfigGuide && !checkingConfig" class="modal-overlay" @click.self="showConfigGuide = false" :key="modalKey">
+    <div v-if="showConfigGuide && !checkingConfig" class="modal-overlay" :key="modalKey">
       <div class="guide-config-modal">
       <div class="guide-header">
         <svg class="guide-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">

@@ -25,11 +25,11 @@ class ImageTools:
                 try:
                     image_data = base64.b64decode(image_data)
                 except Exception:
-                    return {'error': '图片数据格式错误，无法解码Base64'}
+                    return {'error': '图片数据格式错误，无法解码Base64', 'result': False}
             
             if len(image_data) > ImageTools.MAX_SIZE_BYTES:
                 return {
-                    'success': False,
+                    'result': False,
                     'error': f'图片大小超过限制（最大{ImageTools.MAX_SIZE_MB}MB）',
                     'actual_size': len(image_data),
                     'max_size': ImageTools.MAX_SIZE_BYTES
@@ -56,7 +56,7 @@ class ImageTools:
                 'include_prefix': include_prefix
             }
         except Exception as e:
-            return {'error': f'图片转Base64失败: {str(e)}'}
+            return {'error': f'图片转Base64失败: {str(e)}', 'result': False}
 
     @staticmethod
     def get_static_img_path() -> str:
@@ -81,18 +81,18 @@ class ImageTools:
                     mime_type = match.group(1)
                     base64_data = data.split(',', 1)[1]
                 else:
-                    return {'error': 'Base64格式错误，无法识别MIME类型'}
+                    return {'error': 'Base64格式错误，无法识别MIME类型', 'result': False}
             else:
                 base64_data = data
             
             try:
                 image_data = base64.b64decode(base64_data)
             except Exception as e:
-                return {'error': f'Base64解码失败: {str(e)}'}
+                return {'error': f'Base64解码失败: {str(e)}', 'result': False}
             
             if len(image_data) > ImageTools.MAX_SIZE_BYTES:
                 return {
-                    'success': False,
+                    'result': False,
                     'error': f'图片大小超过限制（最大{ImageTools.MAX_SIZE_MB}MB）',
                     'actual_size': len(image_data),
                     'max_size': ImageTools.MAX_SIZE_BYTES
@@ -112,19 +112,22 @@ class ImageTools:
             with open(file_path, 'wb') as f:
                 f.write(image_data)
             
-            return {
-                'success': True,
-                'filename': filename,
-                'file_path': str(file_path),
-                'url': f"/static_files/img/{filename}",
+            result_data = {
+                'size': len(image_data),
                 'mime_type': mime_type,
                 'format': mime_type if mime_type else 'unknown',
-                'size': len(image_data),
                 'size_mb': round(len(image_data) / (1024 * 1024), 2),
                 'base64_length': len(base64_data)
             }
+            
+            return {
+                'success': True,
+                'result': result_data,
+                'filename': filename,
+                'url': f"/static_files/img/{filename}"
+            }
         except Exception as e:
-            return {'error': f'Base64转图片失败: {str(e)}'}
+            return {'error': f'Base64转图片失败: {str(e)}', 'result': False}
 
     @staticmethod
     def get_image_info(image_data: bytes) -> Dict[str, Any]:
@@ -136,7 +139,7 @@ class ImageTools:
             image = Image.open(io.BytesIO(image_data))
             
             info = {
-                'success': True,
+                'result': True,
                 'format': image.format,
                 'mode': image.mode,
                 'size': image.size,
@@ -153,14 +156,14 @@ class ImageTools:
             return info
         except ImportError:
             return {
-                'success': True,
+                'result': True,
                 'format': 'unknown',
                 'size_bytes': len(image_data),
                 'size_mb': round(len(image_data) / (1024 * 1024), 2),
                 'note': 'PIL模块未安装，无法获取详细信息'
             }
         except Exception as e:
-            return {'error': f'获取图片信息失败: {str(e)}'}
+            return {'error': f'获取图片信息失败: {str(e)}', 'result': False}
 
     @staticmethod
     def _get_mime_type(format_name: str) -> str:
@@ -182,14 +185,14 @@ class ImageTools:
         """验证图片格式"""
         if format_name.lower() in ImageTools.SUPPORTED_FORMATS:
             return {
-                'success': True,
+                'result': True,
                 'valid': True,
                 'format': format_name,
                 'mime_type': ImageTools._get_mime_type(format_name)
             }
         else:
             return {
-                'success': False,
+                'result': False,
                 'valid': False,
                 'error': f'不支持的图片格式: {format_name}',
                 'supported_formats': ImageTools.SUPPORTED_FORMATS
@@ -200,6 +203,7 @@ class ImageTools:
         """获取支持的图片格式"""
         return {
             'success': True,
+            'result': ImageTools.SUPPORTED_FORMATS,
             'formats': ImageTools.SUPPORTED_FORMATS,
             'max_size_mb': ImageTools.MAX_SIZE_MB,
             'max_size_bytes': ImageTools.MAX_SIZE_BYTES
@@ -222,26 +226,27 @@ class ImageTools:
                 if ratio < 1:
                     new_width = int(original_width * ratio)
                     new_height = int(original_height * ratio)
-                    image = image.resize((new_width, new_height), Image.LANCZOS)
+                    image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
             elif max_width:
                 if original_width > max_width:
                     ratio = max_width / original_width
                     new_width = max_width
                     new_height = int(original_height * ratio)
-                    image = image.resize((new_width, new_height), Image.LANCZOS)
+                    image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
             elif max_height:
                 if original_height > max_height:
                     ratio = max_height / original_height
                     new_height = max_height
                     new_width = int(original_width * ratio)
-                    image = image.resize((new_width, new_height), Image.LANCZOS)
+                    image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
             
             output = io.BytesIO()
             image.save(output, format=image.format, quality=quality)
             resized_data = output.getvalue()
-            
+
             return {
-                'success': True,
+                'result': True,
                 'resized_data': resized_data,
                 'original_size': len(image_data),
                 'resized_size': len(resized_data),
@@ -250,6 +255,6 @@ class ImageTools:
                 'compression_ratio': f"{(1 - len(resized_data) / len(image_data)) * 100:.2f}%"
             }
         except ImportError:
-            return {'error': 'PIL模块未安装，无法调整图片大小'}
+            return {'error': 'PIL模块未安装，无法调整图片大小', 'result': False}
         except Exception as e:
-            return {'error': f'调整图片大小失败: {str(e)}'}
+            return {'error': f'调整图片大小失败: {str(e)}', 'result': False}

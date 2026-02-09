@@ -1,14 +1,14 @@
 <template>
   <div class="test-case-manager">
     <div class="page-header">
-      <h1 class="page-title">{{ $t('uiAutomation.testCase.title') }}</h1>
+      <h1 class="page-title">{{ t('uiAutomation.testCase.title') }}</h1>
       <div class="header-actions">
-        <el-select v-model="projectId" :placeholder="$t('uiAutomation.common.selectProject')" style="width: 200px; margin-right: 15px" @change="onProjectChange">
+        <el-select v-model="projectId" :placeholder="t('uiAutomation.project.selectProject')" style="width: 200px; margin-right: 15px" @change="onProjectChange">
           <el-option v-for="project in projects" :key="project.id" :label="project.name" :value="project.id" />
         </el-select>
         <el-button type="primary" @click="showCreateDialog = true">
           <el-icon><Plus /></el-icon>
-          {{ $t('uiAutomation.testCase.newTestCase') }}
+          {{ t('uiAutomation.testCase.newTestCase') }}
         </el-button>
       </div>
     </div>
@@ -17,10 +17,10 @@
       <!-- 左侧：测试用例列表 -->
       <div class="left-panel">
         <div class="panel-header">
-          <h3>{{ $t('uiAutomation.testCase.testCaseList') }}</h3>
+          <h3>{{ t('uiAutomation.testCase.testCaseList') }}</h3>
           <el-input
             v-model="searchKeyword"
-            :placeholder="$t('uiAutomation.testCase.searchPlaceholder')"
+            :placeholder="t('uiAutomation.testCase.searchPlaceholder')"
             clearable
             size="small"
             style="width: 200px"
@@ -42,7 +42,7 @@
             <div class="case-header">
               <div class="case-info">
                 <h4 class="case-name">{{ testCase.name }}</h4>
-                <p class="case-description">{{ testCase.description || $t('uiAutomation.testCase.noDescription') }}</p>
+                <p class="case-description">{{ testCase.description || t('uiAutomation.testCase.noDescription') }}</p>
               </div>
               <div class="case-actions">
                 <el-button size="small" text @click.stop="runTestCase(testCase)">
@@ -61,7 +61,7 @@
             </div>
             <div class="case-meta">
               <!-- 移除状态显示 -->
-              <span class="step-count">{{ testCase.steps?.length || 0 }} {{ $t('uiAutomation.testCase.stepsCount') }}</span>
+              <span class="step-count">{{ testCase.steps?.length || 0 }} {{ t('uiAutomation.testCase.stepsCount') }}</span>
               <span class="update-time">{{ formatTime(testCase.updated_at) }}</span>
             </div>
           </div>
@@ -76,33 +76,33 @@
             <div class="detail-actions">
               <el-button size="small" @click="addStep">
                 <el-icon><Plus /></el-icon>
-                {{ $t('uiAutomation.testCase.addStep') }}
+                {{ t('uiAutomation.testCase.addStep') }}
               </el-button>
               <el-button size="small" type="primary" @click="saveTestCase">
                 <el-icon><Check /></el-icon>
-                {{ $t('uiAutomation.testCase.saveTestCase') }}
+                {{ t('uiAutomation.testCase.saveTestCase') }}
               </el-button>
-              <el-select v-model="selectedEngine" :placeholder="$t('uiAutomation.testCase.selectEngine')" size="small" style="width: 130px; margin-right: 10px">
+              <el-select v-model="selectedEngine" :placeholder="t('uiAutomation.testCase.selectEngine')" size="small" style="width: 130px; margin-right: 10px">
                 <el-option label="Playwright" value="playwright" />
                 <el-option label="Selenium" value="selenium" />
               </el-select>
-              <el-select v-model="selectedBrowser" :placeholder="$t('uiAutomation.testCase.selectBrowser')" size="small" style="width: 120px; margin-right: 10px">
+              <el-select v-model="selectedBrowser" :placeholder="t('uiAutomation.testCase.selectBrowser')" size="small" style="width: 120px; margin-right: 10px">
                 <el-option label="Chrome" value="chrome" />
                 <el-option label="Firefox" value="firefox" />
                 <el-option label="Safari" value="safari" />
                 <el-option label="Edge" value="edge" />
               </el-select>
-              <el-select v-model="headlessMode" :placeholder="$t('uiAutomation.testCase.runMode')" size="small" style="width: 110px; margin-right: 10px">
-                <el-option :label="$t('uiAutomation.testCase.headedMode')" :value="false" />
-                <el-option :label="$t('uiAutomation.testCase.headlessMode')" :value="true" />
+              <el-select v-model="headlessMode" :placeholder="t('uiAutomation.testCase.runMode')" size="small" style="width: 110px; margin-right: 10px">
+                <el-option :label="t('uiAutomation.testCase.headedMode')" :value="false" />
+                <el-option :label="t('uiAutomation.testCase.headlessMode')" :value="true" />
               </el-select>
               <el-button size="small" type="success" @click="runTestCase(selectedTestCase)" :loading="isRunning">
                 <el-icon v-if="!isRunning"><CaretRight /></el-icon>
-                {{ isRunning ? $t('uiAutomation.testCase.running') : $t('uiAutomation.testCase.run') }}
+                {{ isRunning ? t('uiAutomation.testCase.running') : t('uiAutomation.testCase.run') }}
               </el-button>
               <el-button size="small" v-if="executionResult" @click="toggleView">
                 <el-icon><component :is="showSteps ? 'View' : 'Edit'" /></el-icon>
-                {{ showSteps ? $t('uiAutomation.testCase.viewResult') : $t('uiAutomation.testCase.editSteps') }}
+                {{ showSteps ? t('uiAutomation.testCase.viewResult') : t('uiAutomation.testCase.editSteps') }}
               </el-button>
               <el-button
                 size="small"
@@ -112,7 +112,7 @@
                 :loading="isRunning"
               >
                 <el-icon v-if="!isRunning"><Refresh /></el-icon>
-                {{ $t('uiAutomation.testCase.rerun') }}
+                {{ t('uiAutomation.testCase.rerun') }}
               </el-button>
             </div>
           </div>
@@ -120,9 +120,9 @@
           <!-- 测试步骤编辑 -->
           <div class="steps-container" v-show="showSteps">
             <div class="steps-header">
-              <h4>{{ $t('uiAutomation.testCase.testSteps') }}</h4>
+              <h4>{{ t('uiAutomation.testCase.testSteps') }}</h4>
               <el-button size="small" text @click="expandAllSteps">
-                {{ allStepsExpanded ? $t('uiAutomation.testCase.foldAll') : $t('uiAutomation.testCase.expandAll') }}
+                {{ allStepsExpanded ? t('uiAutomation.testCase.foldAll') : t('uiAutomation.testCase.expandAll') }}
               </el-button>
             </div>
 
@@ -142,26 +142,26 @@
                           <span class="step-number">{{ index + 1 }}</span>
                           <el-select
                             v-model="element.action_type"
-                            :placeholder="$t('uiAutomation.testCase.selectAction')"
+                            :placeholder="t('uiAutomation.testCase.selectAction')"
                             size="small"
                             style="width: 120px"
                             @change="onActionTypeChange(element)"
                           >
-                            <el-option :label="$t('uiAutomation.testCase.actionClick')" value="click" />
-                            <el-option :label="$t('uiAutomation.testCase.actionFill')" value="fill" />
-                            <el-option :label="$t('uiAutomation.testCase.actionGetText')" value="getText" />
-                            <el-option :label="$t('uiAutomation.testCase.actionWaitFor')" value="waitFor" />
-                            <el-option :label="$t('uiAutomation.testCase.actionHover')" value="hover" />
-                            <el-option :label="$t('uiAutomation.testCase.actionScroll')" value="scroll" />
-                            <el-option :label="$t('uiAutomation.testCase.actionScreenshot')" value="screenshot" />
-                            <el-option :label="$t('uiAutomation.testCase.actionAssert')" value="assert" />
-                            <el-option :label="$t('uiAutomation.testCase.actionWait')" value="wait" />
-                            <el-option :label="$t('uiAutomation.testCase.actionSwitchTab')" value="switchTab" />
+                            <el-option :label="t('uiAutomation.testCase.actionClick')" value="click" />
+                            <el-option :label="t('uiAutomation.testCase.actionFill')" value="fill" />
+                            <el-option :label="t('uiAutomation.testCase.actionGetText')" value="getText" />
+                            <el-option :label="t('uiAutomation.testCase.actionWaitFor')" value="waitFor" />
+                            <el-option :label="t('uiAutomation.testCase.actionHover')" value="hover" />
+                            <el-option :label="t('uiAutomation.testCase.actionScroll')" value="scroll" />
+                            <el-option :label="t('uiAutomation.testCase.actionScreenshot')" value="screenshot" />
+                            <el-option :label="t('uiAutomation.testCase.actionAssert')" value="assert" />
+                            <el-option :label="t('uiAutomation.testCase.actionWait')" value="wait" />
+                            <el-option :label="t('uiAutomation.testCase.actionSwitchTab')" value="switchTab" />
                           </el-select>
                           <el-select
                             v-if="needsElement(element.action_type)"
                             v-model="element.element_id"
-                            :placeholder="$t('uiAutomation.testCase.selectElement')"
+                            :placeholder="t('uiAutomation.testCase.selectElement')"
                             size="small"
                             style="width: 200px"
                             filterable
@@ -194,11 +194,11 @@
                       <div v-if="element.expanded" class="step-content">
                         <!-- 输入参数 -->
                         <div v-if="needsInputValue(element.action_type)" class="step-param">
-                          <label>{{ $t('uiAutomation.testCase.inputValue') }}</label>
+                          <label>{{ t('uiAutomation.testCase.inputValue') }}</label>
                           <div style="display: flex; gap: 5px; flex: 1">
                             <el-input
                               v-model="element.input_value"
-                              :placeholder="element.action_type === 'switchTab' ? $t('uiAutomation.testCase.switchTabPlaceholder') : $t('uiAutomation.testCase.inputPlaceholder')"
+                              :placeholder="element.action_type === 'switchTab' ? t('uiAutomation.testCase.switchTabPlaceholder') : t('uiAutomation.testCase.inputPlaceholder')"
                               size="small"
                             >
                               <template #append>
@@ -206,12 +206,12 @@
                                   size="small"
                                   :icon="MagicStick"
                                   @click="openDataFactorySelector(element, 'input_value')"
-                                  title="引用数据工厂"
+                                  :title="t('uiAutomation.testCase.referenceDataFactory')"
                                   class="data-factory-btn"
                                 />
                               </template>
                             </el-input>
-                            <el-tooltip content="插入动态变量" placement="top" v-if="element.action_type !== 'switchTab'">
+                            <el-tooltip :content="t('uiAutomation.testCase.insertVariable')" placement="top" v-if="element.action_type !== 'switchTab'">
                               <el-button size="small" @click="openVariableHelper(element, 'input_value')" class="variable-helper-btn">
                                 <el-icon><MagicStick /></el-icon>
                               </el-button>
@@ -221,7 +221,7 @@
 
                         <!-- 等待时间 -->
                         <div v-if="needsWaitTime(element.action_type)" class="step-param">
-                          <label>{{ $t('uiAutomation.testCase.waitTime') }}</label>
+                          <label>{{ t('uiAutomation.testCase.waitTime') }}</label>
                           <el-input-number
                             v-model="element.wait_time"
                             :min="100"
@@ -233,18 +233,18 @@
 
                         <!-- 断言参数 -->
                         <div v-if="element.action_type === 'assert'" class="step-param">
-                          <label>{{ $t('uiAutomation.testCase.assertType') }}</label>
+                          <label>{{ t('uiAutomation.testCase.assertType') }}</label>
                           <el-select v-model="element.assert_type" size="small" style="width: 150px">
-                            <el-option :label="$t('uiAutomation.testCase.assertTextContains')" value="textContains" />
-                            <el-option :label="$t('uiAutomation.testCase.assertTextEquals')" value="textEquals" />
-                            <el-option :label="$t('uiAutomation.testCase.assertIsVisible')" value="isVisible" />
-                            <el-option :label="$t('uiAutomation.testCase.assertExists')" value="exists" />
-                            <el-option :label="$t('uiAutomation.testCase.assertHasAttribute')" value="hasAttribute" />
+                            <el-option :label="t('uiAutomation.testCase.assertTextContains')" value="textContains" />
+                            <el-option :label="t('uiAutomation.testCase.assertTextEquals')" value="textEquals" />
+                            <el-option :label="t('uiAutomation.testCase.assertIsVisible')" value="isVisible" />
+                            <el-option :label="t('uiAutomation.testCase.assertExists')" value="exists" />
+                            <el-option :label="t('uiAutomation.testCase.assertHasAttribute')" value="hasAttribute" />
                           </el-select>
                           <div style="display: flex; align-items: center; margin-left: 10px; width: 240px">
                             <el-input
                               v-model="element.assert_value"
-                              :placeholder="$t('uiAutomation.testCase.expectedValue')"
+                              :placeholder="t('uiAutomation.testCase.expectedValue')"
                               size="small"
                               style="flex: 1"
                             >
@@ -253,12 +253,12 @@
                                   size="small"
                                   :icon="MagicStick"
                                   @click="openDataFactorySelector(element, 'assert_value')"
-                                  title="引用数据工厂"
+                                  :title="t('uiAutomation.testCase.referenceDataFactory')"
                                   class="data-factory-btn"
                                 />
                               </template>
                             </el-input>
-                            <el-tooltip content="插入动态变量" placement="top">
+                            <el-tooltip :content="t('uiAutomation.testCase.insertVariable')" placement="top">
                               <el-button size="small" style="margin-left: 5px" @click="openVariableHelper(element, 'assert_value')" class="variable-helper-btn">
                                 <el-icon><MagicStick /></el-icon>
                               </el-button>
@@ -268,10 +268,10 @@
 
                         <!-- 步骤描述 -->
                         <div class="step-param">
-                          <label>{{ $t('uiAutomation.testCase.stepDescription') }}</label>
+                          <label>{{ t('uiAutomation.testCase.stepDescription') }}</label>
                           <el-input
                             v-model="element.description"
-                            :placeholder="$t('uiAutomation.testCase.stepDescPlaceholder')"
+                            :placeholder="t('uiAutomation.testCase.stepDescPlaceholder')"
                             size="small"
                           />
                         </div>
@@ -286,20 +286,20 @@
           <!-- 执行结果 -->
           <div v-if="executionResult" class="execution-result" v-show="!showSteps">
             <div class="result-header">
-              <h4>{{ $t('uiAutomation.testCase.executionResult') }}</h4>
+              <h4>{{ t('uiAutomation.testCase.executionResult') }}</h4>
               <el-tag :type="executionResult.success ? 'success' : 'danger'">
-                {{ executionResult.success ? $t('uiAutomation.testCase.executionSuccess') : $t('uiAutomation.testCase.executionFailed') }}
+                {{ executionResult.success ? t('uiAutomation.testCase.executionSuccess') : t('uiAutomation.testCase.executionFailed') }}
               </el-tag>
             </div>
             <div class="result-content">
               <el-tabs v-model="resultActiveTab">
-                <el-tab-pane :label="$t('uiAutomation.testCase.executionLogs')" name="logs">
+                <el-tab-pane :label="t('uiAutomation.testCase.executionLogs')" name="logs">
                   <div class="logs-container">
                     <div v-if="parsedExecutionLogs.length > 0">
                       <div v-for="(step, index) in parsedExecutionLogs" :key="index" class="log-item">
                         <div class="log-header">
                           <el-tag :type="step.success ? 'success' : 'danger'" size="small">
-                            {{ $t('uiAutomation.testCase.step') }} {{ step.step_number }}
+                            {{ t('uiAutomation.testCase.step') }} {{ step.step_number }}
                           </el-tag>
                           <span class="log-action">{{ getActionText(step.action_type) }}</span>
                           <span class="log-desc">{{ step.description }}</span>
@@ -310,10 +310,10 @@
                         </div>
                       </div>
                     </div>
-                    <el-empty v-else :description="$t('uiAutomation.testCase.noLogs')" />
+                    <el-empty :description="t('uiAutomation.testCase.noLogs')" />
                   </div>
                 </el-tab-pane>
-                <el-tab-pane :label="$t('uiAutomation.testCase.failedScreenshots')" name="screenshots" v-if="executionResult.screenshots && executionResult.screenshots.length > 0">
+                <el-tab-pane :label="t('uiAutomation.testCase.failedScreenshots')" name="screenshots" v-if="executionResult.screenshots && executionResult.screenshots.length > 0">
                   <div class="screenshots-container">
                     <div
                       v-for="(screenshot, index) in executionResult.screenshots"
@@ -324,32 +324,32 @@
                       <div class="screenshot-wrapper">
                         <img
                           :src="screenshot.url"
-                          :alt="`${$t('uiAutomation.testCase.screenshot')} ${index + 1}`"
+                          :alt="`${t('uiAutomation.testCase.screenshot')} ${index + 1}`"
                           :data-index="index"
                           @error="handleImageError"
                           @load="handleImageLoad"
                         />
                         <div class="screenshot-placeholder" v-if="!screenshot.loaded">
                           <el-icon><Picture /></el-icon>
-                          <span>{{ $t('uiAutomation.testCase.loadingImage') }}</span>
+                          <span>{{ t('uiAutomation.testCase.loadingImage') }}</span>
                         </div>
                         <div class="screenshot-error" v-if="screenshot.error">
                           <el-icon><Warning /></el-icon>
-                          <span>{{ $t('uiAutomation.testCase.imageLoadFailed') }}</span>
+                          <span>{{ t('uiAutomation.testCase.imageLoadFailed') }}</span>
                         </div>
                         <div class="screenshot-overlay">
                           <el-icon class="zoom-icon"><ZoomIn /></el-icon>
                         </div>
                       </div>
                       <div class="screenshot-info">
-                        <p class="screenshot-description">{{ screenshot.description || `${$t('uiAutomation.testCase.screenshot')} ${index + 1}` }}</p>
-                        <p class="screenshot-meta" v-if="screenshot.step_number">{{ $t('uiAutomation.testCase.step') }} {{ screenshot.step_number }}</p>
+                        <p class="screenshot-description">{{ screenshot.description || t('uiAutomation.testCase.screenshot') + ' ' + (index + 1) }}</p>
+                        <p class="screenshot-meta" v-if="screenshot.step_number">{{ t('uiAutomation.testCase.step') }} {{ screenshot.step_number }}</p>
                         <p class="screenshot-time" v-if="screenshot.timestamp">{{ formatTime(screenshot.timestamp) }}</p>
                       </div>
                     </div>
                   </div>
                 </el-tab-pane>
-                <el-tab-pane :label="$t('uiAutomation.testCase.errorInfo')" name="errors" v-if="executionResult.errors && executionResult.errors.length > 0">
+                <el-tab-pane :label="t('uiAutomation.testCase.errorInfo')" name="errors" v-if="executionResult.errors && executionResult.errors.length > 0">
                   <div class="errors-container">
                     <div
                       v-for="(error, index) in executionResult.errors"
@@ -362,27 +362,27 @@
                           {{ error.message || error }}
                         </el-tag>
                         <span v-if="error.step_number" class="error-step">
-                          {{ $t('uiAutomation.testCase.step') }} {{ error.step_number }}
+                          {{ t('uiAutomation.testCase.step') }} {{ error.step_number }}
                         </span>
                       </div>
 
                       <div v-if="error.action_type || error.element || error.description" class="error-meta">
                         <div v-if="error.action_type" class="meta-item">
-                          <span class="meta-label">{{ $t('uiAutomation.testCase.operationType') }}</span>
+                          <span class="meta-label">{{ t('uiAutomation.testCase.operationType') }}</span>
                           <span class="meta-value">{{ error.action_type }}</span>
                         </div>
                         <div v-if="error.element" class="meta-item">
-                          <span class="meta-label">{{ $t('uiAutomation.testCase.targetElement') }}</span>
+                          <span class="meta-label">{{ t('uiAutomation.testCase.targetElement') }}</span>
                           <span class="meta-value">{{ error.element }}</span>
                         </div>
                         <div v-if="error.description" class="meta-item">
-                          <span class="meta-label">{{ $t('uiAutomation.testCase.stepDesc') }}</span>
+                          <span class="meta-label">{{ t('uiAutomation.testCase.stepDesc') }}</span>
                           <span class="meta-value">{{ error.description }}</span>
                         </div>
                       </div>
 
                       <div v-if="error.details || error.stack" class="error-details">
-                        <div class="details-header">{{ $t('uiAutomation.testCase.detailErrorInfo') }}</div>
+                        <div class="details-header">{{ t('uiAutomation.testCase.detailErrorInfo') }}</div>
                         <pre class="details-content">{{ error.details || error.stack }}</pre>
                       </div>
                     </div>
@@ -394,7 +394,7 @@
         </div>
 
         <div v-else class="no-selection">
-          <el-empty :description="$t('uiAutomation.testCase.selectTestCase')" />
+          <el-empty :description="t('uiAutomation.testCase.selectTestCase')" />
         </div>
       </div>
     </div>
@@ -402,34 +402,34 @@
     <!-- 新建/编辑测试用例对话框 -->
     <el-dialog
       v-model="showCreateDialog"
-      :title="editingTestCase ? $t('uiAutomation.testCase.editTestCase') : $t('uiAutomation.testCase.createTestCase')"
-      width="500px"
+      :title="editingTestCase ? t('uiAutomation.testCase.editTestCase') : t('uiAutomation.testCase.createTestCase')"
       :close-on-click-modal="false"
+      width="500px"
     >
       <el-form :model="testCaseForm" label-width="100px">
-        <el-form-item :label="$t('uiAutomation.testCase.caseName')" required>
-          <el-input v-model="testCaseForm.name" :placeholder="$t('uiAutomation.testCase.caseNamePlaceholder')" />
+        <el-form-item :label="t('uiAutomation.testCase.caseName')" required>
+          <el-input v-model="testCaseForm.name" :placeholder="t('uiAutomation.testCase.caseNamePlaceholder')" />
         </el-form-item>
-        <el-form-item :label="$t('uiAutomation.testCase.caseDescription')">
+        <el-form-item :label="t('uiAutomation.testCase.caseDescription')">
           <el-input
             v-model="testCaseForm.description"
             type="textarea"
             :rows="3"
-            :placeholder="$t('uiAutomation.testCase.caseDescPlaceholder')"
+            :placeholder="t('uiAutomation.testCase.caseDescPlaceholder')"
           />
         </el-form-item>
-        <el-form-item :label="$t('uiAutomation.testCase.priority')">
+        <el-form-item :label="t('uiAutomation.testCase.priority')">
           <el-select v-model="testCaseForm.priority" style="width: 100%">
-            <el-option :label="$t('uiAutomation.testCase.priorityHigh')" value="high" />
-            <el-option :label="$t('uiAutomation.testCase.priorityMedium')" value="medium" />
-            <el-option :label="$t('uiAutomation.testCase.priorityLow')" value="low" />
+            <el-option :label="t('uiAutomation.testCase.priorityHigh')" value="high" />
+            <el-option :label="t('uiAutomation.testCase.priorityMedium')" value="medium" />
+            <el-option :label="t('uiAutomation.testCase.priorityLow')" value="low" />
           </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
-          <el-button @click="showCreateDialog = false">{{ $t('uiAutomation.common.cancel') }}</el-button>
-          <el-button type="primary" @click="saveTestCaseForm">{{ $t('uiAutomation.common.confirm') }}</el-button>
+          <el-button @click="showCreateDialog = false">{{ t('uiAutomation.common.cancel') }}</el-button>
+          <el-button type="primary" @click="saveTestCaseForm">{{ t('uiAutomation.common.confirm') }}</el-button>
         </span>
       </template>
     </el-dialog>
@@ -437,15 +437,18 @@
     <!-- 截图预览对话框 -->
     <el-dialog
       v-model="showScreenshotPreview"
-      :title="$t('uiAutomation.testCase.screenshotPreview')"
+      :title="t('uiAutomation.testCase.screenshotPreview')"
       width="80%"
-      :close-on-click-modal="true"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :modal="true"
+      :destroy-on-close="false"
     >
       <div v-if="currentScreenshot" class="screenshot-preview">
         <div class="preview-info">
           <h4>{{ currentScreenshot.description }}</h4>
-          <p v-if="currentScreenshot.step_number">{{ $t('uiAutomation.testCase.failedStep') }}: {{ $t('uiAutomation.testCase.step') }} {{ currentScreenshot.step_number }}</p>
-          <p v-if="currentScreenshot.timestamp">{{ $t('uiAutomation.testCase.screenshotTime') }}: {{ formatTime(currentScreenshot.timestamp) }}</p>
+          <p v-if="currentScreenshot.step_number">{{ t('uiAutomation.testCase.failedStep') }}: {{ t('uiAutomation.testCase.step') }} {{ currentScreenshot.step_number }}</p>
+          <p v-if="currentScreenshot.timestamp">{{ t('uiAutomation.testCase.screenshotTime') }}: {{ formatTime(currentScreenshot.timestamp) }}</p>
         </div>
         <div class="preview-image">
           <img :src="currentScreenshot.url" :alt="currentScreenshot.description" />
@@ -455,8 +458,11 @@
 
     <!-- 变量助手对话框 -->
     <el-dialog
+      :close-on-press-escape="false"
+      :modal="true"
+      :destroy-on-close="false"
       v-model="showVariableHelper"
-      :title="$t('uiAutomation.testCase.variableHelper')"
+      :title="t('uiAutomation.testCase.variableHelper')"
       :close-on-click-modal="false"
       width="900px"
     >
@@ -468,17 +474,17 @@
         >
           <div style="height: 450px; overflow-y: auto; padding: 10px;">
             <el-table :data="category.variables" style="width: 100%" @row-click="insertVariable" highlight-current-row>
-              <el-table-column prop="name" label="函数名" width="150" show-overflow-tooltip>
+              <el-table-column prop="name" :label="t('uiAutomation.testCase.functionName')" width="150" show-overflow-tooltip>
                 <template #default="{ row }">
                   <el-tag size="small">{{ row.name }}</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="desc" label="描述" min-width="150" />
-              <el-table-column prop="syntax" label="语法" min-width="200" show-overflow-tooltip />
-              <el-table-column prop="example" label="示例" min-width="200" show-overflow-tooltip />
-              <el-table-column label="操作" width="80" fixed="right">
+              <el-table-column prop="desc" :label="t('uiAutomation.testCase.description')" min-width="150" />
+              <el-table-column prop="syntax" :label="t('uiAutomation.testCase.syntax')" min-width="200" show-overflow-tooltip />
+              <el-table-column prop="example" :label="t('uiAutomation.testCase.example')" min-width="200" show-overflow-tooltip />
+              <el-table-column :label="t('uiAutomation.testCase.operation')" width="80" fixed="right">
                 <template #default="{ row }">
-                  <el-button link type="primary" size="small">{{ $t('uiAutomation.testCase.insert') }}</el-button>
+                  <el-button link type="primary" size="small">{{ t('uiAutomation.testCase.insert') }}</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -486,7 +492,7 @@
         </el-tab-pane>
       </el-tabs>
     </el-dialog>
-
+    
     <DataFactorySelector
       v-model="showDataFactorySelector"
       @select="handleDataFactorySelect"
@@ -496,13 +502,13 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Search, Plus, Edit, Delete, Check, CaretRight, ArrowUp, ArrowDown, Rank, Picture, Warning, View, ZoomIn, Refresh, WarningFilled, MagicStick, CopyDocument
+  Search, Plus, Edit, Delete, Check, CaretRight, ArrowUp, ArrowDown, Rank, Picture, Warning, View, ZoomIn, Refresh, WarningFilled, MagicStick
 } from '@element-plus/icons-vue'
 import draggable from 'vuedraggable'
 import DataFactorySelector from '@/components/DataFactorySelector.vue'
+import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
@@ -517,6 +523,7 @@ import {
   copyTestCase as copyTestCaseApi,
   getLocatorStrategies
 } from '@/api/ui_automation'
+import { getVariableFunctions } from '@/api/data-factory'
 
 // 响应式数据
 const projects = ref([])
@@ -544,6 +551,10 @@ const currentEditingField = ref('')
 const showDataFactorySelector = ref(false)
 const currentStepForDataFactory = ref(null)
 const currentFieldForDataFactory = ref('')
+const variableCategories = ref([])
+const loading = ref(false)
+
+
 
 // 表单数据
 const testCaseForm = reactive({
@@ -580,7 +591,7 @@ const loadProjects = async () => {
     const response = await getUiProjects({ page_size: 100 })
     projects.value = response.data.results || response.data
   } catch (error) {
-    ElMessage.error(t('uiAutomation.testCase.messages.loadProjectsFailed'))
+    ElMessage.error('获取项目列表失败')
     console.error('获取项目列表失败:', error)
   }
 }
@@ -721,7 +732,7 @@ const saveTestCase = async () => {
     }
 
     await updateTestCase(selectedTestCase.value.id, updateData)
-    ElMessage.success(t('uiAutomation.testCase.messages.saveSuccess'))
+    ElMessage.success(t('uiAutomation.testCase.save.success'))
 
     // 更新本地数据
     const index = testCases.value.findIndex(tc => tc.id === selectedTestCase.value.id)
@@ -730,16 +741,16 @@ const saveTestCase = async () => {
       selectedTestCase.value = { ...updateData }
     }
   } catch (error) {
-    console.error('保存测试用例失败:', error)
-    ElMessage.error(t('uiAutomation.testCase.messages.saveFailed'))
-  }
+      console.error('保存测试用例失败:', error)
+      ElMessage.error(t('uiAutomation.testCase.save.failed'))
+    }
 }
 
 const runTestCase = async (testCase) => {
   isRunning.value = true
   try {
-    const modeText = headlessMode.value ? t('uiAutomation.testCase.headlessMode') : t('uiAutomation.testCase.headedMode')
-    ElMessage.info(`${t('uiAutomation.testCase.messages.startExecution')} (${t('uiAutomation.testCase.selectEngine')}: ${selectedEngine.value.toUpperCase()}, ${t('uiAutomation.testCase.selectBrowser')}: ${selectedBrowser.value.toUpperCase()}, ${modeText})`)
+    const modeText = headlessMode.value ? t('uiAutomation.testCase.runMode.headless') : t('uiAutomation.testCase.runMode.headed')
+    ElMessage.info(t('uiAutomation.testCase.run.start', { engine: selectedEngine.value.toUpperCase(), browser: selectedBrowser.value.toUpperCase(), mode: modeText }))
 
     const response = await runTestCaseApi(testCase.id, {
       project_id: projectId.value,
@@ -753,9 +764,9 @@ const runTestCase = async (testCase) => {
     showSteps.value = false  // 自动切换到结果视图
 
     if (response.data.success) {
-      ElMessage.success(t('uiAutomation.testCase.messages.executionSuccess'))
+      ElMessage.success(t('uiAutomation.testCase.run.success'))
     } else {
-      ElMessage.error(t('uiAutomation.testCase.messages.executionFailed'))
+      ElMessage.error(t('uiAutomation.testCase.run.failed'))
       // 如果有截图，自动切换到截图标签页
       if (response.data.screenshots && response.data.screenshots.length > 0) {
         resultActiveTab.value = 'screenshots'
@@ -765,8 +776,8 @@ const runTestCase = async (testCase) => {
     console.error('执行测试用例失败:', error)
 
     // 即使出错也要设置执行结果,显示错误信息
-    const errorMessage = error.response?.data?.message || error.message || t('uiAutomation.testCase.messages.executionFailed')
-    const errorLogs = error.response?.data?.logs || `${t('uiAutomation.testCase.messages.executionFailed')}\n\n${t('uiAutomation.testCase.errorInfo')}: ${errorMessage}`
+    const errorMessage = error.response?.data?.message || error.message || '执行失败'
+    const errorLogs = error.response?.data?.logs || `测试用例执行出错\n\n错误信息: ${errorMessage}`
 
     // 格式化错误信息为统一的对象格式
     const errors = error.response?.data?.errors || [{
@@ -788,7 +799,7 @@ const runTestCase = async (testCase) => {
     resultActiveTab.value = 'logs'
     showSteps.value = false  // 切换到结果视图显示错误
 
-    ElMessage.error(`${t('uiAutomation.testCase.messages.executionFailed')}: ${errorMessage}`)
+    ElMessage.error(t('uiAutomation.testCase.run.failedWithMessage', { message: errorMessage }))
   } finally {
     isRunning.value = false
   }
@@ -809,8 +820,8 @@ const editTestCase = (testCase) => {
 const deleteTestCase = async (testCase) => {
   try {
     await ElMessageBox.confirm(
-      t('uiAutomation.testCase.messages.deleteConfirm', { name: testCase.name }),
-      t('uiAutomation.testCase.messages.confirmDelete'),
+      t('uiAutomation.testCase.delete.confirm', { name: testCase.name }),
+      t('uiAutomation.testCase.delete.title'),
       {
         confirmButtonText: t('uiAutomation.common.confirm'),
         cancelButtonText: t('uiAutomation.common.cancel'),
@@ -819,7 +830,7 @@ const deleteTestCase = async (testCase) => {
     )
 
     await deleteTestCaseApi(testCase.id)
-    ElMessage.success(t('uiAutomation.testCase.messages.deleteSuccess'))
+    ElMessage.success(t('uiAutomation.testCase.delete.success'))
 
     // 从列表中移除
     const index = testCases.value.findIndex(tc => tc.id === testCase.id)
@@ -836,7 +847,7 @@ const deleteTestCase = async (testCase) => {
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除测试用例失败:', error)
-      ElMessage.error(t('uiAutomation.testCase.messages.deleteFailed'))
+      ElMessage.error('删除失败')
     }
   }
 }
@@ -844,8 +855,8 @@ const deleteTestCase = async (testCase) => {
 const copyTestCase = async (testCase) => {
   try {
     await ElMessageBox.confirm(
-      t('uiAutomation.testCase.messages.copyConfirm', { name: testCase.name }),
-      t('uiAutomation.testCase.messages.confirmCopy'),
+      t('uiAutomation.testCase.copy.confirm', { name: testCase.name }),
+      t('uiAutomation.testCase.copy.title'),
       {
         confirmButtonText: t('uiAutomation.common.confirm'),
         cancelButtonText: t('uiAutomation.common.cancel'),
@@ -854,7 +865,7 @@ const copyTestCase = async (testCase) => {
     )
 
     const response = await copyTestCaseApi(testCase.id)
-    ElMessage.success(t('uiAutomation.testCase.messages.copySuccess'))
+    ElMessage.success(t('uiAutomation.testCase.copy.success'))
 
     // 找到原用例的位置
     const index = testCases.value.findIndex(tc => tc.id === testCase.id)
@@ -868,120 +879,141 @@ const copyTestCase = async (testCase) => {
   } catch (error) {
     if (error !== 'cancel') {
       console.error('复制测试用例失败:', error)
-      ElMessage.error(t('uiAutomation.testCase.messages.copyFailed'))
+      ElMessage.error('复制失败')
     }
   }
 }
 
-const variableCategoriesComputed = computed(() => [
-  {
-    label: t('uiAutomation.testCase.variableCategories.randomNumber'),
-    variables: [
-      { name: 'random_int', syntax: '${random_int(min, max, count)}', desc: '生成随机整数', example: '${random_int(100, 999, 1)}' },
-      { name: 'random_float', syntax: '${random_float(min, max, precision, count)}', desc: '生成随机浮点数', example: '${random_float(0, 1, 2, 1)}' },
-      { name: 'random_boolean', syntax: '${random_boolean(count)}', desc: '生成随机布尔值', example: '${random_boolean(1)}' },
-      { name: 'random_date', syntax: '${random_date(start_date, end_date, count, date_format)}', desc: '生成随机日期', example: '${random_date("2024-01-01", "2024-12-31", 1, "%Y-%m-%d")}' }
-    ]
-  },
-  {
-    label: t('uiAutomation.testCase.variableCategories.randomString'),
-    variables: [
-      { name: 'random_string', syntax: '${random_string(length, char_type, count)}', desc: '生成随机字符串', example: '${random_string(8, "all", 1)}' },
-      { name: 'random_uuid', syntax: '${random_uuid(version, count)}', desc: '生成UUID', example: '${random_uuid(4, 1)}' },
-      { name: 'random_mac_address', syntax: '${random_mac_address(separator, count)}', desc: '生成MAC地址', example: '${random_mac_address(":", 1)}' },
-      { name: 'random_ip_address', syntax: '${random_ip_address(ip_version, count)}', desc: '生成IP地址', example: '${random_ip_address(4, 1)}' },
-      { name: 'random_sequence', syntax: '${random_sequence(sequence, count, unique)}', desc: '从序列中随机选择', example: '${random_sequence(["a","b","c"], 1, false)}' }
-    ]
-  },
-  {
-    label: '字符工具',
-    variables: [
-      { name: 'remove_whitespace', syntax: '${remove_whitespace(text)}', desc: '去除空格换行', example: '${remove_whitespace("hello world")}' },
-      { name: 'replace_string', syntax: '${replace_string(text, old_str, new_str, is_regex)}', desc: '字符串替换', example: '${replace_string("hello world", "world", "test", false)}' },
-      { name: 'word_count', syntax: '${word_count(text)}', desc: '字数统计', example: '${word_count("hello world")}' },
-      { name: 'regex_test', syntax: '${regex_test(pattern, text, flags)}', desc: '正则测试', example: '${regex_test("^[a-z]+\\d+$", "hello123", "gi")}' },
-      { name: 'case_convert', syntax: '${case_convert(text, convert_type)}', desc: '大小写转换', example: '${case_convert("hello", "upper")}' },
-    ]
-  },
-  {
-    label: t('uiAutomation.testCase.variableCategories.businessData'),
-    variables: [
-      { name: 'generate_chinese_name', syntax: '${generate_chinese_name(gender, count)}', desc: '生成中文姓名', example: '${generate_chinese_name("random", 1)}' },
-      { name: 'generate_chinese_phone', syntax: '${generate_chinese_phone(count)}', desc: '生成手机号', example: '${generate_chinese_phone(1)}' },
-      { name: 'generate_chinese_email', syntax: '${generate_chinese_email(count)}', desc: '生成邮箱', example: '${generate_chinese_email(1)}' },
-      { name: 'generate_chinese_address', syntax: '${generate_chinese_address(full_address, count)}', desc: '生成地址', example: '${generate_chinese_address(true, 1)}' },
-      { name: 'generate_id_card', syntax: '${generate_id_card(count)}', desc: '生成身份证号', example: '${generate_id_card(1)}' },
-      { name: 'generate_company_name', syntax: '${generate_company_name(count)}', desc: '生成公司名称', example: '${generate_company_name(1)}' },
-      { name: 'generate_bank_card', syntax: '${generate_bank_card(count)}', desc: '生成银行卡号', example: '${generate_bank_card(1)}' },
-      { name: 'generate_hk_id_card', syntax: '${generate_hk_id_card(count)}', desc: '生成香港身份证号', example: '${generate_hk_id_card(1)}' },
-      { name: 'generate_business_license', syntax: '${generate_business_license(count)}', desc: '生成营业执照号', example: '${generate_business_license(1)}' },
-      { name: 'generate_user_profile', syntax: '${generate_user_profile(count)}', desc: '生成用户档案', example: '${generate_user_profile(1)}' },
-      { name: 'generate_coordinates', syntax: '${generate_coordinates(count)}', desc: '生成经纬度', example: '${generate_coordinates(1)}' }
-    ]
-  },
-  {
-    label: t('uiAutomation.testCase.variableCategories.dateTime'),
-    variables: [
-      { name: 'timestamp_convert', syntax: '${timestamp_convert(timestamp, convert_type)}', desc: '时间戳转换', example: '${timestamp_convert(1234567890, "to_datetime")}' },
-      { name: 'random_date', syntax: '${random_date(start_date, end_date, count, date_format)}', desc: '生成随机日期', example: '${random_date("2024-01-01", "2024-12-31", 1, "%Y-%m-%d")}' }
-    ]
-  },
-  {
-    label: '编码转换',
-    variables: [
-      { name: 'base64_encode', syntax: '${base64_encode(text, encoding)}', desc: 'Base64编码', example: '${base64_encode("123456", "utf-8")}' },
-      { name: 'base64_decode', syntax: '${base64_decode(text, encoding)}', desc: 'Base64解码', example: '${base64_decode("MTIzNDU2", "utf-8")}' },
-      { name: 'url_encode', syntax: '${url_encode(data, encoding)}', desc: 'URL编码', example: '${url_encode("hello world", "utf-8")}' },
-      { name: 'url_decode', syntax: '${url_decode(data, encoding)}', desc: 'URL解码', example: '${url_decode("hello%20world", "utf-8")}' },
-      { name: 'unicode_convert', syntax: '${unicode_convert(text, convert_type)}', desc: 'Unicode转换', example: '${unicode_convert("你好", "to_unicode")}' },
-      { name: 'ascii_convert', syntax: '${ascii_convert(text, convert_type)}', desc: 'ASCII转换', example: '${ascii_convert("ABC", "to_ascii")}' },
-      { name: 'color_convert', syntax: '${color_convert(color, from_type, to_type)}', desc: '颜色值转换', example: '${color_convert("#ff0000", "hex", "rgb")}' },
-      { name: 'base_convert', syntax: '${base_convert(number, from_base, to_base)}', desc: '进制转换', example: '${base_convert(10, 10, 16)}' },
-      { name: 'timestamp_convert', syntax: '${timestamp_convert(timestamp, convert_type)}', desc: '时间戳转换', example: '${timestamp_convert(1234567890, "to_datetime")}' },
-      { name: 'generate_barcode', syntax: '${generate_barcode(data, format)}', desc: '生成条形码', example: '${generate_barcode("123456", "code128")}' },
-      { name: 'generate_qrcode', syntax: '${generate_qrcode(data)}', desc: '生成二维码', example: '${generate_qrcode("https://example.com")}' },
-      { name: 'decode_qrcode', syntax: '${decode_qrcode(data)}', desc: '二维码解析', example: '${decode_qrcode("/path/to/image.png")}' },
-      { name: 'image_to_base64', syntax: '${image_to_base64(image_path)}', desc: '图片转Base64', example: '${image_to_base64("/path/to/image.png")}' },
-      { name: 'base64_to_image', syntax: '${base64_to_image(base64_data, output_path)}', desc: 'Base64转图片', example: '${base64_to_image("data:image/png;base64,...", "/path/to/output.png")}' }
-    ]
-  },
-  {
-    label: '加密哈希',
-    variables: [
-      { name: 'md5_hash', syntax: '${md5_hash(text)}', desc: 'MD5加密', example: '${md5_hash("123456")}' },
-      { name: 'sha1_hash', syntax: '${sha1_hash(text)}', desc: 'SHA1加密', example: '${sha1_hash("123456")}' },
-      { name: 'sha256_hash', syntax: '${sha256_hash(text)}', desc: 'SHA256加密', example: '${sha256_hash("123456")}' },
-      { name: 'sha512_hash', syntax: '${sha512_hash(text)}', desc: 'SHA512加密', example: '${sha512_hash("123456")}' },
-      { name: 'hash_comparison', syntax: '${hash_comparison(hash1, hash2)}', desc: '哈希值比对', example: '${hash_comparison("hash1", "hash2")}' },
-      { name: 'aes_encrypt', syntax: '${aes_encrypt(text, password, mode)}', desc: 'AES加密', example: '${aes_encrypt("hello", "password", "CBC")}' },
-      { name: 'aes_decrypt', syntax: '${aes_decrypt(encrypted_text, password, mode)}', desc: 'AES解密', example: '${aes_decrypt("encrypted", "password", "CBC")}' }
-    ]
-  },
-  {
-    label: 'Crontab',
-    variables: [
-      { name: 'generate_expression', syntax: '${generate_expression(minute, hour, day, month, weekday)}', desc: '生成Crontab表达式', example: '${generate_expression("*", "*", "*", "*", "*")}' },
-      { name: 'parse_expression', syntax: '${parse_expression(expression)}', desc: '解析Crontab表达式', example: '${parse_expression("0 0 * * *")}' },
-      { name: 'get_next_runs', syntax: '${get_next_runs(expression, count)}', desc: '获取下次执行时间', example: '${get_next_runs("0 0 * * *", 5)}' },
-      { name: 'validate_expression', syntax: '${validate_expression(expression)}', desc: '验证Crontab表达式', example: '${validate_expression("0 0 * * *")}' }
-    ]
-  },
-  {
-    label: t('uiAutomation.testCase.variableCategories.other'),
-    variables: [
-      { name: 'random_password', syntax: '${random_password(length, include_uppercase, include_lowercase, include_digits, include_special, count)}', desc: '生成随机密码', example: '${random_password(12, true, true, true, true, 1)}' },
-      { name: 'random_color', syntax: '${random_color(format, count)}', desc: '生成随机颜色', example: '${random_color(hex, 1)}' },
-      { name: 'jwt_decode', syntax: '${jwt_decode(token, verify, secret)}', desc: 'JWT解码', example: '${jwt_decode(token, false, secret)}' },
-      { name: 'password_strength', syntax: '${password_strength(password)}', desc: '密码强度分析', example: '${password_strength(myPassword123)}' },
-      { name: 'generate_salt', syntax: '${generate_salt(length)}', desc: '生成随机盐值', example: '${generate_salt(16)}' }
-    ]
+// 加载变量函数
+const loadVariableFunctions = async () => {
+  try {
+    loading.value = true
+    console.log('开始加载变量函数...')
+    const apiResponse = await getVariableFunctions()
+    console.log('变量函数响应:', apiResponse)
+    console.log('变量函数响应.data:', apiResponse.data)
+    
+    // 检查不同可能的数据结构
+    let functionsData = []
+    if (apiResponse && apiResponse.data) {
+      if (Array.isArray(apiResponse.data)) {
+        // 后端返回的是数组，直接使用
+        functionsData = apiResponse.data
+      } else if (apiResponse.data.functions) {
+        // 如果data中有functions字段，使用它
+        functionsData = apiResponse.data.functions
+      } else if (typeof apiResponse.data === 'object') {
+        // 如果data是对象但没有functions字段，假设整个对象就是按分类组织的函数
+        functionsData = apiResponse.data
+      }
+    }
+    
+    console.log('处理后的函数数据:', functionsData)
+    
+    // 处理函数数据，按分类组织
+    const grouped = {}
+    
+    if (Array.isArray(functionsData)) {
+      // 如果是数组格式
+      functionsData.forEach(func => {
+        const category = func.category || '未分类'
+        if (!grouped[category]) {
+          grouped[category] = []
+        }
+        grouped[category].push({
+          name: func.name,
+          syntax: func.syntax,
+          desc: func.description || func.desc || '',
+          example: func.example
+        })
+      })
+    } else if (typeof functionsData === 'object') {
+      // 如果是按分类组织的对象格式
+      for (const [category, funcs] of Object.entries(functionsData)) {
+        if (Array.isArray(funcs)) {
+          grouped[category] = funcs.map(func => ({
+            name: func.name,
+            syntax: func.syntax,
+            desc: func.description || func.desc || '',
+            example: func.example
+          }))
+        }
+      }
+    }
+    
+    console.log('按分类组织后的函数:', grouped)
+    
+    // 定义固定的分类顺序
+    const categoryOrder = ['随机数', '测试数据', '字符串', '编码转换', '加密', '时间日期', 'Crontab', '未分类']
+    
+    // 按固定顺序构建分类列表
+    const orderedCategories = []
+    categoryOrder.forEach(category => {
+      if (grouped[category]) {
+        orderedCategories.push({
+          label: category,
+          variables: grouped[category]
+        })
+        delete grouped[category]
+      }
+    })
+    
+    // 添加剩余的分类
+    for (const [category, funcs] of Object.entries(grouped)) {
+      orderedCategories.push({
+        label: category,
+        variables: funcs
+      })
+    }
+    
+    console.log('最终的分类列表:', orderedCategories)
+    variableCategories.value = orderedCategories
+  } catch (error) {
+    console.error('加载变量函数失败:', error)
+    ElMessage.error('加载变量函数失败，使用本地数据')
+    useLocalVariableCategories()
+  } finally {
+    loading.value = false
   }
-])
+}
+
+// 使用本地变量分类数据作为 fallback
+const useLocalVariableCategories = () => {
+  variableCategories.value = [
+    {
+      label: t('uiAutomation.testCase.variableCategory.randomNumber'),
+      variables: [
+        { name: 'random_int', syntax: '${random_int(min, max, count)}', desc: t('uiAutomation.testCase.variable.randomInt.desc'), example: '${random_int(100, 999, 1)}' },
+        { name: 'random_float', syntax: '${random_float(min, max, precision, count)}', desc: t('uiAutomation.testCase.variable.randomFloat.desc'), example: '${random_float(0, 1, 2, 1)}' }
+      ]
+    },
+    {
+      label: t('uiAutomation.testCase.variableCategory.randomString'),
+      variables: [
+        { name: 'random_string', syntax: '${random_string(length, char_type, count)}', desc: t('uiAutomation.testCase.variable.randomString.desc'), example: '${random_string(8, "all", 1)}' }
+      ]
+    }
+  ]
+}
+
+// 计算属性提供变量分类数据
+const variableCategoriesComputed = computed(() => {
+  return variableCategories.value.length > 0 ? variableCategories.value : [
+    {
+      label: t('uiAutomation.testCase.variableCategory.randomNumber'),
+      variables: []
+    }
+  ]
+})
 
 const openVariableHelper = (step, field) => {
+  console.log('TestCaseManager openVariableHelper 被调用, step:', step, 'field:', field)
+  console.log('variableCategories.value:', variableCategories.value)
+  console.log('variableCategories.value.length:', variableCategories.value.length)
   currentEditingStep.value = step
   currentEditingField.value = field
   showVariableHelper.value = true
+  console.log('showVariableHelper.value:', showVariableHelper.value)
 }
 
 const openDataFactorySelector = (step, field) => {
@@ -993,10 +1025,10 @@ const openDataFactorySelector = (step, field) => {
 const handleDataFactorySelect = (record) => {
   const step = currentStepForDataFactory.value
   const field = currentFieldForDataFactory.value
-
+  
   if (record && record.output_data && step && field) {
     let valueToSet = ''
-
+    
     if (typeof record.output_data === 'string') {
       valueToSet = record.output_data
     } else if (record.output_data.result) {
@@ -1006,11 +1038,11 @@ const handleDataFactorySelect = (record) => {
     } else {
       valueToSet = JSON.stringify(record.output_data)
     }
-
+    
     step[field] = valueToSet
-    ElMessage.success(`已引用数据工厂数据: ${record.tool_name}`)
+    ElMessage.success(t('uiAutomation.testCase.messages.dataFactorySelected', { toolName: record.tool_name }))
   }
-
+  
   showDataFactorySelector.value = false
 }
 
@@ -1018,22 +1050,22 @@ const insertVariable = (variable) => {
   if (currentEditingStep.value && currentEditingField.value) {
     const example = variable.example
     const currentValue = currentEditingStep.value[currentEditingField.value] || ''
-
+    
     // 简单起见，这里直接追加到末尾，或者如果为空则替换
     if (!currentValue) {
       currentEditingStep.value[currentEditingField.value] = example
     } else {
       currentEditingStep.value[currentEditingField.value] = currentValue + example
     }
-
-    ElMessage.success(`${t('uiAutomation.testCase.messages.variableInserted')}: ${variable.name}`)
+    
+    ElMessage.success(t('uiAutomation.testCase.messages.variableInserted', { name: variable.name }))
     showVariableHelper.value = false
   }
 }
 
 const saveTestCaseForm = async () => {
   if (!testCaseForm.name.trim()) {
-    ElMessage.warning(t('uiAutomation.testCase.messages.enterCaseName'))
+    ElMessage.warning(t('uiAutomation.testCase.form.nameRequired'))
     return
   }
 
@@ -1049,7 +1081,7 @@ const saveTestCaseForm = async () => {
     if (editingTestCase.value) {
       // 编辑现有用例
       await updateTestCase(editingTestCase.value.id, data)
-      ElMessage.success(t('uiAutomation.testCase.messages.updateSuccess'))
+      ElMessage.success(t('uiAutomation.testCase.update.success'))
 
       // 更新本地数据
       const index = testCases.value.findIndex(tc => tc.id === editingTestCase.value.id)
@@ -1059,7 +1091,7 @@ const saveTestCaseForm = async () => {
     } else {
       // 创建新用例
       const response = await createTestCase(data)
-      ElMessage.success(t('uiAutomation.testCase.messages.createSuccess'))
+      ElMessage.success(t('uiAutomation.testCase.create.success'))
       testCases.value.push(response.data)
     }
 
@@ -1068,7 +1100,7 @@ const saveTestCaseForm = async () => {
     resetForm()
   } catch (error) {
     console.error('保存测试用例失败:', error)
-    ElMessage.error(t('uiAutomation.testCase.messages.createFailed'))
+    ElMessage.error(t('uiAutomation.testCase.save.failed'))
   }
 }
 
@@ -1092,26 +1124,26 @@ const getStatusTag = (status) => {
 
 const getStatusText = (status) => {
   const textMap = {
-    'draft': '草稿',
-    'ready': '就绪',
-    'running': '执行中',
-    'passed': '通过',
-    'failed': '失败'
+    'draft': t('uiAutomation.testCase.status.draft'),
+    'ready': t('uiAutomation.testCase.status.ready'),
+    'running': t('uiAutomation.testCase.status.running'),
+    'passed': t('uiAutomation.testCase.status.passed'),
+    'failed': t('uiAutomation.testCase.status.failed')
   }
-  return textMap[status] || '未知'
+  return textMap[status] || t('uiAutomation.testCase.status.unknown')
 }
 
 const getActionTypeText = (actionType) => {
   const textMap = {
-    'click': t('uiAutomation.actionTypes.click'),
-    'fill': t('uiAutomation.actionTypes.fill'),
-    'getText': t('uiAutomation.actionTypes.getText'),
-    'waitFor': t('uiAutomation.actionTypes.waitFor'),
-    'hover': t('uiAutomation.actionTypes.hover'),
-    'scroll': t('uiAutomation.actionTypes.scroll'),
-    'screenshot': t('uiAutomation.actionTypes.screenshot'),
-    'assert': t('uiAutomation.actionTypes.assert'),
-    'wait': t('uiAutomation.actionTypes.wait')
+    'click': t('uiAutomation.testCase.actionType.click'),
+    'fill': t('uiAutomation.testCase.actionType.fill'),
+    'getText': t('uiAutomation.testCase.actionType.getText'),
+    'waitFor': t('uiAutomation.testCase.actionType.waitFor'),
+    'hover': t('uiAutomation.testCase.actionType.hover'),
+    'scroll': t('uiAutomation.testCase.actionType.scroll'),
+    'screenshot': t('uiAutomation.testCase.actionType.screenshot'),
+    'assert': t('uiAutomation.testCase.actionType.assert'),
+    'wait': t('uiAutomation.testCase.actionType.wait')
   }
   return textMap[actionType] || actionType
 }
@@ -1125,15 +1157,15 @@ const formatTime = (timestamp) => {
 // 获取操作类型文本
 const getActionText = (actionType) => {
   const actionMap = {
-    'click': t('uiAutomation.actionTypes.click'),
-    'fill': t('uiAutomation.actionTypes.fill'),
-    'getText': t('uiAutomation.actionTypes.getText'),
-    'waitFor': t('uiAutomation.actionTypes.waitFor'),
-    'hover': t('uiAutomation.actionTypes.hover'),
-    'scroll': t('uiAutomation.actionTypes.scroll'),
-    'screenshot': t('uiAutomation.actionTypes.screenshot'),
-    'assert': t('uiAutomation.actionTypes.assert'),
-    'wait': t('uiAutomation.actionTypes.wait')
+    'click': t('uiAutomation.testCase.actionText.click'),
+    'fill': t('uiAutomation.testCase.actionText.fill'),
+    'getText': t('uiAutomation.testCase.actionText.getText'),
+    'waitFor': t('uiAutomation.testCase.actionText.waitFor'),
+    'hover': t('uiAutomation.testCase.actionText.hover'),
+    'scroll': t('uiAutomation.testCase.actionText.scroll'),
+    'screenshot': t('uiAutomation.testCase.actionText.screenshot'),
+    'assert': t('uiAutomation.testCase.actionText.assert'),
+    'wait': t('uiAutomation.testCase.actionText.wait')
   }
   return actionMap[actionType] || actionType
 }
@@ -1164,7 +1196,11 @@ const previewScreenshot = (screenshot) => {
 
 // 组件挂载
 onMounted(async () => {
+  console.log('TestCaseManager onMounted 开始执行...')
   await loadProjects()
+  console.log('loadProjects 完成，准备加载变量函数...')
+  await loadVariableFunctions()
+  console.log('loadVariableFunctions 完成')
 
   if (projects.value.length > 0) {
     projectId.value = projects.value[0].id

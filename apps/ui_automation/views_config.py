@@ -50,10 +50,24 @@ class EnvironmentConfigViewSet(viewsets.ViewSet):
                             installed = True
                             break
                     install_cmd = "请下载 Chrome 安装包安装"
-                else: # macOS
+                elif platform.system() == 'Darwin':  # macOS
                     if os.path.exists('/Applications/Google Chrome.app'):
                         installed = True
                     install_cmd = "brew install --cask google-chrome"
+                else:  # Linux
+                    chrome_paths = [
+                        '/usr/bin/google-chrome',
+                        '/usr/bin/google-chrome-stable',
+                        '/usr/bin/chromium-browser',
+                        '/usr/bin/chromium',
+                        '/opt/google/chrome/google-chrome',
+                        '/snap/bin/chromium'
+                    ]
+                    for path in chrome_paths:
+                        if os.path.exists(path):
+                            installed = True
+                            break
+                    install_cmd = "sudo dnf install chromium 或 sudo dnf install google-chrome-stable"
                     
             elif browser == 'firefox':
                 if is_windows:
@@ -66,10 +80,20 @@ class EnvironmentConfigViewSet(viewsets.ViewSet):
                             installed = True
                             break
                     install_cmd = "请下载 Firefox 安装包安装"
-                else:
+                elif platform.system() == 'Darwin':  # macOS
                     if os.path.exists('/Applications/Firefox.app'):
                         installed = True
                     install_cmd = "brew install --cask firefox"
+                else:  # Linux
+                    firefox_paths = [
+                        '/usr/bin/firefox',
+                        '/usr/bin/firefox-esr'
+                    ]
+                    for path in firefox_paths:
+                        if os.path.exists(path):
+                            installed = True
+                            break
+                    install_cmd = "sudo dnf install firefox"
                     
             elif browser == 'safari':
                 if not is_windows and os.path.exists('/Applications/Safari.app'):
@@ -87,10 +111,21 @@ class EnvironmentConfigViewSet(viewsets.ViewSet):
                             installed = True
                             break
                     install_cmd = "请下载 Edge 安装包安装"
-                else:
+                elif platform.system() == 'Darwin':  # macOS
                     if os.path.exists('/Applications/Microsoft Edge.app'):
                         installed = True
                     install_cmd = "brew install --cask microsoft-edge"
+                else:  # Linux
+                    edge_paths = [
+                        '/usr/bin/microsoft-edge',
+                        '/usr/bin/microsoft-edge-stable',
+                        '/opt/microsoft/msedge/msedge'
+                    ]
+                    for path in edge_paths:
+                        if os.path.exists(path):
+                            installed = True
+                            break
+                    install_cmd = "从微软官网下载 Edge Linux 版本安装包"
 
             system_results.append({
                 'name': browser,
@@ -106,8 +141,10 @@ class EnvironmentConfigViewSet(viewsets.ViewSet):
         # Playwright 缓存路径
         if is_windows:
             playwright_cache_dir = os.path.join(os.environ.get('LOCALAPPDATA'), 'ms-playwright')
-        else:
+        elif platform.system() == 'Darwin':  # macOS
             playwright_cache_dir = os.path.expanduser('~/Library/Caches/ms-playwright')
+        else:  # Linux
+            playwright_cache_dir = os.path.expanduser('~/.cache/ms-playwright')
         
         # 调试信息：打印缓存路径
         print(f"Playwright cache dir: {playwright_cache_dir}")

@@ -9,7 +9,6 @@ export interface CodeTemplate {
 export class CodeGenerator {
   private static languageMap: Record<string, string> = {
     javascript: 'javascript',
-    typescript: 'typescript',
     python: 'python',
     java: 'java',
     node: 'node',
@@ -23,7 +22,6 @@ export class CodeGenerator {
     rust: 'rust',
     dart: 'dart',
     objective_c: 'objc',
-    shell: 'http',
     powershell: 'powershell',
     matlab: 'matlab',
     r: 'r',
@@ -43,7 +41,6 @@ export class CodeGenerator {
 
   private static languageLabels: Record<string, string> = {
     javascript: 'JavaScript',
-    typescript: 'TypeScript',
     python: 'Python',
     java: 'Java',
     node: 'Node.js',
@@ -57,7 +54,6 @@ export class CodeGenerator {
     rust: 'Rust',
     dart: 'Dart',
     objective_c: 'Objective-C',
-    shell: 'Shell',
     powershell: 'PowerShell',
     matlab: 'MATLAB',
     r: 'R',
@@ -77,7 +73,6 @@ export class CodeGenerator {
 
   private static languageExtensions: Record<string, string> = {
     javascript: 'js',
-    typescript: 'ts',
     python: 'py',
     java: 'java',
     node: 'js',
@@ -91,7 +86,6 @@ export class CodeGenerator {
     rust: 'rs',
     dart: 'dart',
     objective_c: 'm',
-    shell: 'sh',
     powershell: 'ps1',
     matlab: 'm',
     r: 'r',
@@ -193,8 +187,8 @@ export class CodeGenerator {
     const headers = this.buildCurlHeaders(model)
     const body = this.buildCurlBody(model)
 
-    console.log('Building curl command:', { url, method, headers, body })
-    console.log('Model data:', { baseURL: model.baseURL, path: model.path, query: model.query })
+    // console.log('Building curl command:', { url, method, headers, body })
+    // console.log('Model data:', { baseURL: model.baseURL, path: model.path, query: model.query })
 
     let curl = `curl -X ${method}`
 
@@ -208,7 +202,7 @@ export class CodeGenerator {
 
     curl += ` '${url}'`
 
-    console.log('Generated curl command:', curl)
+    // console.log('Generated curl command:', curl)
 
     return curl
   }

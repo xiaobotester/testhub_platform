@@ -45,7 +45,10 @@ export default {
     pleaseInput: '请输入',
     pleaseSelect: '请选择',
     success: '成功',
-    failed: '失败'
+    failed: '失败',
+    extract: '提取',
+    import: '导入',
+    export: '导出'
   },
 
   // 仪表板
@@ -127,10 +130,39 @@ export default {
     notSet: '未设置'
   },
 
+  // 数据工厂选择器
+  dataFactory: {
+    select: {
+      title: '选择数据工厂数据',
+      byTag: '按标签选择',
+      byRecord: '直接选择记录',
+      tag: '标签',
+      selectTag: '请选择标签',
+      toolCategory: '工具分类',
+      selectToolCategory: '请选择工具分类',
+      search: '查询',
+      toolName: '工具名称',
+      inputToolName: '请输入工具名称',
+      category: '分类',
+      createdAt: '创建时间',
+      tags: '标签',
+      operation: '操作',
+      preview: '预览',
+      select: '选择',
+      cancel: '取消',
+      confirmSelect: '确认选择',
+      dataPreview: '数据预览',
+      inputData: '输入数据',
+      outputData: '输出数据'
+    }
+  },
+
   // 接口管理
   interface: {
     title: '接口管理',
+    searchInterface: '搜索接口...',
     createCollection: '创建集合',
+    editCollection: '编辑集合',
     addInterface: '添加接口',
     createNewInterface: '创建新接口',
     selectInterface: '请选择一个接口查看详情，或点击上方绿色按钮创建新接口',
@@ -152,6 +184,38 @@ export default {
     confirmDeleteBtn: '确定删除',
     collection: '集合',
     request: '接口',
+    url: 'URL',
+    searchResults: '搜索结果 ({count})',
+    name: '名称',
+    method: '方法',
+    importCurl: '导入CURL',
+    exportCurl: '导出为CURL',
+    referDataFactory: '引用数据工厂',
+    variableHelper: '变量助手',
+    insertDynamicVariable: '插入动态变量',
+    expectedContains: '期望包含的文本',
+    expectedValue: '期望值',
+    headerNameLabel: '响应头名称',
+    expectedMatch: '期望完全匹配的文本',
+    jsonPathExpression: 'JSON路径表达式',
+    jsonPathExample: '输入JSONPath表达式，例如：$.data.users[0].name',
+    extractResult: '提取结果：',
+    actual: '实际:',
+    importCurlCommand: '导入CURL命令',
+    pasteCurlCommand: '请粘贴CURL命令，例如：curl -X POST https://api.example.com/users -H \'Content-Type: application/json\' -d \'name=test\'',
+    parseAndImport: '解析并导入',
+    generateCode: '生成代码',
+    selectLanguage: '选择语言',
+    copyCode: '复制代码',
+    cancel: '取消',
+    variableCategoriesLoading: '变量分类加载中...',
+    variableCategoriesCount: '当前分类数量: {count}',
+    functionName: '函数名',
+    description: '描述',
+    syntax: '语法',
+    example: '示例',
+    operation: '操作',
+    insert: '插入',
     // Body 类型
     paramName: '参数名',
     paramValue: '参数值',
@@ -178,13 +242,19 @@ export default {
     },
     expectedStatusCode: '期望状态码',
     maxResponseTime: '最大响应时间(ms)',
-    expectedContains: '期望包含的文本',
-    jsonPathExpression: 'JSON路径表达式',
-    expectedValue: '期望值',
-    headerNameLabel: '响应头名称',
-    expectedMatch: '期望完全匹配的文本',
+    jsonPathExtract: 'JSONPath提取',
+    copyResult: '复制结果',
+    format: '格式化',
+    copy: '复制',
+    passed: '通过',
+    failed: '失败',
+    expected: '期望:',
+    error: '错误:',
+    notSet: '未设置',
+    notObtained: '未获取到',
     noAssertions: '暂无断言配置',
     addFirstAssertion: '添加第一个断言',
+    referencedToAssertion: '已引用数据工厂数据到断言',
     // WebSocket
     messageType: '选择消息类型',
     inputWebSocketMessage: '请输入要发送的WebSocket消息内容',
@@ -205,14 +275,6 @@ export default {
     responseBody: 'Body',
     responseHeaders: 'Headers',
     assertionResults: '断言结果',
-    format: '格式化',
-    passed: '通过',
-    failed: '失败',
-    expected: '期望:',
-    actual: '实际:',
-    error: '错误:',
-    notSet: '未设置',
-    notObtained: '未获取到',
     // 右键菜单
     contextMenu: {
       addRequest: '添加请求',
@@ -288,7 +350,8 @@ export default {
       running: '执行中',
       completed: '已完成',
       failed: '执行失败',
-      cancelled: '已取消'
+      cancelled: '已取消',
+      passed: '通过'
     },
     confirmDeleteSuite: '确定要删除测试套件 "{name}" 吗？',
     confirmRemoveRequest: '确定要移除这个请求吗？',
@@ -606,14 +669,22 @@ export default {
       // 变量分类
       categories: {
         randomNumber: '随机数',
-        randomString: '随机字符串',
-        stringUtils: '字符工具',
         testData: '测试数据',
-        dateTime: '时间日期',
-        encoding: '编码转换',
-        encryption: '加密哈希',
+        string: '字符串',
+        encodingConversion: '编码转换',
+        encryption: '加密',
+        datetime: '时间日期',
         crontab: 'Crontab',
-        other: '其他'
+        uncategorized: '未分类',
+        // 中文分类名称映射（用于API返回的中文分类名称）
+        '随机数': '随机数',
+        '测试数据': '测试数据',
+        '字符串': '字符串',
+        '编码转换': '编码转换',
+        '加密': '加密',
+        '时间日期': '时间日期',
+        'crontab': 'Crontab',
+        '未分类': '未分类'
       },
       // 变量描述
       variables: {
@@ -818,7 +889,8 @@ export default {
     info: {
       websocketClosed: 'WebSocket连接已关闭',
       websocketMessageReceived: '收到WebSocket消息',
-      websocketConnectedTo: 'Websocket已连接至{url}'
+      websocketConnectedTo: 'Websocket已连接至{url}',
+      featureInDevelopment: '功能正在开发中......'
     },
     confirm: {
       deleteTitle: '确认删除',

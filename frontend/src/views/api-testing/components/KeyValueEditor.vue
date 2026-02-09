@@ -141,11 +141,12 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Plus, Delete, MagicStick } from '@element-plus/icons-vue'
 import DataFactorySelector from '@/components/DataFactorySelector.vue'
 import { ElMessage } from 'element-plus'
+import { getVariableFunctions } from '@/api/data-factory'
 
 const { t } = useI18n()
 
@@ -174,118 +175,171 @@ const rows = ref([])
 const showDataFactorySelector = ref(false)
 const showVariableHelper = ref(false)
 const currentRowIndex = ref(0)
+const variableCategories = ref([])
+const loading = ref(false)
 
-const variableCategories = computed(() => [
-  {
-    label: t('apiTesting.component.keyValueEditor.categories.randomNumber'),
-    variables: [
-      { name: 'random_int', syntax: '${random_int(min, max, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomInt'), example: '${random_int(100, 999, 1)}' },
-      { name: 'random_float', syntax: '${random_float(min, max, precision, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomFloat'), example: '${random_float(0, 1, 2, 1)}' },
-      { name: 'random_boolean', syntax: '${random_boolean(count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomBoolean'), example: '${random_boolean(1)}' },
-      { name: 'random_date', syntax: '${random_date(start_date, end_date, count, date_format)}', desc: t('apiTesting.component.keyValueEditor.variables.randomDate'), example: '${random_date(2024-01-01, 2024-12-31, 1, %Y-%m-%d)}' }
-    ]
-  },
-  {
-    label: t('apiTesting.component.keyValueEditor.categories.randomString'),
-    variables: [
-      { name: 'random_string', syntax: '${random_string(length, char_type, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomString'), example: '${random_string(8, all, 1)}' },
-      { name: 'random_uuid', syntax: '${random_uuid(version, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomUuid'), example: '${random_uuid(4, 1)}' },
-      { name: 'random_mac_address', syntax: '${random_mac_address(separator, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomMacAddress'), example: '${random_mac_address(:, 1)}' },
-      { name: 'random_ip_address', syntax: '${random_ip_address(ip_version, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomIpAddress'), example: '${random_ip_address(4, 1)}' },
-      { name: 'random_sequence', syntax: '${random_sequence(sequence, count, unique)}', desc: t('apiTesting.component.keyValueEditor.variables.randomSequence'), example: '${random_sequence([a,b,c], 1, false)}' }
-    ]
-  },
-  {
-    label: t('apiTesting.component.keyValueEditor.categories.stringUtils'),
-    variables: [
-      { name: 'remove_whitespace', syntax: '${remove_whitespace(text, type)}', desc: t('apiTesting.component.keyValueEditor.variables.removeWhitespace'), example: '${remove_whitespace(hello world, all)}' },
-      { name: 'replace_string', syntax: '${replace_string(text, old, new, count)}', desc: t('apiTesting.component.keyValueEditor.variables.replaceString'), example: '${replace_string(hello world, world, test, 1)}' },
-      { name: 'word_count', syntax: '${word_count(text)}', desc: t('apiTesting.component.keyValueEditor.variables.wordCount'), example: '${word_count(hello world)}' },
-      { name: 'regex_test', syntax: '${regex_test(text, pattern, flags)}', desc: t('apiTesting.component.keyValueEditor.variables.regexTest'), example: '${regex_test(hello123, ^[a-z]+\\d+$, gi)}' },
-      { name: 'case_convert', syntax: '${case_convert(text, case_type)}', desc: t('apiTesting.component.keyValueEditor.variables.caseConvert'), example: '${case_convert(hello, upper)}' }
-    ]
-  },
-  {
-    label: t('apiTesting.component.keyValueEditor.categories.testData'),
-    variables: [
-      { name: 'generate_chinese_name', syntax: '${generate_chinese_name(gender, count)}', desc: t('apiTesting.component.keyValueEditor.variables.generateChineseName'), example: '${generate_chinese_name(random, 1)}' },
-      { name: 'generate_chinese_phone', syntax: '${generate_chinese_phone(count)}', desc: t('apiTesting.component.keyValueEditor.variables.generateChinesePhone'), example: '${generate_chinese_phone(1)}' },
-      { name: 'generate_chinese_email', syntax: '${generate_chinese_email(count)}', desc: t('apiTesting.component.keyValueEditor.variables.generateChineseEmail'), example: '${generate_chinese_email(1)}' },
-      { name: 'generate_chinese_address', syntax: '${generate_chinese_address(full_address, count)}', desc: t('apiTesting.component.keyValueEditor.variables.generateChineseAddress'), example: '${generate_chinese_address(true, 1)}' },
-      { name: 'generate_id_card', syntax: '${generate_id_card(count)}', desc: t('apiTesting.component.keyValueEditor.variables.generateIdCard'), example: '${generate_id_card(1)}' },
-      { name: 'generate_company_name', syntax: '${generate_company_name(count)}', desc: t('apiTesting.component.keyValueEditor.variables.generateCompanyName'), example: '${generate_company_name(1)}' },
-      { name: 'generate_bank_card', syntax: '${generate_bank_card(count)}', desc: t('apiTesting.component.keyValueEditor.variables.generateBankCard'), example: '${generate_bank_card(1)}' },
-      { name: 'generate_hk_id_card', syntax: '${generate_hk_id_card(count)}', desc: t('apiTesting.component.keyValueEditor.variables.generateHkIdCard'), example: '${generate_hk_id_card(1)}' },
-      { name: 'generate_business_license', syntax: '${generate_business_license(count)}', desc: t('apiTesting.component.keyValueEditor.variables.generateBusinessLicense'), example: '${generate_business_license(1)}' },
-      { name: 'generate_user_profile', syntax: '${generate_user_profile(count)}', desc: t('apiTesting.component.keyValueEditor.variables.generateUserProfile'), example: '${generate_user_profile(1)}' },
-      { name: 'generate_coordinates', syntax: '${generate_coordinates(count)}', desc: t('apiTesting.component.keyValueEditor.variables.generateCoordinates'), example: '${generate_coordinates(1)}' }
-    ]
-  },
-  {
-    label: t('apiTesting.component.keyValueEditor.categories.dateTime'),
-    variables: [
-      { name: 'timestamp_convert', syntax: '${timestamp_convert(timestamp, convert_type)}', desc: t('apiTesting.component.keyValueEditor.variables.timestampConvert'), example: '${timestamp_convert(1234567890, to_datetime)}' },
-      { name: 'random_date', syntax: '${random_date(start_date, end_date, count, date_format)}', desc: t('apiTesting.component.keyValueEditor.variables.randomDate'), example: '${random_date(2024-01-01, 2024-12-31, 1, %Y-%m-%d)}' }
-    ]
-  },
-  {
-    label: t('apiTesting.component.keyValueEditor.categories.encoding'),
-    variables: [
-      { name: 'base64_encode', syntax: '${base64_encode(text, encoding)}', desc: t('apiTesting.component.keyValueEditor.variables.base64Encode'), example: '${base64_encode("123456", "utf-8")}' },
-      { name: 'base64_decode', syntax: '${base64_decode(text, encoding)}', desc: t('apiTesting.component.keyValueEditor.variables.base64Decode'), example: '${base64_decode("MTIzNDU2", "utf-8")}' },
-      { name: 'url_encode', syntax: '${url_encode(data, encoding)}', desc: t('apiTesting.component.keyValueEditor.variables.urlEncode'), example: '${url_encode("hello world", "utf-8")}' },
-      { name: 'url_decode', syntax: '${url_decode(data, encoding)}', desc: t('apiTesting.component.keyValueEditor.variables.urlDecode'), example: '${url_decode("hello%20world", "utf-8")}' },
-      { name: 'unicode_convert', syntax: '${unicode_convert(text, convert_type)}', desc: t('apiTesting.component.keyValueEditor.variables.unicodeConvert'), example: '${unicode_convert("你好", "to_unicode")}' },
-      { name: 'ascii_convert', syntax: '${ascii_convert(text, convert_type)}', desc: t('apiTesting.component.keyValueEditor.variables.asciiConvert'), example: '${ascii_convert("ABC", "to_ascii")}' },
-      { name: 'color_convert', syntax: '${color_convert(color, from_type, to_type)}', desc: t('apiTesting.component.keyValueEditor.variables.colorConvert'), example: '${color_convert("#ff0000", "hex", "rgb")}' },
-      { name: 'base_convert', syntax: '${base_convert(number, from_base, to_base)}', desc: t('apiTesting.component.keyValueEditor.variables.baseConvert'), example: '${base_convert(10, 10, 16)}' },
-      { name: 'timestamp_convert', syntax: '${timestamp_convert(timestamp, convert_type)}', desc: t('apiTesting.component.keyValueEditor.variables.timestampConvert'), example: '${timestamp_convert(1234567890, "to_datetime")}' },
-      { name: 'generate_barcode', syntax: '${generate_barcode(data, format)}', desc: t('apiTesting.component.keyValueEditor.variables.generateBarcode'), example: '${generate_barcode("123456", "code128")}' },
-      { name: 'generate_qrcode', syntax: '${generate_qrcode(data)}', desc: t('apiTesting.component.keyValueEditor.variables.generateQrcode'), example: '${generate_qrcode("https://example.com")}' },
-      { name: 'decode_qrcode', syntax: '${decode_qrcode(data)}', desc: t('apiTesting.component.keyValueEditor.variables.decodeQrcode'), example: '${decode_qrcode("/path/to/image.png")}' },
-      { name: 'image_to_base64', syntax: '${image_to_base64(image_path)}', desc: t('apiTesting.component.keyValueEditor.variables.imageToBase64'), example: '${image_to_base64("/path/to/image.png")}' },
-      { name: 'base64_to_image', syntax: '${base64_to_image(base64_data, output_path)}', desc: t('apiTesting.component.keyValueEditor.variables.base64ToImage'), example: '${base64_to_image("data:image/png;base64,...", "/path/to/output.png")}' }
-    ]
-  },
-  {
-    label: t('apiTesting.component.keyValueEditor.categories.encryption'),
-    variables: [
-      { name: 'md5_hash', syntax: '${md5_hash(text)}', desc: t('apiTesting.component.keyValueEditor.variables.md5Hash'), example: '${md5_hash("123456")}' },
-      { name: 'sha1_hash', syntax: '${sha1_hash(text)}', desc: t('apiTesting.component.keyValueEditor.variables.sha1Hash'), example: '${sha1_hash("123456")}' },
-      { name: 'sha256_hash', syntax: '${sha256_hash(text)}', desc: t('apiTesting.component.keyValueEditor.variables.sha256Hash'), example: '${sha256_hash("123456")}' },
-      { name: 'sha512_hash', syntax: '${sha512_hash(text)}', desc: t('apiTesting.component.keyValueEditor.variables.sha512Hash'), example: '${sha512_hash("123456")}' },
-      { name: 'hash_comparison', syntax: '${hash_comparison(hash1, hash2)}', desc: t('apiTesting.component.keyValueEditor.variables.hashComparison'), example: '${hash_comparison("hash1", "hash2")}' },
-      { name: 'aes_encrypt', syntax: '${aes_encrypt(text, password, mode)}', desc: t('apiTesting.component.keyValueEditor.variables.aesEncrypt'), example: '${aes_encrypt("hello", "password", "CBC")}' },
-      { name: 'aes_decrypt', syntax: '${aes_decrypt(encrypted_text, password, mode)}', desc: t('apiTesting.component.keyValueEditor.variables.aesDecrypt'), example: '${aes_decrypt("encrypted", "password", "CBC")}' }
-    ]
-  },
-  {
-    label: t('apiTesting.component.keyValueEditor.categories.crontab'),
-    variables: [
-      { name: 'generate_expression', syntax: '${generate_expression(minute, hour, day, month, weekday)}', desc: t('apiTesting.component.keyValueEditor.variables.generateExpression'), example: '${generate_expression("*", "*", "*", "*", "*")}' },
-      { name: 'parse_expression', syntax: '${parse_expression(expression)}', desc: t('apiTesting.component.keyValueEditor.variables.parseExpression'), example: '${parse_expression("0 0 * * *")}' },
-      { name: 'get_next_runs', syntax: '${get_next_runs(expression, count)}', desc: t('apiTesting.component.keyValueEditor.variables.getNextRuns'), example: '${get_next_runs("0 0 * * *", 5)}' },
-      { name: 'validate_expression', syntax: '${validate_expression(expression)}', desc: t('apiTesting.component.keyValueEditor.variables.validateExpression'), example: '${validate_expression("0 0 * * *")}' }
-    ]
-  },
-  {
-    label: t('apiTesting.component.keyValueEditor.categories.other'),
-    variables: [
-      { name: 'random_password', syntax: '${random_password(length, include_uppercase, include_lowercase, include_digits, include_special, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomPassword'), example: '${random_password(12, true, true, true, true, 1)}' },
-      { name: 'random_color', syntax: '${random_color(format, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomColor'), example: '${random_color(hex, 1)}' },
-      { name: 'jwt_decode', syntax: '${jwt_decode(token, verify, secret)}', desc: t('apiTesting.component.keyValueEditor.variables.jwtDecode'), example: '${jwt_decode(token, false, secret)}' },
-      { name: 'password_strength', syntax: '${password_strength(password)}', desc: t('apiTesting.component.keyValueEditor.variables.passwordStrength'), example: '${password_strength(myPassword123)}' },
-      { name: 'generate_salt', syntax: '${generate_salt(length)}', desc: t('apiTesting.component.keyValueEditor.variables.generateSalt'), example: '${generate_salt(16)}' }
-    ]
+// 加载变量函数
+const loadVariableFunctions = async () => {
+  try {
+    loading.value = true
+    console.log('开始加载变量函数...')
+    const apiResponse = await getVariableFunctions()
+    // console.log('变量函数响应:', apiResponse)
+    // console.log('变量函数响应.data:', apiResponse.data)
+    
+    // 更灵活地处理响应数据结构
+    let functionsData = null
+    
+    // 检查不同可能的数据结构
+    if (apiResponse && apiResponse.data) {
+      if (Array.isArray(apiResponse.data)) {
+        // 后端返回的是数组，直接使用
+        functionsData = apiResponse.data
+      } else if (apiResponse.data.functions) {
+        // 如果data中有functions字段，使用它
+        functionsData = apiResponse.data.functions
+      } else if (typeof apiResponse.data === 'object') {
+        // 如果data是对象但没有functions字段，假设整个对象就是按分类组织的函数
+        functionsData = apiResponse.data
+      }
+    }
+    
+    if (functionsData) {
+      const groupedFunctions = functionsData
+      console.log('处理后的 groupedFunctions:', groupedFunctions)
+
+      // 后端已经按分类分组了，直接转换为标签页所需的格式
+      if (typeof groupedFunctions === 'object' && !Array.isArray(groupedFunctions)) {
+        // 对每个分类进行国际化处理
+        const localizedCategories = []
+        Object.entries(groupedFunctions).forEach(([key, variables]) => {
+          let localizedLabel = key
+          const categoryKey = key.toLowerCase().replace(/\s+/g, '')
+          const i18nKey = `apiTesting.component.keyValueEditor.categories.${categoryKey}`
+          try {
+            const translated = t(i18nKey)
+            if (translated !== i18nKey) {
+              localizedLabel = translated
+            }
+          } catch (e) {
+            // 如果国际化失败，使用原始分类名称
+          }
+          localizedCategories.push({
+            label: localizedLabel,
+            variables
+          })
+        })
+        variableCategories.value = localizedCategories
+      } else if (Array.isArray(groupedFunctions)) {
+        // 如果是数组，按分类分组
+        const grouped = {}
+        
+        // 创建分类名称映射表
+        const categoryMapping = {
+          '随机数': t('apiTesting.component.keyValueEditor.categories.randomNumber'),
+          '测试数据': t('apiTesting.component.keyValueEditor.categories.testData'),
+          '字符串': t('apiTesting.component.keyValueEditor.categories.string'),
+          '编码转换': t('apiTesting.component.keyValueEditor.categories.encodingConversion'),
+          '加密': t('apiTesting.component.keyValueEditor.categories.encryption'),
+          '时间日期': t('apiTesting.component.keyValueEditor.categories.datetime'),
+          'Crontab': t('apiTesting.component.keyValueEditor.categories.crontab'),
+          '未分类': t('apiTesting.component.keyValueEditor.categories.uncategorized')
+        }
+        
+        groupedFunctions.forEach(func => {
+          const rawCategory = func.category || '未分类'
+          // 使用映射表获取正确的分类名称
+          const category = categoryMapping[rawCategory] || rawCategory
+          if (!grouped[category]) {
+            grouped[category] = []
+          }
+          grouped[category].push(func)
+        })
+        
+        // 定义固定的分类顺序 ['随机数', '测试数据', '字符串', '编码转换', '加密', '时间日期', 'Crontab', '未分类']
+        const categoryOrder = [
+          t('apiTesting.component.keyValueEditor.categories.randomNumber'),
+          t('apiTesting.component.keyValueEditor.categories.testData'),
+          t('apiTesting.component.keyValueEditor.categories.string'),
+          t('apiTesting.component.keyValueEditor.categories.encodingConversion'),
+          t('apiTesting.component.keyValueEditor.categories.encryption'),
+          t('apiTesting.component.keyValueEditor.categories.datetime'),
+          t('apiTesting.component.keyValueEditor.categories.crontab'),
+          t('apiTesting.component.keyValueEditor.categories.uncategorized')
+        ]
+        
+        // 按固定顺序构建分类列表
+        const orderedCategories = []
+        categoryOrder.forEach(category => {
+          if (grouped[category]) {
+            orderedCategories.push({
+              label: category,
+              variables: grouped[category]
+            })
+            delete grouped[category]
+          }
+        })
+        
+        // 添加剩余的分类（如果有）
+        Object.entries(grouped).forEach(([label, variables]) => {
+          orderedCategories.push({
+            label,
+            variables
+          })
+        })
+        
+        variableCategories.value = orderedCategories
+      }
+
+      console.log('最终变量分类:', variableCategories.value)
+    } else {
+      console.error('响应数据格式错误，无法找到函数数据')
+      console.error('完整响应:', apiResponse)
+      // 加载失败时使用本地变量分类数据
+      useLocalVariableCategories()
+    }
+  } catch (error) {
+    console.error('加载变量函数失败:', error)
+    ElMessage.error('加载变量函数失败，使用本地数据')
+    // 加载失败时使用本地变量分类数据
+    useLocalVariableCategories()
+  } finally {
+    loading.value = false
   }
-])
+}
+
+// 使用本地变量分类数据
+const useLocalVariableCategories = () => {
+  variableCategories.value = [
+    {
+      label: t('apiTesting.component.keyValueEditor.categories.randomNumber'),
+      variables: [
+        { name: 'random_int', syntax: '${random_int(min, max, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomInt'), example: '${random_int(100, 999, 1)}' },
+        { name: 'random_float', syntax: '${random_float(min, max, precision, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomFloat'), example: '${random_float(0, 1, 2, 1)}' },
+        { name: 'random_boolean', syntax: '${random_boolean(count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomBoolean'), example: '${random_boolean(1)}' },
+        { name: 'random_date', syntax: '${random_date(start_date, end_date, count, date_format)}', desc: t('apiTesting.component.keyValueEditor.variables.randomDate'), example: '${random_date(2024-01-01, 2024-12-31, 1, %Y-%m-%d)}' }
+      ]
+    },
+    {
+      label: t('apiTesting.component.keyValueEditor.categories.randomString'),
+      variables: [
+        { name: 'random_string', syntax: '${random_string(length, char_type, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomString'), example: '${random_string(8, all, 1)}' },
+        { name: 'random_uuid', syntax: '${random_uuid(version, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomUuid'), example: '${random_uuid(4, 1)}' },
+        { name: 'random_mac_address', syntax: '${random_mac_address(separator, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomMacAddress'), example: '${random_mac_address(:, 1)}' },
+        { name: 'random_ip_address', syntax: '${random_ip_address(ip_version, count)}', desc: t('apiTesting.component.keyValueEditor.variables.randomIpAddress'), example: '${random_ip_address(4, 1)}' },
+        { name: 'random_sequence', syntax: '${random_sequence(sequence, count, unique)}', desc: t('apiTesting.component.keyValueEditor.variables.randomSequence'), example: '${random_sequence([a,b,c], 1, false)}' }
+      ]
+    }
+  ]
+  console.log('使用本地变量分类数据:', variableCategories.value)
+}
 
 const initializeRows = () => {
   const data = props.modelValue || {}
   console.log('KeyValueEditor initializeRows called with data:', data)
   const newRows = []
   
-  // 检查数据是否为数组格式（来自convertObjectToKeyValueArray）
+  // 检查数据是否为数组格式
   if (Array.isArray(data)) {
     console.log('Data is array, processing...')
     // 如果是数组，直接使用
@@ -390,8 +444,28 @@ const handleDataFactorySelect = (record) => {
       valueToSet = record.output_data.result
     } else if (record.output_data.output_data) {
       valueToSet = record.output_data.output_data
+    } else if (typeof record.output_data === 'object') {
+      // 检查是否有类似result的字段
+      const possibleResultFields = ['result', 'value', 'data', 'output', 'content']
+      let foundResult = false
+      for (const field of possibleResultFields) {
+        if (record.output_data[field] !== undefined) {
+          valueToSet = record.output_data[field]
+          foundResult = true
+          break
+        }
+      }
+      // 如果没有找到可能的结果字段，将整个对象转为JSON字符串
+      if (!foundResult) {
+        valueToSet = JSON.stringify(record.output_data)
+      }
     } else {
       valueToSet = JSON.stringify(record.output_data)
+    }
+
+    // 确保valueToSet是字符串类型
+    if (typeof valueToSet !== 'string') {
+      valueToSet = JSON.stringify(valueToSet)
     }
 
     rows.value[rowIndex].value = valueToSet
@@ -430,6 +504,11 @@ watch(
   },
   { immediate: true }
 )
+
+// 生命周期钩子
+onMounted(async () => {
+  await loadVariableFunctions()
+})
 
 // 暴露rows供父组件访问
 defineExpose({

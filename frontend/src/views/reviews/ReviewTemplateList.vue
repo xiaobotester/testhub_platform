@@ -116,6 +116,7 @@
       v-model="templateDialogVisible"
       :title="isEdit ? $t('reviewTemplate.editTitle') : $t('reviewTemplate.createTitle')"
       width="800px"
+      :close-on-click-modal="false"
     >
       <el-form :model="templateForm" :rules="templateRules" ref="templateFormRef" label-width="120px">
         <el-row :gutter="24">

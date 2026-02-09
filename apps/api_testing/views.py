@@ -110,7 +110,122 @@ class ApiProjectViewSet(viewsets.ModelViewSet):
             user=self.request.user
         )
         instance.delete()
-
+    
+    @action(detail=False, methods=['post'], url_path='create-sample')
+    def create_sample_project(self, request):
+        """创建示例项目（宠物店）"""
+        if ApiProject.objects.filter(name='宠物店API示例项目').exists():
+            return Response({'message': '示例项目已存在'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 创建示例项目
+        project = ApiProject.objects.create(
+            name='宠物店API示例项目',
+            description='参考Apifox宠物店示例，包含用户管理、宠物管理、订单管理等接口',
+            project_type='HTTP',
+            status='IN_PROGRESS',
+            owner=request.user,
+            start_date=datetime.now().date()
+        )
+        
+        # 创建示例数据
+        self._create_sample_data(project, request.user)
+        
+        serializer = self.get_serializer(project)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
+    def _create_sample_data(self, project, user):
+        """创建示例数据"""
+        # 用户管理集合
+        user_collection = ApiCollection.objects.create(
+            project=project,
+            name='用户管理',
+            description='用户注册、登录、信息管理相关接口',
+            order=1
+        )
+        
+        # 用户注册接口
+        ApiRequest.objects.create(
+            collection=user_collection,
+            name='用户注册',
+            description='新用户注册接口',
+            method='POST',
+            url='{{base_url}}/api/users/register',
+            headers={'Content-Type': 'application/json'},
+            body={
+                'type': 'json',
+                'data': {
+                    'username': 'testuser',
+                    'email': 'test@example.com',
+                    'password': 'password123'
+                }
+            },
+            created_by=user,
+            order=1
+        )
+        
+        # 用户登录接口
+        ApiRequest.objects.create(
+            collection=user_collection,
+            name='用户登录',
+            description='用户登录获取token',
+            method='POST',
+            url='{{base_url}}/api/users/login',
+            headers={'Content-Type': 'application/json'},
+            body={
+                'type': 'json',
+                'data': {
+                    'username': 'testuser',
+                    'password': 'password123'
+                }
+            },
+            created_by=user,
+            order=2
+        )
+        
+        # 宠物管理集合
+        pet_collection = ApiCollection.objects.create(
+            project=project,
+            name='宠物管理',
+            description='宠物信息增删改查接口',
+            order=2
+        )
+        
+        # 获取宠物列表
+        ApiRequest.objects.create(
+            collection=pet_collection,
+            name='获取宠物列表',
+            description='分页获取宠物列表',
+            method='GET',
+            url='{{base_url}}/api/pets',
+            headers={'Authorization': 'Bearer {{token}}'},
+            params={'page': '1', 'limit': '10'},
+            created_by=user,
+            order=1
+        )
+        
+        # 创建宠物
+        ApiRequest.objects.create(
+            collection=pet_collection,
+            name='创建宠物',
+            description='添加新宠物信息',
+            method='POST',
+            url='{{base_url}}/api/pets',
+            headers={
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer {{token}}'
+            },
+            body={
+                'type': 'json',
+                'data': {
+                    'name': '小白',
+                    'category': 'dog',
+                    'age': 2,
+                    'price': 1000
+                }
+            },
+            created_by=user,
+            order=2
+        )
 
 
 class ApiCollectionViewSet(viewsets.ModelViewSet):

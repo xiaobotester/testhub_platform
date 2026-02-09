@@ -264,7 +264,9 @@ const formatTime = (timeStr) => {
   if (!timeStr) return ''
   const date = new Date(timeStr)
   const now = new Date()
-  const diff = now - date
+  // const diff = now - date
+  if (isNaN(date.getTime())) return ''; // 处理无效日期
+  const diff = Date.now() - date.getTime();
 
   // 小于1分钟
   if (diff < 60000) {

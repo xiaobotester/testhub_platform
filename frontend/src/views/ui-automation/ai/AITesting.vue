@@ -116,7 +116,7 @@
     </div>
 
     <!-- 保存为用例对话框 -->
-    <el-dialog v-model="showSaveDialog" :title="$t('uiAutomation.ai.saveAsCaseTitle')" width="500px">
+    <el-dialog v-model="showSaveDialog" :title="$t('uiAutomation.ai.saveAsCaseTitle')" width="500px" :close-on-click-modal="false">
       <el-form :model="saveForm" :rules="saveRules" ref="saveFormRef" label-width="80px">
         <el-form-item :label="$t('uiAutomation.ai.caseName')" prop="name">
           <el-input v-model="saveForm.name" :placeholder="$t('uiAutomation.ai.caseNamePlaceholder')" />
