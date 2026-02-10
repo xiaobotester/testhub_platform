@@ -128,7 +128,11 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_ROOT = os.path.join(BASE_DIR, 'static_files')
+
+# 数据工厂的静态文件目录
+STATIC_FILES_URL = '/static_files/'
+STATIC_FILES_ROOT = os.path.join(BASE_DIR, 'static_files')
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -208,8 +212,14 @@ else:
     CSRF_COOKIE_SAMESITE = 'Strict'
 
 # CORS Settings
+cors_origins_str = config('CORS_ALLOWED_ORIGINS', default='')
+parsed_cors_origins = [s.strip() for s in cors_origins_str.split(',') if s.strip()]
+
 if DEBUG:
+    # 开发环境默认允许本地地址，同时合并环境变量里的配置
+    # 优先使用环境变量配置的地址，确保服务器IP优先级最高
     CORS_ALLOWED_ORIGINS = [
+        *parsed_cors_origins,  # 环境变量配置的地址优先
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:8080",
@@ -229,10 +239,17 @@ if DEBUG:
         'user-agent',
         'x-csrftoken',
         'x-requested-with',
+        'cache-control',  # 添加 SSE 需要的头部
     ]
 else:
-    CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:3000',
-                                  cast=lambda v: [s.strip() for s in v.split(',')])
+    # 生产环境 CORS 配置
+    if parsed_cors_origins:
+        # 如果配置了 CORS_ALLOWED_ORIGINS，使用配置的值
+        CORS_ALLOWED_ORIGINS = parsed_cors_origins
+    else:
+        # 如果未配置，允许所有来源（可根据需求调整）
+        CORS_ALLOW_ALL_ORIGINS = True
+
     CORS_ALLOW_CREDENTIALS = True
     CORS_ALLOW_HEADERS = [
         'accept',
@@ -244,7 +261,10 @@ else:
         'user-agent',
         'x-csrftoken',
         'x-requested-with',
+        'cache-control',  # 添加 SSE 需要的头部
     ]
+    # SSE 需要的额外配置
+    CORS_EXPOSE_HEADERS = ['Content-Type', 'Cache-Control']
 
 # CSRF Settings
 CSRF_TRUSTED_ORIGINS = [
@@ -263,8 +283,18 @@ SPECTACULAR_SETTINGS = {
 }
 
 # Celery Configuration
-CELERY_BROKER_URL = config('REDIS_URL', default='redis://:1234@127.0.0.1:6379/0')
-CELERY_RESULT_BACKEND = config('REDIS_URL', default='redis://:1234@127.0.0.1:6379/0')
+CELERY_BROKER_URL = config('REDIS_URL', default='redis://:127.0.0.1:6379/0')
+CELERY_RESULT_BACKEND = config('REDIS_URL', default='redis://:127.0.0.1:6379/0')
+
+# Cache Configuration
+# 默认缓存配置
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake',
+        'TIMEOUT': 300,  # 默认缓存超时5分钟
+    }
+}
 
 # Email Configuration
 EMAIL_BACKEND = 'apps.api_testing.custom_email_backend.CustomEmailBackend'
@@ -317,6 +347,7 @@ LOGGING = {
         },
     },
     'loggers': {
+        # 其他具体模块的 logger 配置
         'django': {
             'handlers': ['file', 'error_file', 'console'],
             'level': 'INFO',
@@ -332,6 +363,21 @@ LOGGING = {
             'level': 'INFO',
             'propagate': False,
         },
+        'apps.data_factory.tools.encoding_tools': {
+            'handlers': ['file', 'error_file', 'console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'apps.data_factory.tools': {
+            'handlers': ['file', 'error_file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+    'root': {
+        'handlers': ['file', 'error_file', 'console'],
+        'level': 'INFO',
+        # 'propagate': True,
     },
 }
 

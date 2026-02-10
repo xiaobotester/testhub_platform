@@ -5,15 +5,24 @@
 # @Software  : PyCharm
 # @FileName  : demo_pyzbar.py
 # -----------------------------
-from pyzbar.pyzbar import decode
+from pyzbar import pyzbar
 from PIL import Image
 
-# 读取图像文件
-image = Image.open('../static_files/img/barcode_1769491234_cd91d251_code128.png')
 
-# 解码图像中的条形码或 QR 码
-decoded_objects = decode(image)
+def decode_qr_code(image_path):
+    image = Image.open(image_path)
+    decoded_objects = pyzbar.decode(image)
 
-# 打印解码结果
-for obj in decoded_objects:
-    print(f"Data: {obj.data.decode('utf-8')}, Type: {obj.type}")
+    for obj in decoded_objects:
+        # 尝试不同的编码格式
+        try:
+            data = obj.data.decode('utf-8')
+        except UnicodeDecodeError:
+            try:
+                data = obj.data.decode('gbk')  # 中文常用编码
+            except UnicodeDecodeError:
+                data = obj.data.decode('latin-1', errors='ignore')
+
+        return data
+
+print(decode_qr_code('../static_files/img/qrcode_1770115855_0c756a08_300px.png'))

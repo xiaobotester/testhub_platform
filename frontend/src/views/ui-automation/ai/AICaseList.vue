@@ -56,7 +56,7 @@
     </div>
 
     <!-- 编辑对话框 -->
-    <el-dialog v-model="showEditDialog" :title="$t('uiAutomation.ai.caseList.editCase')" width="600px">
+    <el-dialog v-model="showEditDialog" :title="$t('uiAutomation.ai.caseList.editCase')" width="600px" :close-on-click-modal="false">
       <el-form :model="editForm" :rules="formRules" ref="editFormRef" label-width="100px">
         <el-form-item :label="$t('uiAutomation.ai.caseList.caseName')" prop="name">
           <el-input v-model="editForm.name" :placeholder="$t('uiAutomation.ai.caseNamePlaceholder')" />

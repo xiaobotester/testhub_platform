@@ -1,7 +1,7 @@
 export default {
   reviewList: {
     title: '用例评审',
-    createReview: '创建评审',
+    createReview: '新建评审',
     project: '项目',
     selectProject: '请选择项目',
     status: '评审状态',
@@ -179,7 +179,7 @@ export default {
 
   // Review Form Page
   reviewForm: {
-    createTitle: '创建评审',
+    createTitle: '新建评审',
     editTitle: '编辑评审',
     back: '返回',
     save: '保存',

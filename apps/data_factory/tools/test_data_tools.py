@@ -39,12 +39,13 @@ class TestDataTools:
                     return fake.name()
 
             if count == 1:
-                return {'result': generate_one()}
+                return {'success': True, 'result': generate_one()}
             else:
                 result = [generate_one() for _ in range(count)]
-                return {'result': result, 'count': len(result)}
+                return {'success': True, 'result': result, 'count': len(result)}
         except Exception as e:
-            return {'error': f'中文姓名生成失败: {str(e)}'}
+            logger.error(f'中文姓名生成失败: {str(e)}')
+            return {'result': False, 'error': f'中文姓名生成失败: {str(e)}'}
 
     @staticmethod
     def generate_chinese_phone(region: str = 'all', count: int = 1) -> Dict[str, Any]:
@@ -58,12 +59,13 @@ class TestDataTools:
                 return phone
 
             if count == 1:
-                return {'result': generate_one()}
+                return {'success': True, 'result': generate_one()}
             else:
                 result = [generate_one() for _ in range(count)]
-                return {'result': result, 'count': len(result)}
+                return {'success': True, 'result': result, 'count': len(result)}
         except Exception as e:
-            return {'error': f'手机号生成失败: {str(e)}'}
+            logger.error(f'手机号生成失败: {str(e)}')
+            return {'result': False, 'error': f'手机号生成失败: {str(e)}'}
 
     @staticmethod
     def generate_chinese_email(domain: str = 'random', count: int = 1) -> Dict[str, Any]:
@@ -79,12 +81,13 @@ class TestDataTools:
                 return email
 
             if count == 1:
-                return {'result': generate_one()}
+                return {'success': True, 'result': generate_one()}
             else:
                 result = [generate_one() for _ in range(count)]
-                return {'result': result, 'count': len(result)}
+                return {'success': True, 'result': result, 'count': len(result)}
         except Exception as e:
-            return {'error': f'邮箱生成失败: {str(e)}'}
+            logger.error(f'邮箱生成失败: {str(e)}')
+            return {'result': False, 'error': f'邮箱生成失败: {str(e)}'}
 
     @staticmethod
     def generate_chinese_address(full_address: bool = True, count: int = 1) -> Dict[str, Any]:
@@ -99,12 +102,13 @@ class TestDataTools:
                     return fake.city()
 
             if count == 1:
-                return {'result': generate_one()}
+                return {'success': True, 'result': generate_one()}
             else:
                 result = [generate_one() for _ in range(count)]
-                return {'result': result, 'count': len(result)}
+                return {'success': True, 'result': result, 'count': len(result)}
         except Exception as e:
-            return {'error': f'地址生成失败: {str(e)}'}
+            logger.error(f'地址生成失败: {str(e)}')
+            return {'result': False, 'error': f'地址生成失败: {str(e)}'}
 
     @staticmethod
     def generate_id_card(count: int = 1) -> Dict[str, Any]:
@@ -117,13 +121,13 @@ class TestDataTools:
                 return ssn
 
             if count == 1:
-                return {'result': generate_one()}
+                return {'success': True, 'result': generate_one()}
             else:
                 result = [generate_one() for _ in range(count)]
-                return {'result': result, 'count': len(result)}
+                return {'success': True, 'result': result, 'count': len(result)}
         except Exception as e:
             logging.error(f'身份证号生成失败: {str(e)}')
-            return {'error': f'身份证号生成失败: {str(e)}'}
+            return {'result': False, 'error': f'身份证号生成失败: {str(e)}'}
 
     @staticmethod
     def generate_company_name(company_type: str = 'all', count: int = 1) -> Dict[str, Any]:
@@ -138,13 +142,13 @@ class TestDataTools:
                 return company
 
             if count == 1:
-                return {'result': generate_one()}
+                return {'success': True, 'result': generate_one()}
             else:
                 result = [generate_one() for _ in range(count)]
-                return {'result': result, 'count': len(result)}
+                return {'success': True, 'result': result, 'count': len(result)}
         except Exception as e:
             logging.error(f'公司名称生成失败: {str(e)}')
-            return {'error': f'公司名称生成失败: {str(e)}'}
+            return {'result': False, 'error': f'公司名称生成失败: {str(e)}'}
 
     @staticmethod
     def generate_bank_card(count: int = 1) -> Dict[str, Any]:
@@ -155,12 +159,13 @@ class TestDataTools:
                 return card
 
             if count == 1:
-                return {'result': generate_one()}
+                return {'success': True, 'result': generate_one()}
             else:
                 result = [generate_one() for _ in range(count)]
-                return {'result': result, 'count': len(result)}
+                return {'success': True, 'result': result, 'count': len(result)}
         except Exception as e:
-            return {'error': f'银行卡号生成失败: {str(e)}'}
+            logging.error(f'银行卡号生成失败: {str(e)}')
+            return {'result': False, 'error': f'银行卡号生成失败: {str(e)}'}
 
     @staticmethod
     def generate_user_profile(count: int = 1) -> Dict[str, Any]:
@@ -183,12 +188,13 @@ class TestDataTools:
                 }
 
             if count == 1:
-                return {'result': generate_one()}
+                return {'success': True, 'result': generate_one()}
             else:
                 result = [generate_one() for _ in range(count)]
-                return {'result': result, 'count': len(result)}
+                return {'success': True, 'result': result, 'count': len(result)}
         except Exception as e:
-            return {'error': f'用户档案生成失败: {str(e)}'}
+            logging.error(f'用户档案生成失败: {str(e)}')
+            return {'result': False, 'error': f'用户档案生成失败: {str(e)}'}
 
     @staticmethod
     def generate_hk_id_card(count: int = 1) -> Dict[str, Any]:
@@ -216,13 +222,13 @@ class TestDataTools:
                 return id_card
 
             if count == 1:
-                return {'result': generate_one()}
+                return {'success': True, 'result': generate_one()}
             else:
                 result = [generate_one() for _ in range(count)]
-                return {'result': result, 'count': len(result)}
+                return {'success': True, 'result': result, 'count': len(result)}
         except Exception as e:
             logging.error(f'香港身份证号生成失败: {str(e)}')
-            return {'error': '香港身份证号生成失败！'}
+            return {'result': False, 'error': '香港身份证号生成失败！'}
 
     @staticmethod
     def generate_business_license(count: int = 1) -> Dict[str, Any]:
@@ -232,13 +238,13 @@ class TestDataTools:
                 return business_license()
 
             if count == 1:
-                return {'result': generate_one()}
+                return {'success': True, 'result': generate_one()}
             else:
                 result = [generate_one() for _ in range(count)]
-                return {'result': result, 'count': len(result)}
+                return {'success': True, 'result': result, 'count': len(result)}
         except Exception as e:
             logging.error(f'营业执照号生成失败: {str(e)}')
-            return {'error': '营业执照号生成失败，请联系管理员！'}
+            return {'result': False, 'error': '营业执照号生成失败，请联系管理员！'}
 
     @staticmethod
     def generate_coordinates(count: int = 1) -> Dict[str, Any]:
@@ -257,9 +263,10 @@ class TestDataTools:
                 }
 
             if count == 1:
-                return {'result': generate_one()}
+                return {'success': True, 'result': generate_one()}
             else:
                 result = [generate_one() for _ in range(count)]
-                return {'result': result, 'count': len(result)}
+                return {'success': True, 'result': result, 'count': len(result)}
         except Exception as e:
-            return {'error': f'经纬度生成失败: {str(e)}'}
+            logger.error(f'经纬度生成失败: {str(e)}')
+            return {'result': False, 'error': f'经纬度生成失败: {str(e)}'}

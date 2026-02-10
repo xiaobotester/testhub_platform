@@ -116,6 +116,7 @@
       v-model="templateDialogVisible"
       :title="isEdit ? $t('reviewTemplate.editTitle') : $t('reviewTemplate.createTitle')"
       width="800px"
+      :close-on-click-modal="false"
     >
       <el-form :model="templateForm" :rules="templateRules" ref="templateFormRef" label-width="120px">
         <el-row :gutter="24">
@@ -302,7 +303,7 @@ const editTemplate = (template) => {
 const useTemplate = (template) => {
   // 使用模板创建评审
   router.push({
-    path: '/reviews/create',
+    path: '/ai-generation/reviews/create',
     query: { template: template.id }
   })
 }

@@ -1086,9 +1086,10 @@ export default {
     actionSwitchTab: '切换标签页',
     selectElement: '选择元素',
     inputValue: '输入值：',
-    inputPlaceholder: '请输入内容，支持变量如 {{random_phone()}}',
+    inputPlaceholder: '请输入内容，支持变量如 \'{random_phone()}\'',
     switchTabPlaceholder: '输入索引(0,1...)或留空切换到最新',
     insertVariable: '插入动态变量',
+    referenceDataFactory: '引用数据工厂',
     waitTime: '等待时间（毫秒）：',
     assertType: '断言类型：',
     assertTextContains: '文本包含',
@@ -1125,7 +1126,9 @@ export default {
     functionName: '函数名',
     description: '描述',
     syntax: '语法',
+    example: '示例',
     insert: '插入',
+    operation: '操作',
     loadingImage: '加载中...',
     imageLoadFailed: '图片加载失败',
     screenshot: '截图',
@@ -1183,7 +1186,8 @@ export default {
       createSuccess: '测试用例创建成功',
       updateSuccess: '测试用例更新成功',
       createFailed: '保存失败',
-      variableInserted: '已插入变量'
+      variableInserted: '已插入变量',
+      dataFactorySelected: '已选择数据工厂: {toolName}'
     }
   },
 

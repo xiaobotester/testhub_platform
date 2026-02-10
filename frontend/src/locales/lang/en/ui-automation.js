@@ -1086,9 +1086,10 @@ export default {
     actionSwitchTab: 'Switch Tab',
     selectElement: 'Select Element',
     inputValue: 'Input Value:',
-    inputPlaceholder: 'Enter content, supports variables like {{random_phone()}}',
+    inputPlaceholder: 'Enter content, supports variables like \'{random_phone()}\'',
     switchTabPlaceholder: 'Enter index (0,1...) or leave empty for latest',
     insertVariable: 'Insert Dynamic Variable',
+    referenceDataFactory: 'Reference Data Factory',
     waitTime: 'Wait Time (ms):',
     assertType: 'Assert Type:',
     assertTextContains: 'Text Contains',
@@ -1125,7 +1126,9 @@ export default {
     functionName: 'Function',
     description: 'Description',
     syntax: 'Syntax',
+    example: 'Example',
     insert: 'Insert',
+    operation: 'Operation',
     loadingImage: 'Loading...',
     imageLoadFailed: 'Image load failed',
     screenshot: 'Screenshot',
@@ -1183,7 +1186,8 @@ export default {
       createSuccess: 'Test case created successfully',
       updateSuccess: 'Test case updated successfully',
       createFailed: 'Failed to save',
-      variableInserted: 'Variable inserted'
+      variableInserted: 'Variable inserted',
+      dataFactorySelected: 'Data factory selected: {toolName}'
     }
   },
 

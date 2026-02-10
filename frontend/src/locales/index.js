@@ -45,7 +45,10 @@ const i18n = createI18n({
   missingWarn: import.meta.env.DEV,
 
   // 回退警告 - 开发环境开启
-  fallbackWarn: import.meta.env.DEV
+  fallbackWarn: import.meta.env.DEV,
+
+  // 禁用 HTML 转义，避免占位符被误解析
+  escapeParameter: false
 })
 
 export default i18n

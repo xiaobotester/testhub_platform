@@ -47,6 +47,10 @@ class DataFactoryRecord(models.Model):
             models.Index(fields=['user', '-created_at']),
             models.Index(fields=['tool_category']),
             models.Index(fields=['tool_scenario']),
+            # 复合索引优化统计查询
+            models.Index(fields=['user', 'tool_category']),
+            models.Index(fields=['user', 'tool_scenario']),
+            models.Index(fields=['user', 'is_saved']),
         ]
 
     def __str__(self):

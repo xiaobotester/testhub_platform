@@ -38,8 +38,10 @@ export default {
   testcase: testcaseModule.testcase,
   testSuite: testcaseModule.testSuite,
 
-  // 评审模块
+  // Review Module
   reviewList: reviewModule.reviewList,
+  reviewForm: reviewModule.reviewForm,
+  reviewDetail: reviewModule.reviewDetail,
   reviewTemplate: reviewModule.reviewTemplate,
 
   // 需求分析模块

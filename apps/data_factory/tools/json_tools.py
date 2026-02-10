@@ -42,8 +42,8 @@ class JsonTools:
                 compressed_lines = result.count('\n') + 1
                 
                 return {
-                    'success': True,
                     'result': result,
+                    'success': True,
                     'mode': 'compress',
                     'original_length': original_chars,
                     'compressed_length': compressed_chars,
@@ -57,8 +57,8 @@ class JsonTools:
                 formatted_lines = result.count('\n') + 1
                 
                 return {
-                    'success': True,
                     'result': result,
+                    'success': True,
                     'mode': 'format',
                     'indent': indent,
                     'sort_keys': sort_keys,
@@ -84,6 +84,7 @@ class JsonTools:
         try:
             data = json.loads(json_str)
             return {
+                'result': True,
                 'success': True,
                 'valid': True,
                 'message': 'JSON格式正确',
@@ -92,6 +93,7 @@ class JsonTools:
             }
         except json.JSONDecodeError as e:
             return {
+                'result': False,
                 'success': False,
                 'valid': False,
                 'error': f'JSON格式错误: {str(e)}',
@@ -130,13 +132,15 @@ class JsonTools:
             xml_str = ET.tostring(root, encoding='unicode', method='xml')
             
             return {
-                'success': True,
                 'result': xml_str,
+                'success': True,
                 'root_tag': root_tag
             }
         except json.JSONDecodeError as e:
+            logger.error(f'JSON格式错误: {str(e)}')
             return {'error': f'JSON格式错误: {str(e)}'}
         except Exception as e:
+            logger.error(f'JSON转XML失败: {str(e)}')
             return {'error': f'JSON转XML失败: {str(e)}'}
 
     @staticmethod
@@ -157,12 +161,14 @@ class JsonTools:
             json_str = json.dumps(data, ensure_ascii=False, indent=2)
             
             return {
-                'success': True,
-                'result': json_str
+                'result': json_str,
+                'success': True
             }
         except ET.ParseError as e:
+            logger.error(f'XML格式错误: {str(e)}')
             return {'error': f'XML格式错误: {str(e)}'}
         except Exception as e:
+            logger.error(f'XML转JSON失败: {str(e)}')
             return {'error': f'XML转JSON失败: {str(e)}'}
 
     @staticmethod
@@ -173,8 +179,8 @@ class JsonTools:
             yaml_str = yaml.dump(data, allow_unicode=True, default_flow_style=False, sort_keys=False)
             
             return {
-                'success': True,
-                'result': yaml_str
+                'result': yaml_str,
+                'success': True
             }
         except json.JSONDecodeError as e:
             return {'error': f'JSON格式错误: {str(e)}'}
@@ -189,8 +195,8 @@ class JsonTools:
             json_str = json.dumps(data, ensure_ascii=False, indent=2)
             
             return {
-                'success': True,
-                'result': json_str
+                'result': json_str,
+                'success': True
             }
         except yaml.YAMLError as e:
             return {'error': f'YAML格式错误: {str(e)}'}
@@ -224,8 +230,8 @@ class JsonTools:
             csv_str = '\n'.join(csv_lines)
             
             return {
-                'success': True,
                 'result': csv_str,
+                'success': True,
                 'row_count': len(data),
                 'column_count': len(headers)
             }
@@ -255,8 +261,8 @@ class JsonTools:
             json_str = json.dumps(data, ensure_ascii=False, indent=2)
             
             return {
-                'success': True,
                 'result': json_str,
+                'success': True,
                 'row_count': len(data) if isinstance(data, list) else len(data),
                 'has_header': has_header
             }
@@ -289,10 +295,14 @@ class JsonTools:
             
             diff_result = ''.join(diff_lines) if diff_lines else '无差异'
             
+            result = {
+                'similarity': f"{similarity * 100:.2f}%",
+                'identical': similarity == 1.0
+            }
+            
             return {
                 'success': True,
-                'similarity': f"{similarity * 100:.2f}%",
-                'identical': similarity == 1.0,
+                'result': result,
                 'diff': diff_result,
                 'size1': len(json_str1),
                 'size2': len(json_str2)
@@ -316,9 +326,9 @@ class JsonTools:
             matches = [match.value for match in parse_expr.find(data)]
             
             return {
+                'result': matches,
                 'success': True,
                 'expression': jsonpath_expr,
-                'matches': matches,
                 'count': len(matches)
             }
         except json.JSONDecodeError as e:
@@ -349,7 +359,7 @@ class JsonTools:
             
             return {
                 'success': True,
-                'paths': paths,
+                'result': paths,
                 'count': len(paths)
             }
         except json.JSONDecodeError as e:
@@ -493,6 +503,7 @@ class JsonTools:
                     result.append({'type': data_type, 'value': value})
             
             return {
+                'result': result,
                 'success': True,
                 'data_type': data_type,
                 'count': count,
@@ -529,7 +540,6 @@ class JsonTools:
             diff_result = ''.join(diff_lines) if diff_lines else '无差异'
             
             key_diffs = []
-            value_diffs = []
             
             def compare_objects(obj1, obj2, path=''):
                 if isinstance(obj1, dict) and isinstance(obj2, dict):
@@ -579,13 +589,16 @@ class JsonTools:
             
             compare_objects(data1, data2)
             
-            return {
-                'success': True,
+            result_data = {
                 'similarity': f"{similarity * 100:.2f}%",
                 'identical': similarity == 1.0,
+                'diff_count': len(key_diffs)
+            }
+            return {
+                'success': True,
+                'result': result_data,
                 'diff': diff_result,
                 'detailed_diffs': key_diffs,
-                'diff_count': len(key_diffs),
                 'size1': len(json_str1),
                 'size2': len(json_str2),
                 'show_only_diff': show_only_diff

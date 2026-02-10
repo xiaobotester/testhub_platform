@@ -259,12 +259,79 @@ class PlaywrightTestEngine:
             execution_time = 0
 
             if action_type == 'click':
+                # 检测是否是原生HTML select的option元素（优先检测，因为option元素特殊）
+                is_native_select_option = (
+                    ('option[' in locator_value or ' > option' in locator_value or '//option' in locator_value) or
+                    ('select' in locator_value.lower() and 'option' in locator_value.lower())
+                )
+
+                # 对于原生HTML select的option，使用select_option方法
+                if is_native_select_option:
+                    logger.info(f"检测到原生HTML select元素，使用select_option方法...")
+
+                    # 提取select的定位器和option的value
+                    # 例如：select[name="my-select"] option[value="1"]
+                    # 需要提取：select[name="my-select"] 和 value="1"
+
+                    import re
+
+                    # 提取option的value值
+                    option_value_match = re.search(r'option\[value=["\']([^"\']+)["\']\]', locator_value)
+                    option_value_xpath_match = re.search(r'option\[@value=["\']([^"\']+)["\']\]', locator_value)
+
+                    option_value = None
+                    if option_value_match:
+                        option_value = option_value_match.group(1)
+                    elif option_value_xpath_match:
+                        option_value = option_value_xpath_match.group(1)
+                    else:
+                        # 尝试其他格式
+                        option_value = '1'  # 默认值
+
+                    # 构造select元素的定位器（去掉option部分）
+                    select_locator_value = re.sub(r'\s*>\s*option\[.*?\]', '', locator_value)
+                    select_locator_value = re.sub(r'\s+option\[.*?\]', '', select_locator_value)
+                    select_locator_value = re.sub(r'//option\[.*?\]', '', select_locator_value)
+
+                    logger.info(f"Select定位器: {select_locator_value}, Option值: {option_value}")
+
+                    try:
+                        # 构造select元素的locator
+                        if locator_strategy.lower() == 'xpath':
+                            # XPath: //select[@name='my-select']/option[@value='1']
+                            # 提取select部分
+                            select_match = re.match(r'^(//.*?select)(?:/option)?', locator_value)
+                            if select_match:
+                                select_locator_value = select_match.group(1)
+                            else:
+                                select_locator_value = locator_value.split('/')[0]
+                            select_locator = self.page.locator(f"xpath={select_locator_value}")
+                        else:
+                            # CSS: select[name="my-select"] option[value="1"]
+                            select_locator = self.page.locator(select_locator_value)
+
+                        # 使用select_option方法
+                        await select_locator.select_option(value=option_value, timeout=timeout_ms)
+
+                        execution_time = round(time.time() - start_time, 2)
+                        log = f"✓ 选择下拉框选项 '{element_name}' 成功\n"
+                        log += f"  - Select定位器: {select_locator_value}\n"
+                        log += f"  - 选中值: {option_value}\n"
+                        log += f"  - 方法: select_option() (原生HTML select)\n"
+                        log += f"  - 执行时间: {execution_time}秒"
+                        return True, log, None
+
+                    except Exception as e:
+                        logger.error(f"select_option失败: {e}")
+                        # 如果失败，继续尝试普通点击
+                        pass
+
                 # 对于下拉框选项，需要特殊处理
                 # 通过定位器特征自动识别下拉框选项
                 is_dropdown_option = (
-                    'dropdown' in locator_value.lower() or 
-                    'el-select' in locator_value.lower() or 
-                    '下拉' in element_name or 
+                    'dropdown' in locator_value.lower() or
+                    'el-select' in locator_value.lower() or
+                    '下拉' in element_name or
                     '选项' in element_name or
                     'role="option"' in locator_value.lower() or
                     'el-select-dropdown__item' in locator_value.lower() or  # Element Plus 下拉框

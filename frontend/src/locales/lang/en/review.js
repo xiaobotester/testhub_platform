@@ -179,7 +179,7 @@ export default {
 
   // Review Form Page
   reviewForm: {
-    createTitle: 'Create Review',
+    createTitle: 'New Review',
     editTitle: 'Edit Review',
     back: 'Back',
     save: 'Save',

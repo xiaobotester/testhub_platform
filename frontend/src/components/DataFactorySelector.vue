@@ -1,7 +1,7 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="选择数据工厂数据"
+    :title="t('apiTesting.dataFactory.select.title')"
     width="1000px"
     :close-on-click-modal="false"
     @close="handleClose"
@@ -9,13 +9,13 @@
   >
     <div class="data-factory-selector">
       <el-tabs v-model="activeTab" @tab-change="handleTabChange">
-        <el-tab-pane label="按标签选择" name="byTag">
+        <el-tab-pane :label="t('apiTesting.dataFactory.select.byTag')" name="byTag">
           <div class="tag-selector">
             <el-form :inline="true" @submit.prevent="fetchRecordsByTag">
-              <el-form-item label="标签">
+              <el-form-item :label="t('apiTesting.dataFactory.select.tag')">
                 <el-select
                   v-model="selectedTag"
-                  placeholder="请选择标签"
+                  :placeholder="t('apiTesting.dataFactory.select.selectTag')"
                   filterable
                   allow-create
                   clearable
@@ -28,10 +28,10 @@
                   />
                 </el-select>
               </el-form-item>
-              <el-form-item label="工具分类">
+              <el-form-item :label="t('apiTesting.dataFactory.select.toolCategory')">
                 <el-select
                   v-model="filterCategory"
-                  placeholder="请选择工具分类"
+                  :placeholder="t('apiTesting.dataFactory.select.selectToolCategory')"
                   clearable
                   style="width: 200px"
                 >
@@ -44,7 +44,7 @@
                 </el-select>
               </el-form-item>
               <el-form-item>
-                <el-button type="primary" @click="fetchRecordsByTag">查询</el-button>
+                <el-button type="primary" @click="fetchRecordsByTag">{{ t('apiTesting.dataFactory.select.search') }}</el-button>
               </el-form-item>
           </el-form>
 
@@ -58,14 +58,14 @@
             height="400"
           >
             <el-table-column type="selection" width="55" />
-            <el-table-column prop="tool_name_display" label="工具名称" min-width="150" />
-            <el-table-column prop="tool_category_display" label="分类" min-width="100" />
-            <el-table-column prop="created_at" label="创建时间" min-width="180">
+            <el-table-column prop="tool_name_display" :label="t('apiTesting.dataFactory.select.toolName')" min-width="150" />
+            <el-table-column prop="tool_category_display" :label="t('apiTesting.dataFactory.select.category')" min-width="100" />
+            <el-table-column prop="created_at" :label="t('apiTesting.dataFactory.select.createdAt')" min-width="180">
               <template #default="{ row }">
                 {{ formatDate(row.created_at) }}
               </template>
             </el-table-column>
-            <el-table-column prop="tags" label="标签" min-width="150">
+            <el-table-column prop="tags" :label="t('apiTesting.dataFactory.select.tags')" min-width="150">
               <template #default="{ row }">
                 <el-tag
                   v-for="tag in (row.tags || [])"
@@ -77,13 +77,13 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="150" fixed="right">
+            <el-table-column :label="t('apiTesting.dataFactory.select.operation')" width="150" fixed="right">
               <template #default="{ row }">
                 <el-button type="primary" link size="small" @click="previewRecord(row)">
-                  预览
+                  {{ t('apiTesting.dataFactory.select.preview') }}
                 </el-button>
                 <el-button type="primary" link size="small" @click="selectRecord(row)">
-                  选择
+                  {{ t('apiTesting.dataFactory.select.select') }}
                 </el-button>
               </template>
             </el-table-column>
@@ -103,21 +103,21 @@
           </div>
         </el-tab-pane>
 
-        <el-tab-pane label="直接选择记录" name="byRecord">
+        <el-tab-pane :label="t('apiTesting.dataFactory.select.byRecord')" name="byRecord">
           <div class="record-selector">
             <el-form :inline="true" @submit.prevent="fetchRecords">
-              <el-form-item label="工具名称">
+              <el-form-item :label="t('apiTesting.dataFactory.select.toolName')">
                 <el-input
                   v-model="filterToolName"
-                  placeholder="请输入工具名称"
+                  :placeholder="t('apiTesting.dataFactory.select.inputToolName')"
                   clearable
                   @clear="fetchRecords"
                 />
               </el-form-item>
-              <el-form-item label="工具分类">
+              <el-form-item :label="t('apiTesting.dataFactory.select.toolCategory')">
                 <el-select
                   v-model="filterCategory"
-                  placeholder="请选择工具分类"
+                  :placeholder="t('apiTesting.dataFactory.select.selectToolCategory')"
                   clearable
                   style="width: 200px"
                 >
@@ -129,10 +129,10 @@
                   />
                 </el-select>
               </el-form-item>
-              <el-form-item label="标签">
+              <el-form-item :label="t('apiTesting.dataFactory.select.tag')">
                 <el-select
                   v-model="filterTag"
-                  placeholder="请选择标签"
+                  :placeholder="t('apiTesting.dataFactory.select.selectTag')"
                   filterable
                   allow-create
                   clearable
@@ -146,7 +146,7 @@
                 </el-select>
               </el-form-item>
               <el-form-item>
-                <el-button type="primary" @click="fetchRecords">查询</el-button>
+                <el-button type="primary" @click="fetchRecords">{{ t('apiTesting.dataFactory.select.search') }}</el-button>
               </el-form-item>
             </el-form>
 
@@ -160,14 +160,14 @@
               height="400"
             >
               <el-table-column type="selection" width="55" />
-            <el-table-column prop="tool_name_display" label="工具名称" min-width="150" />
-            <el-table-column prop="tool_category_display" label="分类" min-width="100" />
-              <el-table-column prop="created_at" label="创建时间" min-width="180">
+            <el-table-column prop="tool_name_display" :label="t('apiTesting.dataFactory.select.toolName')" min-width="150" />
+            <el-table-column prop="tool_category_display" :label="t('apiTesting.dataFactory.select.category')" min-width="100" />
+              <el-table-column prop="created_at" :label="t('apiTesting.dataFactory.select.createdAt')" min-width="180">
                 <template #default="{ row }">
                   {{ formatDate(row.created_at) }}
                 </template>
               </el-table-column>
-              <el-table-column prop="tags" label="标签" min-width="150">
+              <el-table-column prop="tags" :label="t('apiTesting.dataFactory.select.tags')" min-width="150">
                 <template #default="{ row }">
                   <el-tag
                     v-for="tag in (row.tags || [])"
@@ -179,13 +179,13 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="操作" width="150" fixed="right">
+              <el-table-column :label="t('apiTesting.dataFactory.select.operation')" width="150" fixed="right">
                 <template #default="{ row }">
                   <el-button type="primary" link size="small" @click="previewRecord(row)">
-                    预览
+                    {{ t('apiTesting.dataFactory.select.preview') }}
                   </el-button>
                   <el-button type="primary" link size="small" @click="selectRecord(row)">
-                    选择
+                    {{ t('apiTesting.dataFactory.select.select') }}
                   </el-button>
                 </template>
               </el-table-column>
@@ -208,30 +208,30 @@
     </div>
 
     <template #footer>
-      <el-button @click="handleClose">取消</el-button>
+      <el-button @click="handleClose">{{ t('apiTesting.dataFactory.select.cancel') }}</el-button>
       <el-button type="primary" @click="handleConfirm" :disabled="!selectedRecord">
-        确认选择
+        {{ t('apiTesting.dataFactory.select.confirmSelect') }}
       </el-button>
     </template>
   </el-dialog>
 
   <el-dialog
     v-model="previewVisible"
-    title="数据预览"
+    :title="t('apiTesting.dataFactory.select.dataPreview')"
     width="800px"
   >
     <div v-if="previewRecordData" class="preview-content">
       <el-descriptions :column="1" border>
-        <el-descriptions-item label="工具名称">
-          {{ previewRecordData.tool_name }}
+        <el-descriptions-item :label="t('apiTesting.dataFactory.select.toolName')">
+          {{ previewRecordData.tool_name_display || previewRecordData.tool_name }}
         </el-descriptions-item>
-        <el-descriptions-item label="工具分类">
+        <el-descriptions-item :label="t('apiTesting.dataFactory.select.toolCategory')">
           {{ previewRecordData.tool_category_display }}
         </el-descriptions-item>
-        <el-descriptions-item label="创建时间">
+        <el-descriptions-item :label="t('apiTesting.dataFactory.select.createdAt')">
           {{ formatDate(previewRecordData.created_at) }}
         </el-descriptions-item>
-        <el-descriptions-item label="标签">
+        <el-descriptions-item :label="t('apiTesting.dataFactory.select.tags')">
           <el-tag
             v-for="tag in (previewRecordData.tags || [])"
             :key="tag"
@@ -241,10 +241,10 @@
             {{ tag }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="输入数据">
+        <el-descriptions-item :label="t('apiTesting.dataFactory.select.inputData')">
           <pre class="json-preview">{{ JSON.stringify(previewRecordData.input_data, null, 2) }}</pre>
         </el-descriptions-item>
-        <el-descriptions-item label="输出数据">
+        <el-descriptions-item :label="t('apiTesting.dataFactory.select.outputData')">
           <pre class="json-preview">{{ JSON.stringify(previewRecordData.output_data, null, 2) }}</pre>
         </el-descriptions-item>
       </el-descriptions>
@@ -256,6 +256,9 @@
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   modelValue: {

@@ -45,7 +45,10 @@ export default {
     pleaseInput: 'Please input',
     pleaseSelect: 'Please select',
     success: 'Success',
-    failed: 'Failed'
+    failed: 'Failed',
+    extract: 'Extract',
+    import: 'Import',
+    export: 'Export'
   },
 
   // Dashboard
@@ -127,10 +130,39 @@ export default {
     notSet: 'Not Set'
   },
 
+  // Data Factory Selector
+  dataFactory: {
+    select: {
+      title: 'Select Data Factory Data',
+      byTag: 'Select by Tag',
+      byRecord: 'Select by Record',
+      tag: 'Tag',
+      selectTag: 'Please select tag',
+      toolCategory: 'Tool Category',
+      selectToolCategory: 'Please select tool category',
+      search: 'Search',
+      toolName: 'Tool Name',
+      inputToolName: 'Please input tool name',
+      category: 'Category',
+      createdAt: 'Created At',
+      tags: 'Tags',
+      operation: 'Operation',
+      preview: 'Preview',
+      select: 'Select',
+      cancel: 'Cancel',
+      confirmSelect: 'Confirm Select',
+      dataPreview: 'Data Preview',
+      inputData: 'Input Data',
+      outputData: 'Output Data'
+    }
+  },
+
   // Interface Management
   interface: {
     title: 'Interface Management',
+    searchInterface: 'Search interface...',
     createCollection: 'Create Collection',
+    editCollection: 'Edit Collection',
     addInterface: 'Add Interface',
     createNewInterface: 'Create New Interface',
     selectInterface: 'Select an interface to view details, or click the green button above to create a new one',
@@ -152,39 +184,38 @@ export default {
     confirmDeleteBtn: 'Confirm Delete',
     collection: 'collection',
     request: 'interface',
-    // Body Types
-    paramName: 'Param Name',
-    paramValue: 'Param Value',
-    headerName: 'Header Name',
-    headerValue: 'Header Value',
-    key: 'Key',
-    value: 'Value',
-    inputRequestBody: 'Enter request body content',
-    // Scripts
-    preRequestScript: '// Pre-request script, use JavaScript syntax',
-    postRequestScript: '// Post-request script and tests, use JavaScript syntax',
-    // Assertions
-    assertions: 'Assertions',
-    addAssertion: 'Add Assertion',
-    assertionName: 'Assertion Name',
-    selectAssertionType: 'Select assertion type',
-    assertionTypes: {
-      statusCode: 'Status Code',
-      responseTime: 'Response Time',
-      contains: 'Contains Text',
-      jsonPath: 'JSON Path',
-      header: 'Response Header',
-      equals: 'Exact Match'
-    },
-    expectedStatusCode: 'Expected status code',
-    maxResponseTime: 'Max response time (ms)',
+    url: 'URL',
+    searchResults: 'Search results ({count})',
+    name: 'Name',
+    method: 'Method',
+    importCurl: 'Import cURL',
+    exportCurl: 'Export as cURL',
+    referDataFactory: 'Reference Data Factory',
+    variableHelper: 'Variable Helper',
+    insertDynamicVariable: 'Insert Dynamic Variable',
     expectedContains: 'Expected text to contain',
-    jsonPathExpression: 'JSON path expression',
     expectedValue: 'Expected value',
     headerNameLabel: 'Header name',
     expectedMatch: 'Expected exact match text',
-    noAssertions: 'No assertions configured',
-    addFirstAssertion: 'Add first assertion',
+    jsonPathExpression: 'JSON path expression',
+    jsonPathExample: 'Enter JSONPath expression, e.g.: $.data.users[0].name',
+    extractResult: 'Extracted result:',
+    actual: 'Actual:',
+    importCurlCommand: 'Import cURL Command',
+    pasteCurlCommand: 'Paste cURL command here, e.g.: curl -X POST https://api.example.com/users -H \'Content-Type: application/json\' -d \'{"name":"test"}\'',
+    parseAndImport: 'Parse and Import',
+    generateCode: 'Generate Code',
+    selectLanguage: 'Select Language',
+    copyCode: 'Copy Code',
+    cancel: 'Cancel',
+    variableCategoriesLoading: 'Loading variable categories...',
+    variableCategoriesCount: 'Current category count: {count}',
+    functionName: 'Function',
+    description: 'Description',
+    syntax: 'Syntax',
+    example: 'Example',
+    operation: 'Operation',
+    insert: 'Insert',
     // WebSocket
     messageType: 'Select message type',
     inputWebSocketMessage: 'Enter WebSocket message content to send',
@@ -205,6 +236,22 @@ export default {
     responseBody: 'Body',
     responseHeaders: 'Headers',
     assertionResults: 'Assertion Results',
+    // Assertions
+    assertions: 'Assertions',
+    addAssertion: 'Add Assertion',
+    assertionName: 'Assertion Name',
+    selectAssertionType: 'Select Assertion Type',
+    assertionTypes: {
+      statusCode: 'Status Code',
+      responseTime: 'Response Time',
+      contains: 'Contains Text',
+      jsonPath: 'JSON Path',
+      header: 'Response Header',
+      equals: 'Exact Match'
+    },
+    expectedStatusCode: 'Expected Status Code',
+    maxResponseTime: 'Max Response Time(ms)',
+    jsonPathExtract: 'JSONPath Extract',
     format: 'Format',
     passed: 'Passed',
     failed: 'Failed',
@@ -213,6 +260,9 @@ export default {
     error: 'Error:',
     notSet: 'Not set',
     notObtained: 'Not obtained',
+    noAssertions: 'No assertions configured',
+    addFirstAssertion: 'Add first assertion',
+    referencedToAssertion: 'Referenced data factory data to assertion',
     // Context Menu
     contextMenu: {
       addRequest: 'Add Request',
@@ -289,7 +339,8 @@ export default {
       running: 'Running',
       completed: 'Completed',
       failed: 'Failed',
-      cancelled: 'Cancelled'
+      cancelled: 'Cancelled',
+      passed: 'Passed'
     },
     confirmDeleteSuite: 'Are you sure to delete test suite "{name}"?',
     confirmRemoveRequest: 'Are you sure to remove this request?',
@@ -607,14 +658,22 @@ export default {
       // Variable categories
       categories: {
         randomNumber: 'Random Numbers',
-        randomString: 'Random Strings',
-        stringUtils: 'String Utils',
         testData: 'Test Data',
-        dateTime: 'Date & Time',
-        encoding: 'Encoding',
+        string: 'String',
+        encodingConversion: 'Encoding Conversion',
         encryption: 'Encryption',
+        datetime: 'Date & Time',
         crontab: 'Crontab',
-        other: 'Other'
+        uncategorized: 'Uncategorized',
+        // English category name mapping (for API returned English category names)
+        'random numbers': 'Random Numbers',
+        'test data': 'Test Data',
+        'string': 'String',
+        'encoding conversion': 'Encoding Conversion',
+        'encryption': 'Encryption',
+        'date & time': 'Date & Time',
+        'crontab': 'Crontab',
+        'uncategorized': 'Uncategorized'
       },
       // Variable descriptions
       variables: {
@@ -819,7 +878,8 @@ export default {
     info: {
       websocketClosed: 'WebSocket connection closed',
       websocketMessageReceived: 'WebSocket message received',
-      websocketConnectedTo: 'WebSocket connected to {url}'
+      websocketConnectedTo: 'Websocket connected to {url}',
+      featureInDevelopment: 'Feature is under development......'
     },
     confirm: {
       deleteTitle: 'Confirm Delete',

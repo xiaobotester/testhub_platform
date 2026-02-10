@@ -783,12 +783,19 @@ class TestSuiteViewSet(viewsets.ModelViewSet):
         test_suite.execution_status = 'running'
         test_suite.save()
 
-        try:
-            # 在后台线程中执行测试
-            import threading
-            from .test_executor import TestExecutor
+        # 记录运行操作
+        log_operation('run', 'suite', test_suite.id, test_suite.name, request.user)
 
-            def run_test():
+        # 在后台线程中执行测试
+        import threading
+        import traceback
+        from .test_executor import TestExecutor
+
+        def run_test():
+            try:
+                print(f"[测试套件] 开始执行: {test_suite.name} (ID: {test_suite.id})")
+                print(f"[测试套件] 配置: engine={engine}, browser={browser}, headless={headless}")
+
                 executor = TestExecutor(
                     test_suite=test_suite,
                     engine=engine,
@@ -798,26 +805,32 @@ class TestSuiteViewSet(viewsets.ModelViewSet):
                 )
                 executor.run()
 
-            # 启动后台线程执行测试
-            thread = threading.Thread(target=run_test)
-            thread.daemon = True
-            thread.start()
+                print(f"[测试套件] 执行完成: {test_suite.name}")
+            except Exception as e:
+                print(f"[测试套件] 执行异常: {test_suite.name}")
+                print(f"[测试套件] 错误: {str(e)}")
+                traceback.print_exc()
 
-            # 记录运行操作
-            log_operation('run', 'suite', test_suite.id, test_suite.name, request.user)
+                # 更新套件状态为失败
+                try:
+                    test_suite.execution_status = 'failed'
+                    test_suite.save()
+                    print(f"[测试套件] 已更新状态为失败")
+                except Exception as save_error:
+                    print(f"[测试套件] 更新状态失败: {save_error}")
 
-            return Response({
-                'message': '测试套件开始执行',
-                'suite_id': test_suite.id,
-                'test_case_count': test_case_count,
-                'engine': engine,
-                'browser': browser,
-                'headless': headless
-            }, status=status.HTTP_200_OK)
-        except Exception as e:
-            test_suite.execution_status = 'failed'
-            test_suite.save()
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # 启动后台线程执行测试
+        thread = threading.Thread(target=run_test, daemon=False)
+        thread.start()
+
+        return Response({
+            'message': '测试套件开始执行',
+            'suite_id': test_suite.id,
+            'test_case_count': test_case_count,
+            'engine': engine,
+            'browser': browser,
+            'headless': headless
+        }, status=status.HTTP_200_OK)
 
 
 class TestExecutionViewSet(viewsets.ModelViewSet):
@@ -827,7 +840,6 @@ class TestExecutionViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['project', 'test_suite', 'test_script', 'status', 'environment', 'executed_by']
     search_fields = ['error_message']
-    ordering = ['-created_at']
     ordering = ['-created_at']
     pagination_class = StandardPagination
 

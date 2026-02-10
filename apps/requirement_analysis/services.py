@@ -82,6 +82,8 @@ class DocumentProcessor:
             return cls.extract_text_from_docx(file_path)
         elif document.document_type == 'txt':
             return cls.extract_text_from_txt(file_path)
+        elif document.document_type == 'md':
+            return cls.extract_text_from_txt(file_path)
         else:
             return "不支持的文档类型"
 

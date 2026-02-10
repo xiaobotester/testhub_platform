@@ -401,7 +401,7 @@ try:
 
         cdp_endpoint = f"http://localhost:{port}/json/version"
 
-        for attempt in range(5):
+        for attempt in range(10): # 增加重试次数
             try:
                 async with httpx.AsyncClient(timeout=10.0) as client:
                     response = await client.get(cdp_endpoint)
@@ -615,6 +615,30 @@ try:
 except Exception:
     pass
 
+# Patch LocalBrowserWatchdog._find_free_port to force port 9222 on Linux
+try:
+    from browser_use.browser.watchdogs.local_browser_watchdog import LocalBrowserWatchdog
+    import platform
+
+    _original_find_free_port = LocalBrowserWatchdog._find_free_port
+
+    # 创建补丁函数 - 始终作为实例方法（接受 self）
+    def _patched_find_free_port(self):
+        if platform.system() == 'Linux':
+            logger.info("🔧 Force using port 9222 for Linux environment")
+            return 9222
+        # 尝试调用原始方法，兼容不同签名
+        try:
+            return _original_find_free_port(self)
+        except TypeError:
+            # 如果原始方法不接受 self，尝试不带参数调用
+            return _original_find_free_port()
+
+    LocalBrowserWatchdog._find_free_port = _patched_find_free_port
+    logger.info("✅ Successfully patched LocalBrowserWatchdog._find_free_port")
+except Exception as e:
+    logger.error(f"❌ Failed to patch LocalBrowserWatchdog._find_free_port: {e}")
+
 # ============================================================================
 # PART 2: Helper Classes
 # ============================================================================
@@ -798,6 +822,35 @@ class BaseBrowserAgent:
         except:
             return [{'id': 1, 'description': task_description, 'status': 'pending'}]
 
+    def _cleanup_zombie_chrome(self):
+        """Clean up any existing Chrome processes on port 9222 (Linux only)"""
+        import platform
+        import psutil
+        
+        if platform.system() != 'Linux':
+            return
+
+        logger.info("🧹 Cleaning up zombie Chrome processes...")
+        cleaned_count = 0
+        try:
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                try:
+                    # Check for chrome/chromium
+                    if proc.info['name'] and ('chrome' in proc.info['name'] or 'chromium' in proc.info['name']):
+                        # Check command line for port 9222
+                        cmdline = proc.info.get('cmdline', [])
+                        if cmdline and any('9222' in str(arg) for arg in cmdline):
+                            logger.info(f"Killing zombie chrome pid={proc.pid}")
+                            proc.kill()
+                            cleaned_count += 1
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    pass
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to cleanup zombie chrome: {e}")
+        
+        if cleaned_count > 0:
+            logger.info(f"✅ Cleaned up {cleaned_count} zombie Chrome processes")
+
     def _create_browser_profile(self):
         # Default implementation, can be overridden
         chrome_path = None
@@ -815,19 +868,55 @@ class BaseBrowserAgent:
                     chrome_path = p
                     break
         elif system == 'Linux':
-            # Linux 系统常见的 Chrome 路径
+            # Linux 系统常见的 Chrome 路径 - 优先使用我们预装的浏览器
             paths = [
-                '/usr/bin/google-chrome',
-                '/usr/bin/google-chrome-stable',
+                # 优先使用Docker容器中预装的Chromium
                 '/usr/bin/chromium-browser',
                 '/usr/bin/chromium',
+                '/usr/bin/google-chrome',
+                # 检查Playwright安装的浏览器
+                '/ms-playwright/chromium-*/chromium-linux/chromium',
+                '/root/.cache/ms-playwright/chromium-*/chromium-linux/chromium',
+                # 备用路径
+                '/usr/bin/google-chrome-stable',
                 '/opt/google/chrome/chrome',
                 '/snap/bin/chromium',
             ]
             for p in paths:
-                if os.path.exists(p):
+                # 支持通配符路径
+                if '*' in p:
+                    import glob
+                    matches = glob.glob(p)
+                    if matches:
+                        for match in matches:
+                            if os.path.exists(match) and os.access(match, os.X_OK):
+                                chrome_path = match
+                                logger.info(f"找到浏览器: {chrome_path}")
+                                break
+                        if chrome_path:
+                            break
+                elif os.path.exists(p) and os.access(p, os.X_OK):
                     chrome_path = p
+                    logger.info(f"找到浏览器: {chrome_path}")
                     break
+            
+            # 如果还是没找到，尝试查找Playwright的默认路径或让browser-use自行安装
+            if not chrome_path:
+                import glob
+                playwright_paths = glob.glob('/ms-playwright/**/chromium', recursive=True)
+                playwright_paths.extend(glob.glob('/root/.cache/ms-playwright/**/chromium', recursive=True))
+                playwright_paths.extend(glob.glob('/ms-playwright/**/chromium-linux/chromium', recursive=True))
+                playwright_paths.extend(glob.glob('/root/.cache/ms-playwright/**/chromium-linux/chromium', recursive=True))
+                for p in playwright_paths:
+                    if os.path.exists(p) and os.access(p, os.X_OK):
+                        chrome_path = p
+                        logger.info(f"通过Playwright找到浏览器: {chrome_path}")
+                        break
+                
+                # 最后的备用方案：让browser-use自行处理浏览器安装
+                if not chrome_path:
+                    logger.info("未找到预装浏览器，将让browser-use自动安装")
+                    chrome_path = None  # 让browser-use处理
 
         # 基础性能优化参数
         extra_args = [
@@ -851,7 +940,10 @@ class BaseBrowserAgent:
                 '--disable-gpu',  # 禁用 GPU 加速（服务器通常无 GPU）
                 '--headless=new',  # Linux 服务器使用无头模式
                 '--disable-software-rasterizer',  # 禁用软件光栅化器
-                '--remote-debugging-port=0',  # 使用随机可用端口
+                '--remote-debugging-port=9222',  # 使用固定端口，避免随机端口导致连接失败
+                '--remote-debugging-address=0.0.0.0', # 允许远程连接，而不仅仅是 127.0.0.1
+                '--no-zygote',  # 减少进程数
+                '--single-process',  # 单进程模式，虽然不稳定但能解决某些 Docker 环境下的 PID 问题
             ])
         else:
             # macOS 和 Windows 使用显示模式
@@ -873,6 +965,9 @@ class BaseBrowserAgent:
         )
 
     async def run_task(self, task_description: str, planned_tasks=None, callback=None, should_stop=None):
+        # Cleanup potential zombie processes before starting
+        self._cleanup_zombie_chrome()
+
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:

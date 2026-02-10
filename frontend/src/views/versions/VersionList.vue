@@ -122,8 +122,9 @@
     <!-- 版本表单对话框 -->
     <el-dialog
       v-model="versionDialogVisible"
-      :title="isEdit ? $t('version.editVersion') : $t('version.createVersion')"
+      :title="isEdit ? $t('version.editVersion') : $t('version.newVersion')"
       width="600px"
+      :close-on-click-modal="false"
     >
       <el-form :model="versionForm" :rules="versionRules" ref="versionFormRef" label-width="120px">
         <el-form-item :label="$t('version.versionName')" prop="name">

@@ -212,7 +212,16 @@ class AIModelService:
     async def generate_test_cases(task: TestCaseGenerationTask) -> str:
         """生成测试用例"""
         writer_prompt = task.writer_prompt_config.content
-        user_message = f"请根据以下需求生成测试用例：\n\n{task.requirement_text}"
+        user_message = (
+            f"请根据以下需求生成测试用例：\n"
+            f"   - **编号必须连续，中间不能有遗漏**\n"
+            f"   - **所有用例必须一次性完整输出，不能中断**\n"
+            f"6. **⚠️ 特殊字符处理（关键）**：\n"
+            f"   - **如果在表格内容（如操作步骤、预期结果）中出现管道符 '|'，必须转义为 '\|'**。\n"
+            f"   - **否则会导致表格列错位，无法解析**。\n"
+            f"   - 示例：应输入 'a\|b' 而不是 'a|b'。\n\n"
+            f"【需求文档内容】\n{task.requirement_text}"
+        )
         
         messages = [
             {"role": "system", "content": writer_prompt},

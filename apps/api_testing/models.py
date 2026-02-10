@@ -79,8 +79,8 @@ class ApiRequest(models.Model):
         ('OPTIONS', 'OPTIONS'),
     ]
 
-    collection = models.ForeignKey(ApiCollection, on_delete=models.CASCADE, related_name='requests',
-                                   verbose_name='所属集合')
+    collection = models.ForeignKey(ApiCollection, on_delete=models.CASCADE, null=True, blank=True,
+                                   related_name='requests', verbose_name='所属集合')
     name = models.CharField(max_length=200, verbose_name='请求名称')
     description = models.TextField(blank=True, verbose_name='请求描述')
     request_type = models.CharField(max_length=20, choices=REQUEST_TYPE_CHOICES, default='HTTP',

@@ -103,7 +103,8 @@ class EncryptionTools:
             is_match = computed_hash.lower() == hash_value.lower()
 
             return {
-                'is_match': is_match,
+                'result': is_match,
+                # 'is_match': is_match,
                 'computed_hash': computed_hash,
                 'provided_hash': hash_value,
                 'algorithm': algorithm
@@ -272,9 +273,10 @@ class EncryptionTools:
             # 确定强度等级
             score = max(0, min(4, score))
             strength_levels = ['非常弱', '弱', '中等', '强', '非常强']
+            strength = strength_levels[score]
 
-            return {
-                'strength': strength_levels[score],
+            results = {
+                'strength': strength,
                 'score': score,
                 'max_score': 4,
                 'length': length,
@@ -285,6 +287,11 @@ class EncryptionTools:
                     'special': has_special
                 },
                 'feedback': feedback
+            }
+
+            return {
+                'result': strength,
+                **results
             }
         except Exception as e:
             return {'error': f'密码强度分析失败: {str(e)}'}
