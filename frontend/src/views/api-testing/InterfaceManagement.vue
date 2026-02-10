@@ -291,6 +291,7 @@
                     </el-button>
                   </div>
                   <el-input
+                    ref="rawBodyInputRef"
                     v-model="rawBody"
                     type="textarea"
                     :rows="10"
@@ -967,6 +968,7 @@ const headersEditorRef = ref(null)
 const editingNodeId = ref(null)
 const editingNodeName = ref('')
 const editInputRef = ref(null)
+const rawBodyInputRef = ref(null)
 const currentHeaders = ref({})
 
 const searchKeyword = ref('')
@@ -1171,12 +1173,25 @@ const loadRequests = async () => {
       clearCollectionChildren(collection)
     })
 
-    // 将请求添加到对应集合中
+    // 过滤掉之前的未分类接口（type 为 request 且 id 为 null 的项）
+    collections.value = collections.value.filter(item => item.type === 'collection')
+
+    // 将请求添加到对应集合中或直接添加到根级别
     requests.forEach(request => {
-      const collection = findCollectionById(collections.value, request.collection)
-      if (collection) {
-        if (!collection.children) collection.children = []
-        collection.children.push({
+      if (request.collection) {
+        // 有关联集合的请求，添加到对应集合下
+        const collection = findCollectionById(collections.value, request.collection)
+        if (collection) {
+          if (!collection.children) collection.children = []
+          collection.children.push({
+            ...request,
+            type: 'request',
+            name: request.name
+          })
+        }
+      } else {
+        // 未关联集合的请求，直接添加到集合列表的根级别
+        collections.value.push({
           ...request,
           type: 'request',
           name: request.name
@@ -2035,13 +2050,29 @@ const parseAndImportCurl = async () => {
   }
 }
 
+// 辅助函数：将对象格式转换为数组格式
+const convertToArrayFormat = (data) => {
+  if (!data) return []
+  // 如果已经是数组格式，直接返回
+  if (Array.isArray(data)) return data
+  // 如果是对象格式，转换为数组格式
+  if (typeof data === 'object') {
+    return Object.entries(data).map(([key, value]) => ({
+      key,
+      value: typeof value === 'object' ? JSON.stringify(value) : String(value),
+      enabled: true
+    }))
+  }
+  return []
+}
+
 const exportRequest = () => {
   if (!selectedRequest.value) return
 
   try {
     let baseURL = ''
     let path = ''
-    
+
     if (selectedRequest.value.url) {
       try {
         const url = new URL(selectedRequest.value.url)
@@ -2052,20 +2083,20 @@ const exportRequest = () => {
         path = ''
       }
     }
-    
+
     const requestModel = {
       method: selectedRequest.value?.method || 'GET',
       baseURL: baseURL,
       path: path,
-      query: selectedRequest.value?.params || [],
-      headers: selectedRequest.value?.headers || [],
+      query: convertToArrayFormat(selectedRequest.value?.params),
+      headers: convertToArrayFormat(selectedRequest.value?.headers),
       body: {
         mode: 'none',
         raw: rawBody.value || ''
       },
       timeout: 30000
     }
-    
+
     const curlCommand = RequestModelParser.toCurl(requestModel)
     navigator.clipboard.writeText(curlCommand)
     ElMessage.success('已复制到剪贴板')
@@ -2330,26 +2361,16 @@ const insertVariable = (variable) => {
       const example = variable.example
 
       if (currentEditingField.value === 'rawBody') {
-        const currentValue = rawBody.value || ''
-        if (!currentValue) {
-          rawBody.value = example
-        } else {
-          rawBody.value = currentValue + example
-        }
+        // 在光标位置插入变量
+        insertTextAtCursor(rawBodyInputRef, example)
       } else if (currentEditingField.value === 'pre_request_script') {
+        // 对于脚本字段，暂时保持追加到末尾的行为
+        // （如果需要光标插入，需要为脚本编辑器添加ref并实现类似逻辑）
         const currentValue = selectedRequest.value.pre_request_script || ''
-        if (!currentValue) {
-          selectedRequest.value.pre_request_script = example
-        } else {
-          selectedRequest.value.pre_request_script = currentValue + example
-        }
+        selectedRequest.value.pre_request_script = currentValue + example
       } else if (currentEditingField.value === 'post_request_script') {
         const currentValue = selectedRequest.value.post_request_script || ''
-        if (!currentValue) {
-          selectedRequest.value.post_request_script = example
-        } else {
-          selectedRequest.value.post_request_script = currentValue + example
-        }
+        selectedRequest.value.post_request_script = currentValue + example
       }
 
       ElMessage.success(`已插入变量: ${variable.name}`)
@@ -2414,7 +2435,8 @@ const handleDataFactorySelect = (record) => {
   // 如果是Body字段
   else if (currentBodyField.value) {
     if (currentBodyField.value === 'rawBody') {
-      rawBody.value = valueToSet
+      // 在光标位置插入文本
+      insertTextAtCursor(rawBodyInputRef, valueToSet)
     }
     ElMessage.success(`已引用数据工厂数据到Body: ${record.tool_name}`)
   }
@@ -2428,6 +2450,42 @@ const handleDataFactorySelect = (record) => {
   }
 
   showDataFactorySelector.value = false
+}
+
+// 在光标位置插入文本的辅助函数
+const insertTextAtCursor = (inputRef, textToInsert) => {
+  if (!inputRef.value) {
+    // 如果没有找到ref，直接追加到末尾
+    rawBody.value = rawBody.value + textToInsert
+    return
+  }
+
+  // 获取textarea DOM元素
+  const textarea = inputRef.value.$el?.querySelector('textarea')
+  if (!textarea) {
+    // 如果找不到textarea元素，直接追加到末尾
+    rawBody.value = rawBody.value + textToInsert
+    return
+  }
+
+  const startPos = textarea.selectionStart
+  const endPos = textarea.selectionEnd
+  const currentValue = rawBody.value
+
+  // 在光标位置插入新文本
+  const newValue =
+    currentValue.substring(0, startPos) +
+    textToInsert +
+    currentValue.substring(endPos)
+
+  rawBody.value = newValue
+
+  // 恢复光标位置到插入文本的末尾
+  nextTick(() => {
+    const newCursorPos = startPos + textToInsert.length
+    textarea.setSelectionRange(newCursorPos, newCursorPos)
+    textarea.focus()
+  })
 }
 
 // 加载变量函数

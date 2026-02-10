@@ -6,7 +6,7 @@
     </div>
 
     <!-- 配置引导弹出窗口 -->
-    <div v-if="showConfigGuide && !checkingConfig" class="modal-overlay" :key="modalKey">
+    <div v-if="showConfigGuide && !checkingConfig" class="modal-overlay" @click.self="showConfigGuide = false" :key="modalKey">
       <div class="guide-config-modal">
       <div class="guide-header">
         <svg class="guide-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
@@ -127,7 +127,7 @@
                 class="form-input"
                 :placeholder="$t('requirementAnalysis.titlePlaceholder')">
             </div>
-            
+
             <div class="form-group">
               <label>{{ $t('requirementAnalysis.requirementDescription') }} <span class="required">*</span></label>
               <textarea
@@ -137,7 +137,7 @@
                 :placeholder="$t('requirementAnalysis.descriptionPlaceholder')"></textarea>
               <div class="char-count">{{ manualInput.description.length }}/2000</div>
             </div>
-            
+
             <div class="form-group">
               <label>{{ $t('requirementAnalysis.associatedProject') }}</label>
               <select v-model="manualInput.selectedProject" class="form-select">
@@ -178,9 +178,9 @@
               <i class="upload-icon">📁</i>
               <p>{{ $t('requirementAnalysis.dragDropText') }}</p>
               <p class="upload-hint">{{ $t('requirementAnalysis.supportedFormats') }}</p>
-              <input 
-                type="file" 
-                ref="fileInput" 
+              <input
+                type="file"
+                ref="fileInput"
                 @change="handleFileSelect"
                 accept=".pdf,.doc,.docx,.txt,.md"
                 style="display: none;">
@@ -188,7 +188,7 @@
                 {{ $t('requirementAnalysis.selectFile') }}
               </button>
             </div>
-            
+
             <div v-else class="file-selected">
               <div class="file-info">
                 <i class="file-icon">📄</i>
@@ -210,7 +210,7 @@
                 class="form-input"
                 :placeholder="$t('requirementAnalysis.documentPlaceholder')">
             </div>
-            
+
             <div class="form-group">
               <label>{{ $t('requirementAnalysis.associatedProject') }}</label>
               <select v-model="selectedProject" class="form-select">
@@ -221,8 +221,8 @@
               </select>
             </div>
 
-            <button 
-              class="generate-btn" 
+            <button
+              class="generate-btn"
               @click="generateFromDocument"
               :disabled="!documentTitle || isGenerating">
               <span v-if="isGenerating">{{ $t('requirementAnalysis.generating') }}</span>
@@ -429,15 +429,15 @@ export default {
       modalKey: 0  // 用于强制重新渲染弹窗
     }
   },
-  
+
   computed: {
     canGenerateManual() {
-      return this.manualInput.title.trim() && 
-             this.manualInput.description.trim() && 
+      return this.manualInput.title.trim() &&
+             this.manualInput.description.trim() &&
              this.manualInput.description.length <= 2000
     }
   },
-  
+
   mounted() {
     this.progressText = this.$t('requirementAnalysis.preparing')
     this.loadProjects()
@@ -465,7 +465,7 @@ export default {
     const userStore = useUserStore()
     userStore.stopAutoRefresh()
   },
-  
+
   methods: {
     async loadProjects() {
       try {
@@ -632,7 +632,7 @@ export default {
           'text/markdown',
           'text/x-markdown'
         ]
-        
+
         if (allowedTypes.includes(file.type) ||
             file.name.match(/\.(pdf|doc|docx|txt|md)$/i)) {
           this.selectedFile = file
@@ -890,14 +890,27 @@ export default {
           return
         }
 
-        // readyState=0表示连接中断，可能需要降级到轮询模式
-        // 但由于我们在done消息中主动关闭了连接，这里再次检查状态
-        if (this.eventSource.readyState === 0) {
-          console.error('❌ SSE连接中断，降级到轮询模式')
+        // readyState=2表示连接已关闭，readyState=0表示连接中断
+        // EventSource会自动重连（readyState=0），除非是致命错误（readyState=2）
+        if (this.eventSource.readyState === 2) {
+          console.error('❌ SSE连接永久关闭，降级到轮询模式')
           this.eventSource.close()
           this.eventSource = null
           ElMessage.warning(this.$t('requirementAnalysis.streamConnectionInterrupted'))
           this.startPolling()
+        } else if (this.eventSource.readyState === 0) {
+          // EventSource正在重连，等待一段时间后检查
+          console.log('🔄 SSE正在重连...')
+          setTimeout(() => {
+            // 如果5秒后还是断开状态，降级到轮询
+            if (this.eventSource && this.eventSource.readyState === 0) {
+              console.error('❌ SSE重连失败，降级到轮询模式')
+              this.eventSource.close()
+              this.eventSource = null
+              ElMessage.warning(this.$t('requirementAnalysis.streamConnectionInterrupted'))
+              this.startPolling()
+            }
+          }, 5000)
         }
       }
     },
@@ -1061,7 +1074,7 @@ export default {
         if (tableFormat.length > 0) {
           // 如果解析到表格格式，直接使用，但要确保表头正确
           worksheetData = tableFormat;
-          
+
           // 检查并修正表头
           if (worksheetData.length > 0) {
             const header = worksheetData[0];
@@ -1108,7 +1121,7 @@ export default {
               alignment: { horizontal: 'center', vertical: 'center', wrapText: true }
             };
           }
-          
+
           // 设置自动换行
           for (let row = 1; row < worksheetData.length; row++) {
             for (let col = 0; col < Math.min(6, worksheetData[row].length); col++) {
@@ -1201,14 +1214,14 @@ export default {
       // 先去除"新增"标记，在markdown转换之前处理
       // 这样可以避免markdown转换后无法匹配的问题
       let html = content
-        .replace(/\*\*新增\*\*-/g, '')  // **新增**-xxx -> xxx (保留xxx的原有格式)
-        .replace(/新增-/g, '');  // 新增-xxx -> xxx (保留xxx的原有格式)
+          .replace(/\*\*新增\*\*-/g, '')  // **新增**-xxx -> xxx (保留xxx的原有格式)
+          .replace(/新增-/g, '');  // 新增-xxx -> xxx (保留xxx的原有格式)
 
       // 转义HTML特殊字符
       html = html
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
 
       // 转换Markdown语法
       // 标题 #
@@ -1252,39 +1265,39 @@ export default {
       const lines = content.split('\n');
       const filteredLines = [];
       let inTestCaseSection = true;
-      
+
       for (let line of lines) {
         const trimmedLine = line.trim();
-        
+
         // 检查是否到了总结或建议部分
-        if (trimmedLine.includes('总结') || 
-            trimmedLine.includes('建议') || 
-            trimmedLine.includes('Summary') || 
+        if (trimmedLine.includes('总结') ||
+            trimmedLine.includes('建议') ||
+            trimmedLine.includes('Summary') ||
             trimmedLine.includes('Recommendation') ||
             trimmedLine.includes('最后') ||
             trimmedLine.includes('补充说明')) {
           inTestCaseSection = false;
           break;
         }
-        
+
         if (inTestCaseSection) {
           filteredLines.push(line);
         }
       }
-      
+
       return filteredLines.join('\n');
     },
 
     // 解析表格格式的测试用例（参考AutoGenTestCase的做法）
     parseTableFormat(content) {
       if (!content) return [];
-      
+
       const lines = content.split('\n').filter(line => line.trim());
       const worksheetData = [];
-      
+
       for (let line of lines) {
         const trimmedLine = line.trim();
-        
+
         // 检查是否是表格行（包含|分隔符，且不是分隔线）
         if (trimmedLine.includes('|') && !trimmedLine.includes('--------')) {
           const cells = trimmedLine.split('|').map(cell => cell.trim()).filter(cell => cell);
@@ -1293,17 +1306,17 @@ export default {
           }
         }
       }
-      
+
       return worksheetData;
     },
 
     // 解析结构化格式的测试用例
     parseStructuredFormat(content) {
       if (!content) return [];
-      
+
       const lines = content.split('\n').filter(line => line.trim());
       const worksheetData = [];
-      
+
       // 添加表头
       worksheetData.push([
         this.$t('requirementAnalysis.excelTestCaseNumber'),
@@ -1313,18 +1326,18 @@ export default {
         this.$t('requirementAnalysis.excelExpectedResult'),
         this.$t('requirementAnalysis.excelPriority')
       ]);
-      
+
       let currentTestCase = {};
       let testCaseNumber = 1;
       let i = 0;
-      
+
       while (i < lines.length) {
         const line = lines[i].trim();
-        
+
         // 识别测试用例开始标志
-        if (line.includes('测试用例') || line.includes('Test Case') || 
+        if (line.includes('测试用例') || line.includes('Test Case') ||
             line.match(/^(\d+\.|\*|\-|\d+、)/)) {
-          
+
           // 如果之前有测试用例数据，先保存
           if (Object.keys(currentTestCase).length > 0) {
             worksheetData.push([
@@ -1337,7 +1350,7 @@ export default {
             ]);
             testCaseNumber++;
           }
-          
+
           // 开始新的测试用例
           currentTestCase = {
             number: `TC${testCaseNumber}`,
@@ -1350,14 +1363,14 @@ export default {
           i++;
         }
         // 识别前置条件
-        else if (line.includes('前置条件') || line.includes('前提') || 
-                 line.includes('Precondition')) {
+        else if (line.includes('前置条件') || line.includes('前提') ||
+            line.includes('Precondition')) {
           let precondition = line.replace(/.*?[:：]\s*/, '');
           // 收集后续的前置条件行
           i++;
           while (i < lines.length) {
             const nextLine = lines[i].trim();
-            if (nextLine.includes('测试步骤') || nextLine.includes('操作步骤') || 
+            if (nextLine.includes('测试步骤') || nextLine.includes('操作步骤') ||
                 nextLine.includes('Test Steps') || nextLine.includes('步骤') ||
                 nextLine.includes('预期结果') || nextLine.includes('Expected') ||
                 nextLine.includes('优先级') || nextLine.includes('Priority') ||
@@ -1373,8 +1386,8 @@ export default {
           currentTestCase.precondition = precondition;
         }
         // 识别测试步骤
-        else if (line.includes('测试步骤') || line.includes('操作步骤') || 
-                 line.includes('Test Steps') || line.includes('步骤')) {
+        else if (line.includes('测试步骤') || line.includes('操作步骤') ||
+            line.includes('Test Steps') || line.includes('步骤')) {
           let steps = line.replace(/.*?[:：]\s*/, '');
           // 收集后续的步骤行
           i++;
@@ -1394,8 +1407,8 @@ export default {
           currentTestCase.steps = steps;
         }
         // 识别预期结果
-        else if (line.includes('预期结果') || line.includes('Expected') || 
-                 line.includes('期望')) {
+        else if (line.includes('预期结果') || line.includes('Expected') ||
+            line.includes('期望')) {
           let expected = line.replace(/.*?[:：]\s*/, '');
           // 收集后续的结果行
           i++;
@@ -1419,9 +1432,9 @@ export default {
           i++;
         }
         // 如果是没有明确标识的行，可能是场景描述的延续
-        else if (Object.keys(currentTestCase).length > 0 && 
-                 !currentTestCase.steps && !currentTestCase.expected && 
-                 !currentTestCase.precondition) {
+        else if (Object.keys(currentTestCase).length > 0 &&
+            !currentTestCase.steps && !currentTestCase.expected &&
+            !currentTestCase.precondition) {
           if (currentTestCase.scenario && line.length > 5) {
             currentTestCase.scenario += '\n' + line;
           }
@@ -1430,7 +1443,7 @@ export default {
           i++;
         }
       }
-      
+
       // 保存最后一个测试用例
       if (Object.keys(currentTestCase).length > 0) {
         worksheetData.push([
@@ -1442,7 +1455,7 @@ export default {
           currentTestCase.priority || '中'
         ]);
       }
-      
+
       // 如果没有解析到结构化数据，则按原格式输出
       if (worksheetData.length <= 1) {
         worksheetData.length = 0; // 清空
@@ -1453,7 +1466,7 @@ export default {
           }
         });
       }
-      
+
       return worksheetData;
     }
   }
@@ -2384,12 +2397,12 @@ export default {
     flex-direction: column;
     align-items: flex-start;
   }
-  
+
   .progress-info, .result-summary {
     flex-direction: column;
     gap: 10px;
   }
-  
+
   .progress-steps {
     gap: 10px;
   }

@@ -1,4 +1,5 @@
 import { RequestModel } from './requestModel'
+import * as curlconverter from 'curlconverter'
 
 export interface CodeTemplate {
   language: string
@@ -110,8 +111,6 @@ export class CodeGenerator {
       return curlCommand
     }
     
-    const curlconverter = await import('curlconverter')
-
     const mappedLanguage = this.languageMap[language] || language
 
     try {

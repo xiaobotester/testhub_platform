@@ -1,3 +1,5 @@
+import * as curlconverter from 'curlconverter'
+
 export interface RequestModel {
   method: string
   baseURL: string
@@ -50,8 +52,6 @@ export interface Auth {
 export class RequestModelParser {
   static async parseCurl(curlCommand: string): Promise<RequestModel> {
     try {
-      const curlconverter = await import('curlconverter')
-      
       const harData = curlconverter.toHarString(curlCommand)
       const har = JSON.parse(harData)
       
@@ -150,9 +150,11 @@ export class RequestModelParser {
         auth: RequestModelParser.parseAuth(headers),
         timeout: 30000
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to parse cURL command:', error)
-      throw new Error('cURL命令解析失败，请检查命令格式')
+      console.error('cURL command:', curlCommand)
+      const errorMessage = error?.message || error?.toString() || 'Unknown error'
+      throw new Error(`cURL命令解析失败: ${errorMessage}，请检查命令格式`)
     }
   }
   

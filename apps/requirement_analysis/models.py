@@ -19,50 +19,53 @@ class RequirementDocument(models.Model):
         ('txt', '文本文档'),
         ('md', 'Markdown文档'),
     ]
-    
+
     STATUS_CHOICES = [
         ('uploaded', '已上传'),
         ('analyzing', '分析中'),
         ('analyzed', '分析完成'),
         ('failed', '分析失败'),
     ]
-    
+
     title = models.CharField(max_length=200, verbose_name='文档标题')
     file = models.FileField(upload_to='requirement_docs/%Y/%m/', verbose_name='文档文件')
     document_type = models.CharField(max_length=10, choices=DOCUMENT_TYPE_CHOICES, verbose_name='文档类型')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='uploaded', verbose_name='状态')
-    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='uploaded_documents', verbose_name='上传者')
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='requirement_documents', verbose_name='关联项目', null=True, blank=True)
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='uploaded_documents',
+                                    verbose_name='上传者')
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='requirement_documents',
+                                verbose_name='关联项目', null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     file_size = models.PositiveIntegerField(verbose_name='文件大小(bytes)', null=True, blank=True)
     extracted_text = models.TextField(verbose_name='提取的文本内容', blank=True)
-    
+
     class Meta:
         db_table = 'requirement_documents'
         verbose_name = '需求文档'
         verbose_name_plural = '需求文档'
         ordering = ['-created_at']
-    
+
     def __str__(self):
         return f"{self.title} - {self.get_status_display()}"
 
 
 class RequirementAnalysis(models.Model):
     """需求分析记录"""
-    document = models.OneToOneField(RequirementDocument, on_delete=models.CASCADE, related_name='analysis', verbose_name='关联文档')
+    document = models.OneToOneField(RequirementDocument, on_delete=models.CASCADE, related_name='analysis',
+                                    verbose_name='关联文档')
     analysis_report = models.TextField(verbose_name='分析报告', blank=True)
     requirements_count = models.PositiveIntegerField(verbose_name='需求数量', default=0)
     analysis_time = models.FloatField(verbose_name='分析耗时(秒)', null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
-    
+
     class Meta:
         db_table = 'requirement_analyses'
         verbose_name = '需求分析'
         verbose_name_plural = '需求分析'
         ordering = ['-created_at']
-    
+
     def __str__(self):
         return f"{self.document.title} - 分析报告"
 
@@ -77,18 +80,20 @@ class BusinessRequirement(models.Model):
         ('interface', '接口需求'),
         ('other', '其他需求'),
     ]
-    
+
     REQUIREMENT_LEVEL_CHOICES = [
         ('high', '高'),
         ('medium', '中'),
         ('low', '低'),
     ]
-    
-    analysis = models.ForeignKey(RequirementAnalysis, on_delete=models.CASCADE, related_name='requirements', verbose_name='关联分析')
+
+    analysis = models.ForeignKey(RequirementAnalysis, on_delete=models.CASCADE, related_name='requirements',
+                                 verbose_name='关联分析')
     requirement_id = models.CharField(max_length=50, verbose_name='需求编号')
     requirement_name = models.CharField(max_length=200, verbose_name='需求名称')
     requirement_type = models.CharField(max_length=20, choices=REQUIREMENT_TYPE_CHOICES, verbose_name='需求类型')
-    parent_requirement = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, verbose_name='父级需求')
+    parent_requirement = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True,
+                                           verbose_name='父级需求')
     module = models.CharField(max_length=100, verbose_name='所属模块')
     requirement_level = models.CharField(max_length=10, choices=REQUIREMENT_LEVEL_CHOICES, verbose_name='需求级别')
     reviewer = models.CharField(max_length=50, verbose_name='评审人', default='admin')
@@ -97,14 +102,14 @@ class BusinessRequirement(models.Model):
     acceptance_criteria = models.TextField(verbose_name='验收标准')
     created_at = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
-    
+
     class Meta:
         db_table = 'business_requirements'
         verbose_name = '业务需求'
         verbose_name_plural = '业务需求'
         ordering = ['-created_at']
         unique_together = ['analysis', 'requirement_id']
-    
+
     def __str__(self):
         return f"{self.requirement_id} - {self.requirement_name}"
 
@@ -117,7 +122,7 @@ class GeneratedTestCase(models.Model):
         ('P2', '中优先级'),
         ('P3', '低优先级'),
     ]
-    
+
     STATUS_CHOICES = [
         ('generated', '已生成'),
         ('reviewing', '评审中'),
@@ -127,8 +132,9 @@ class GeneratedTestCase(models.Model):
         ('adopted', '已采纳'),
         ('discarded', '已弃用'),
     ]
-    
-    requirement = models.ForeignKey(BusinessRequirement, on_delete=models.CASCADE, related_name='test_cases', verbose_name='关联需求')
+
+    requirement = models.ForeignKey(BusinessRequirement, on_delete=models.CASCADE, related_name='test_cases',
+                                    verbose_name='关联需求')
     case_id = models.CharField(max_length=50, verbose_name='用例编号')
     title = models.CharField(max_length=300, verbose_name='用例标题')
     priority = models.CharField(max_length=5, choices=PRIORITY_CHOICES, verbose_name='优先级')
@@ -141,14 +147,14 @@ class GeneratedTestCase(models.Model):
     review_comments = models.TextField(verbose_name='评审意见', blank=True)
     created_at = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
-    
+
     class Meta:
         db_table = 'generated_test_cases'
         verbose_name = '生成的测试用例'
         verbose_name_plural = '生成的测试用例'
         ordering = ['-created_at']
         unique_together = ['requirement', 'case_id']
-    
+
     def __str__(self):
         return f"{self.case_id} - {self.title[:50]}"
 
@@ -160,17 +166,18 @@ class AnalysisTask(models.Model):
         ('testcase_generation', '测试用例生成'),
         ('testcase_review', '测试用例评审'),
     ]
-    
+
     STATUS_CHOICES = [
         ('pending', '待处理'),
         ('running', '运行中'),
         ('completed', '已完成'),
         ('failed', '失败'),
     ]
-    
+
     task_id = models.CharField(max_length=100, unique=True, verbose_name='任务ID')
     task_type = models.CharField(max_length=30, choices=TASK_TYPE_CHOICES, verbose_name='任务类型')
-    document = models.ForeignKey(RequirementDocument, on_delete=models.CASCADE, related_name='tasks', verbose_name='关联文档')
+    document = models.ForeignKey(RequirementDocument, on_delete=models.CASCADE, related_name='tasks',
+                                 verbose_name='关联文档')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', verbose_name='状态')
     progress = models.PositiveIntegerField(default=0, verbose_name='进度百分比')
     result = models.JSONField(verbose_name='任务结果', null=True, blank=True)
@@ -178,13 +185,13 @@ class AnalysisTask(models.Model):
     started_at = models.DateTimeField(null=True, blank=True, verbose_name='开始时间')
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name='完成时间')
     created_at = models.DateTimeField(default=timezone.now, verbose_name='创建时间')
-    
+
     class Meta:
         db_table = 'analysis_tasks'
         verbose_name = '分析任务'
         verbose_name_plural = '分析任务'
         ordering = ['-created_at']
-    
+
     def __str__(self):
         return f"{self.task_id} - {self.get_task_type_display()}"
 
@@ -245,7 +252,7 @@ class PromptConfig(models.Model):
         ('writer', '用例编写提示词'),
         ('reviewer', '用例评审提示词'),
     ]
-    
+
     name = models.CharField(max_length=100, verbose_name='配置名称')
     prompt_type = models.CharField(max_length=20, choices=PROMPT_CHOICES, verbose_name='提示词类型')
     content = models.TextField(verbose_name='提示词内容')
@@ -253,15 +260,15 @@ class PromptConfig(models.Model):
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='创建者')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
-    
+
     class Meta:
         db_table = 'prompt_config'
         verbose_name = '提示词配置'
         verbose_name_plural = '提示词配置'
-    
+
     def __str__(self):
         return f"{self.get_prompt_type_display()} - {self.name}"
-    
+
     @classmethod
     def get_active_config(cls, prompt_type: str):
         """获取活跃的提示词配置"""
@@ -365,10 +372,10 @@ class TestCaseGenerationTask(models.Model):
         related_name='generation_tasks',
         verbose_name='关联项目'
     )
-    
+
     # 配置参数
     writer_model_config = models.ForeignKey(
-        AIModelConfig, on_delete=models.SET_NULL, null=True, 
+        AIModelConfig, on_delete=models.SET_NULL, null=True,
         related_name='writer_tasks', verbose_name='编写模型配置'
     )
     reviewer_model_config = models.ForeignKey(
@@ -383,12 +390,12 @@ class TestCaseGenerationTask(models.Model):
         PromptConfig, on_delete=models.SET_NULL, null=True,
         related_name='reviewer_tasks', verbose_name='评审提示词配置'
     )
-    
+
     # 生成结果
     generated_test_cases = models.TextField(blank=True, verbose_name='生成的测试用例')
     review_feedback = models.TextField(blank=True, verbose_name='评审反馈')
     final_test_cases = models.TextField(blank=True, verbose_name='最终测试用例')
-    
+
     # 元数据
     generation_log = models.TextField(blank=True, verbose_name='生成日志')
     error_message = models.TextField(blank=True, verbose_name='错误信息')
@@ -398,25 +405,25 @@ class TestCaseGenerationTask(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name='完成时间')
     is_saved_to_records = models.BooleanField(default=False, verbose_name='是否已保存到记录')
     saved_at = models.DateTimeField(null=True, blank=True, verbose_name='保存到记录时间')
-    
+
     class Meta:
         db_table = 'testcase_generation_task'
         verbose_name = '测试用例生成任务'
         verbose_name_plural = '测试用例生成任务'
         ordering = ['-created_at']
-    
+
     def __str__(self):
         return f"{self.title} - {self.get_status_display()}"
 
 
 class AIModelService:
     """AI模型服务类"""
-    
+
     @staticmethod
     async def call_openai_compatible_api(
-        config: AIModelConfig,
-        messages: List[Dict[str, str]],
-        max_tokens: int = None
+            config: AIModelConfig,
+            messages: List[Dict[str, str]],
+            max_tokens: int = None
     ) -> Dict[str, Any]:
         """
         调用OpenAI兼容格式的API
@@ -445,7 +452,7 @@ class AIModelService:
             'top_p': config.top_p,
             'stream': False
         }
-        
+
         # 确保base_url不以/结尾
         base_url = config.base_url.rstrip('/')
         # 如果用户没有输入完整的/chat/completions路径，尝试智能补全
@@ -474,10 +481,10 @@ class AIModelService:
             # 禁用HTTP/2，使用HTTP/1.1以提高兼容性
             # 显式设置所有超时参数，避免默认的连接超时导致请求失败
             timeout_config = httpx.Timeout(
-                connect=60.0,      # 连接超时：60秒
-                read=900.0,        # 读取超时：900秒（15分钟）
-                write=60.0,        # 写入超时：60秒
-                pool=60.0          # 连接池超时：60秒
+                connect=60.0,  # 连接超时：60秒
+                read=900.0,  # 读取超时：900秒（15分钟）
+                write=60.0,  # 写入超时：60秒
+                pool=60.0  # 连接池超时：60秒
             )
             async with httpx.AsyncClient(timeout=timeout_config, http2=False) as client:
                 logger.info(f"发送POST请求到: {url}")
@@ -511,12 +518,12 @@ class AIModelService:
             # Use repr(e) to capture the full exception type and message, especially if str(e) is empty
             logger.error(f"{provider_name} API调用失败: {repr(e)}")
             raise Exception(f"{provider_name} API调用失败: {str(e) or repr(e)}")
-    
+
     @staticmethod
     async def call_deepseek_api(config: AIModelConfig, messages: List[Dict[str, str]]) -> Dict[str, Any]:
         """调用DeepSeek API (兼容OpenAI格式)"""
         return await AIModelService.call_openai_compatible_api(config, messages)
-    
+
     @staticmethod
     async def call_qwen_api(config: AIModelConfig, messages: List[Dict[str, str]]) -> Dict[str, Any]:
         """调用千问API (兼容OpenAI格式)"""
@@ -524,10 +531,10 @@ class AIModelService:
 
     @staticmethod
     async def call_openai_compatible_api_stream(
-        config: AIModelConfig,
-        messages: List[Dict[str, str]],
-        callback=None,
-        max_tokens: int = None
+            config: AIModelConfig,
+            messages: List[Dict[str, str]],
+            callback=None,
+            max_tokens: int = None
     ) -> AsyncIterator[str]:
         """
         流式调用OpenAI兼容格式的API，支持自动续写
@@ -559,7 +566,7 @@ class AIModelService:
         current_messages = list(messages)  # 浅拷贝
         continuation_count = 0
         MAX_CONTINUATIONS = 5  # 最大续写次数，防止死循环
-        
+
         while continuation_count <= MAX_CONTINUATIONS:
             data = {
                 'model': config.model_name,
@@ -570,18 +577,18 @@ class AIModelService:
                 'stream': True
             }
 
-            logger.info(f"发起流式请求 (第{continuation_count+1}次), messages数量: {len(current_messages)}")
+            logger.info(f"发起流式请求 (第{continuation_count + 1}次), messages数量: {len(current_messages)}")
 
             chunk_content_buffer = ""  # 本次请求生成的完整内容缓存
             finish_reason = None
-            
+
             try:
                 # 显式设置所有超时参数
                 timeout_config = httpx.Timeout(
-                    connect=60.0,      # 连接超时：60秒
-                    read=900.0,        # 读取超时：900秒（15分钟）
-                    write=60.0,        # 写入超时：60秒
-                    pool=60.0          # 连接池超时：60秒
+                    connect=60.0,  # 连接超时：60秒
+                    read=900.0,  # 读取超时：900秒（15分钟）
+                    write=60.0,  # 写入超时：60秒
+                    pool=60.0  # 连接池超时：60秒
                 )
                 async with httpx.AsyncClient(timeout=timeout_config, http2=False) as client:
                     async with client.stream('POST', url, headers=headers, json=data) as response:
@@ -613,34 +620,36 @@ class AIModelService:
                                             if callback:
                                                 await callback(content)
                                             yield content
-                                            
+
                                         # 如果在中途就收到了finish_reason（有些流式实现会在最后一条数据带上finish_reason）
                                         if finish_reason:
-                                            pass 
+                                            pass
 
                                 except json.JSONDecodeError:
                                     continue
-            
+
                 # 本次请求结束
                 # 检查 finish_reason
                 if finish_reason == 'length':
-                    logger.warning(f"检测到生成被截断 (finish_reason='length')，准备自动续写。当前已续写 {continuation_count} 次。")
+                    logger.warning(
+                        f"检测到生成被截断 (finish_reason='length')，准备自动续写。当前已续写 {continuation_count} 次。")
                     continuation_count += 1
-                    
+
                     # 将本次生成的内容作为 assistant 回复加入历史
                     # 注意：如果之前已经有assistant消息，需要追加内容而不是新增消息
                     if current_messages[-1]['role'] == 'assistant':
                         current_messages[-1]['content'] += chunk_content_buffer
                     else:
                         current_messages.append({"role": "assistant", "content": chunk_content_buffer})
-                    
+
                     # 只有当上一条不是user的续写指令时，才添加新的user指令
                     # 防止多次续写时堆叠重复的 user 指令
                     if current_messages[-1]['role'] != 'user':
-                        current_messages.append({"role": "user", "content": "请继续输出剩余的内容，不要重复已输出的部分，紧接着上文继续。"})
-                    
+                        current_messages.append(
+                            {"role": "user", "content": "请继续输出剩余的内容，不要重复已输出的部分，紧接着上文继续。"})
+
                     # 发送换行符以分隔续写内容（可选，视模型而定，通常不需要，但为了保险）
-                    # yield "\n" 
+                    # yield "\n"
                     continue
                 else:
                     logger.info(f"流式生成正常结束 (finish_reason={finish_reason})")
@@ -650,12 +659,12 @@ class AIModelService:
                 logger.error(f"流式请求异常: {e}")
                 # 如果是超时或其他网络错误，可能需要重试机制，这里暂时直接抛出
                 raise e
-    
+
     @staticmethod
     async def generate_test_cases(task: TestCaseGenerationTask) -> str:
         """生成测试用例"""
         writer_prompt = task.writer_prompt_config.content
-        
+
         # 构建更明确的用户提示，采用思维链(CoT)引导和细粒度拆分策略
         user_message = (
             f"请深入分析以下需求文档，并设计高覆盖率的测试用例。\n\n"
@@ -675,13 +684,13 @@ class AIModelService:
             f"   - **绝对不能跳号、重复或乱序输出**\n"
             f"   - **编号必须连续，中间不能有遗漏**\n"
             f"   - **所有用例必须一次性完整输出，不能中断**\n"
-            f"6. **⚠️ 特殊字符处理（关键）**：\n"
-            f"   - **如果在表格内容（如操作步骤、预期结果）中出现管道符 '|'，请使用HTML实体 '&#124;' 代替**。\n"
-            f"   - **绝对不要使用反斜杠转义（如 '\|'），这会导致输出混乱**。\n"
-            f"   - 示例：应输入 'a&#124;b' 而不是 'a|b' 或 'a\|b'。\n\n"
+            rf"6. **⚠️ 特殊字符处理（关键）**：\n"
+            rf"   - **如果在表格内容（如操作步骤、预期结果）中出现管道符 '|'，请使用HTML实体 '&#124;' 代替**。\n"
+            rf"   - **绝对不要使用反斜杠转义（如 '\|'），这会导致输出混乱**。\n"
+            rf"   - 示例：应输入 'a&#124;b' 而不是 'a|b' 或 'a\|b'。\n\n"
             f"【需求文档内容】\n{task.requirement_text}"
         )
-        
+
         messages = [
             {"role": "system", "content": writer_prompt},
             {"role": "user", "content": user_message}
@@ -696,7 +705,7 @@ class AIModelService:
         )
 
         return response['choices'][0]['message']['content']
-    
+
     @staticmethod
     async def review_test_cases(task: TestCaseGenerationTask, test_cases: str) -> str:
         """评审测试用例"""
@@ -732,8 +741,8 @@ class AIModelService:
 
     @staticmethod
     async def generate_test_cases_stream(
-        task: TestCaseGenerationTask,
-        callback=None
+            task: TestCaseGenerationTask,
+            callback=None
     ) -> str:
         """
         流式生成测试用例
@@ -766,10 +775,10 @@ class AIModelService:
             f"   - **绝对不能跳号、重复或乱序输出**\n"
             f"   - **编号必须连续，中间不能有遗漏**\n"
             f"   - **所有用例必须一次性完整输出，不能中断**\n"
-            f"6. **⚠️ 特殊字符处理（关键）**：\n"
-            f"   - **如果在表格内容（如操作步骤、预期结果）中出现管道符 '|'，请使用HTML实体 '&#124;' 代替**。\n"
-            f"   - **绝对不要使用反斜杠转义（如 '\|'），这会导致输出混乱**。\n"
-            f"   - 示例：应输入 'a&#124;b' 而不是 'a|b' 或 'a\|b'。\n\n"
+            rf"6. **⚠️ 特殊字符处理（关键）**：\n"
+            rf"   - **如果在表格内容（如操作步骤、预期结果）中出现管道符 '|'，请使用HTML实体 '&#124;' 代替**。\n"
+            rf"   - **绝对不要使用反斜杠转义（如 '\|'），这会导致输出混乱**。\n"
+            rf"   - 示例：应输入 'a&#124;b' 而不是 'a|b' 或 'a\|b'。\n\n"
             f"【需求文档内容】\n{task.requirement_text}"
         )
 
@@ -813,9 +822,9 @@ class AIModelService:
 
     @staticmethod
     async def review_test_cases_stream(
-        task: TestCaseGenerationTask,
-        test_cases: str,
-        callback=None
+            task: TestCaseGenerationTask,
+            test_cases: str,
+            callback=None
     ) -> str:
         """
         流式评审测试用例
@@ -876,10 +885,10 @@ class AIModelService:
 
     @staticmethod
     async def revise_test_cases_based_on_review(
-        task: TestCaseGenerationTask,
-        original_test_cases: str,
-        review_feedback: str,
-        callback=None
+            task: TestCaseGenerationTask,
+            original_test_cases: str,
+            review_feedback: str,
+            callback=None
     ) -> str:
         """
         根据评审意见改进测试用例
@@ -928,10 +937,10 @@ class AIModelService:
             f"即使是第30条、第40条甚至更多的用例，也必须完整输出。\n"
             f"9. **测试用例编号规则**：新增的测试用例必须按照原有编号规则继续编号（例如原最后一个用例是TC-003，新增的第一个用例应该是TC-004），"
             f"绝不能使用'新增'、'用例1'等作为编号，必须是正式的测试用例编号。\n"
-            f"10. **⚠️ 特殊字符处理（关键）**：\n"
-            f"   - **如果在表格内容（如操作步骤、预期结果）中出现管道符 '|'，请使用HTML实体 '&#124;' 代替**。\n"
-            f"   - **绝对不要使用反斜杠转义（如 '\|'），这会导致输出混乱**。\n"
-            f"   - 示例：应输入 'a&#124;b' 而不是 'a|b' 或 'a\|b'。\n\n"
+            rf"10. **⚠️ 特殊字符处理（关键）**：\n"
+            rf"   - **如果在表格内容（如操作步骤、预期结果）中出现管道符 '|'，请使用HTML实体 '&#124;' 代替**。\n"
+            rf"   - **绝对不要使用反斜杠转义（如 '\|'），这会导致输出混乱**。\n"
+            rf"   - 示例：应输入 'a&#124;b' 而不是 'a|b' 或 'a\|b'。\n\n"
             f"请直接输出改进后的完整测试用例，不要包含任何说明性文字。"
         )
 
@@ -995,7 +1004,8 @@ class AIModelService:
 
         # 识别用例块：每个用例从包含编号的行开始
         # 支持多种编号格式：TC-001, TC001, TEST-001, 测试用例1, 1. 等
-        case_pattern = re.compile(r'^(#{1,6}\s+)?(?:TC[-_]?\d+|TEST[-_]?\d+|测试用例\d+|\d+[\.\、]\s*[:：]?\s*\S+)', re.IGNORECASE | re.MULTILINE)
+        case_pattern = re.compile(r'^(#{1,6}\s+)?(?:TC[-_]?\d+|TEST[-_]?\d+|测试用例\d+|\d+[\.\、]\s*[:：]?\s*\S+)',
+                                  re.IGNORECASE | re.MULTILINE)
 
         # 找到所有用例块的起始位置
         case_starts = []

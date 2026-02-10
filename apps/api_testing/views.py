@@ -287,15 +287,32 @@ class ApiRequestViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
+        # 获取用户有权限的项目
+        accessible_projects = ApiProject.objects.filter(
+            models.Q(owner=user) | models.Q(members=user)
+        )
+
+        # 查询两种接口：
+        # 1. 关联到集合的接口（集合所属项目是用户有权限的）
+        # 2. 或者是用户创建的且没有关联集合的接口
         queryset = ApiRequest.objects.filter(
-            collection__project__in=ApiProject.objects.filter(
-                models.Q(owner=user) | models.Q(members=user)
+            models.Q(
+                collection__project__in=accessible_projects
+            ) | models.Q(
+                collection__isnull=True,
+                created_by=user
             )
         ).distinct()
 
         project_id = self.request.query_params.get('project')
         if project_id:
-            queryset = queryset.filter(collection__project_id=project_id)
+            # 如果指定了项目，则只查询该项目下的接口（包括未关联集合但创建者是当前用户的）
+            queryset = queryset.filter(
+                models.Q(collection__project_id=project_id) | models.Q(
+                    collection__isnull=True,
+                    created_by=user
+                )
+            ).distinct()
 
         return queryset
 

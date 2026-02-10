@@ -92,6 +92,11 @@ class ApiCollectionSerializer(serializers.ModelSerializer):
 
 class ApiRequestSerializer(serializers.ModelSerializer):
     created_by = UserSerializer(read_only=True)
+    collection = serializers.PrimaryKeyRelatedField(
+        queryset=ApiCollection.objects.all(),
+        required=False,
+        allow_null=True
+    )
 
     class Meta:
         model = ApiRequest

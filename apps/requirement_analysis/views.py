@@ -1522,7 +1522,7 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
                                                             """流式回调：实时保存最终用例到数据库"""
                                                             # 实时追加到final_test_cases并保存
                                                             task.final_test_cases = (
-                                                                                                task.final_test_cases or '') + chunk
+                                                                                            task.final_test_cases or '') + chunk
 
                                                             # 每100字符或chunk较大时保存一次
                                                             current_length = len(task.final_test_cases)
@@ -1657,7 +1657,7 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
                                                             """流式回调：实时保存最终用例到数据库"""
                                                             # 实时追加到final_test_cases并保存
                                                             task.final_test_cases = (
-                                                                                                task.final_test_cases or '') + chunk
+                                                                                            task.final_test_cases or '') + chunk
 
                                                             # 每100字符或chunk较大时保存一次
                                                             current_length = len(task.final_test_cases)
@@ -1899,7 +1899,7 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
 
             def event_stream():
                 nonlocal last_sent_position, loop_count, last_review_length, last_final_length, last_status
-                
+
                 # Performance & Timeout Optimization
                 start_time = time.time()
                 last_heartbeat_time = time.time()
@@ -2040,21 +2040,22 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
                     # 发送进度更新 (Optimized)
                     current_progress_hash = f"{task.status}_{task.progress}"
                     if current_progress_hash != last_progress_hash:
-                        progress_data = json.dumps({'type': 'progress', 'status': task.status, 'progress': task.progress},
-                                                   ensure_ascii=False)
+                        progress_data = json.dumps(
+                            {'type': 'progress', 'status': task.status, 'progress': task.progress},
+                            ensure_ascii=False)
                         yield f"data: {progress_data}\n\n"
                         last_progress_hash = current_progress_hash
                         has_sent_data = True
 
-                    # Heartbeat
+                    # Heartbeat - 缩短心跳间隔到10秒，确保连接保活
                     if has_sent_data:
                         last_heartbeat_time = current_time
-                    elif current_time - last_heartbeat_time >= 15:
+                    elif current_time - last_heartbeat_time >= 10:
                         yield ": keep-alive\n\n"
                         last_heartbeat_time = current_time
 
-                    # 增加休眠时间到 1.0s，减少负载
-                    time.sleep(1.0)
+                    # 减少休眠时间到 0.5s，提高响应速度
+                    time.sleep(0.5)
 
             # 返回SSE流式响应 - 使用更稳健的方式
             try:
@@ -2707,19 +2708,19 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
                 # 先把 \| 替换为一个临时占位符，分割完后再替换回来
                 temp_placeholder = "___PIPE___"
                 processed_line = line.replace(r'\|', temp_placeholder)
-                
+
                 # 移除首尾的 |
                 if processed_line.startswith('|'):
                     processed_line = processed_line[1:]
                 if processed_line.endswith('|'):
                     processed_line = processed_line[:-1]
-                
+
                 cells = []
                 for cell in processed_line.split('|'):
                     # 恢复原来的转义管道符，并清理空格
                     cell_content = cell.replace(temp_placeholder, '|').replace('&#124;', '|').strip()
                     cells.append(cell_content)
-                    
+
                 if len(cells) > 1:
                     table_data.append(cells)
 
@@ -2949,19 +2950,19 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
             # 获取查询参数
             status_param = request.query_params.get('status')
             created_by = request.query_params.get('created_by')
-            
+
             # 构建查询
             queryset = TestCaseGenerationTask.objects.all()
-            
+
             if status_param:
                 queryset = queryset.filter(status=status_param)
-            
+
             if created_by:
                 queryset = queryset.filter(created_by_id=created_by)
-            
+
             # 使用聚合查询获取统计信息
             from django.db.models import Count
-            
+
             stats = queryset.aggregate(
                 total=Count('id'),
                 completed=Count('id', filter=models.Q(status='completed')),
@@ -2972,13 +2973,13 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
                 failed=Count('id', filter=models.Q(status='failed')),
                 cancelled=Count('id', filter=models.Q(status='cancelled'))
             )
-            
+
             # 计算运行中的任务（pending + generating + reviewing + revising）
             stats['running'] = (
-                stats['pending'] + stats['generating'] + 
-                stats['reviewing'] + stats['revising']
+                    stats['pending'] + stats['generating'] +
+                    stats['reviewing'] + stats['revising']
             )
-            
+
             return Response({
                 'total': stats['total'],
                 'completed': stats['completed'],
@@ -2990,7 +2991,7 @@ class TestCaseGenerationTaskViewSet(viewsets.ModelViewSet):
                 'revising': stats['revising'],
                 'cancelled': stats['cancelled']
             }, status=status.HTTP_200_OK)
-            
+
         except Exception as e:
             logger.error(f"获取统计信息时出错: {e}")
             return Response(
@@ -3104,38 +3105,38 @@ class ConfigStatusViewSet(viewsets.ViewSet):
                     'configured': writer_model_enabled is not None or writer_model_disabled is not None,
                     'enabled': writer_model_enabled is not None,
                     'name': (writer_model_enabled or writer_model_disabled).name if (
-                                writer_model_enabled or writer_model_disabled) else None,
+                            writer_model_enabled or writer_model_disabled) else None,
                     'provider': (writer_model_enabled or writer_model_disabled).get_model_type_display() if (
-                                writer_model_enabled or writer_model_disabled) else None,
+                            writer_model_enabled or writer_model_disabled) else None,
                     'id': (writer_model_enabled or writer_model_disabled).id if (
-                                writer_model_enabled or writer_model_disabled) else None,
+                            writer_model_enabled or writer_model_disabled) else None,
                     'required': True
                 },
                 'writer_prompt': {
                     'configured': writer_prompt_enabled is not None or writer_prompt_disabled is not None,
                     'enabled': writer_prompt_enabled is not None,
                     'name': (writer_prompt_enabled or writer_prompt_disabled).name if (
-                                writer_prompt_enabled or writer_prompt_disabled) else None,
+                            writer_prompt_enabled or writer_prompt_disabled) else None,
                     'id': (writer_prompt_enabled or writer_prompt_disabled).id if (
-                                writer_prompt_enabled or writer_prompt_disabled) else None,
+                            writer_prompt_enabled or writer_prompt_disabled) else None,
                     'required': True
                 },
                 'reviewer_model': {
                     'configured': reviewer_model_enabled is not None or reviewer_model_disabled is not None,
                     'enabled': reviewer_model_enabled is not None,
                     'name': (reviewer_model_enabled or reviewer_model_disabled).name if (
-                                reviewer_model_enabled or reviewer_model_disabled) else None,
+                            reviewer_model_enabled or reviewer_model_disabled) else None,
                     'id': (reviewer_model_enabled or reviewer_model_disabled).id if (
-                                reviewer_model_enabled or reviewer_model_disabled) else None,
+                            reviewer_model_enabled or reviewer_model_disabled) else None,
                     'required': False
                 },
                 'reviewer_prompt': {
                     'configured': reviewer_prompt_enabled is not None or reviewer_prompt_disabled is not None,
                     'enabled': reviewer_prompt_enabled is not None,
                     'name': (reviewer_prompt_enabled or reviewer_prompt_disabled).name if (
-                                reviewer_prompt_enabled or reviewer_prompt_disabled) else None,
+                            reviewer_prompt_enabled or reviewer_prompt_disabled) else None,
                     'id': (reviewer_prompt_enabled or reviewer_prompt_disabled).id if (
-                                reviewer_prompt_enabled or reviewer_prompt_disabled) else None,
+                            reviewer_prompt_enabled or reviewer_prompt_disabled) else None,
                     'required': False
                 },
                 'generation_config': {

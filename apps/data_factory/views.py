@@ -41,7 +41,7 @@ class DataFactoryPagination(PageNumberPagination):
     max_page_size = 100
 
 
-class DataFactoryViewSet(viewsets.GenericViewSet):
+class DataFactoryViewSet(viewsets.ModelViewSet):
     """数据工厂视图集"""
     queryset = DataFactoryRecord.objects.all()
     serializer_class = DataFactoryRecordSerializer
@@ -77,13 +77,17 @@ class DataFactoryViewSet(viewsets.GenericViewSet):
     def list(self, request, *args, **kwargs):
         """重写list方法以正确处理分页"""
         try:
-            # 生成缓存键
-            cache_key = f'data_factory_history_{request.user.id}_{request.query_params.get("page", 1)}_{request.query_params.get("page_size", 10)}_{request.query_params.get("tool_category", "")}_{request.query_params.get("tool_name__icontains", "")}_{request.query_params.get("tags__contains", "")}'
+            # 生成缓存键，忽略时间戳参数
+            query_params = request.query_params.copy()
+            query_params.pop('_t', None)  # 移除时间戳参数
             
-            # 检查缓存
-            cached_data = cache.get(cache_key)
-            if cached_data:
-                return Response(cached_data)
+            cache_key = f'data_factory_history_{request.user.id}_{query_params.get("page", 1)}_{query_params.get("page_size", 10)}_{query_params.get("tool_category", "")}_{query_params.get("tool_name__icontains", "")}_{query_params.get("tags__contains", "")}'
+            
+            # 检查缓存，但如果有时间戳参数则不使用缓存
+            if '_t' not in request.query_params:
+                cached_data = cache.get(cache_key)
+                if cached_data:
+                    return Response(cached_data)
             
             # 获取并过滤查询集
             queryset = self.get_queryset()
@@ -100,7 +104,8 @@ class DataFactoryViewSet(viewsets.GenericViewSet):
                 paginated_response = self.get_paginated_response(serializer_data)
                 
                 # 缓存结果，3分钟过期
-                cache.set(cache_key, paginated_response.data, 180)
+                if '_t' not in request.query_params:
+                    cache.set(cache_key, paginated_response.data, 180)
                 
                 return paginated_response
             
@@ -150,15 +155,57 @@ class DataFactoryViewSet(viewsets.GenericViewSet):
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def destroy(self, request, *args, **kwargs):
+        """删除数据工厂记录"""
+        try:
+            logger.info(f'开始删除记录: ID={kwargs.get("pk")}, 用户ID={request.user.id}')
+            # 使用self.get_object()获取记录，它会自动处理权限过滤
+            instance = self.get_object()
+            logger.info(f'成功获取记录: ID={instance.id}, 用户ID={instance.user.id}')
+            
+            # 删除记录
+            instance.delete()
+            logger.info(f'成功删除记录: ID={kwargs.get("pk")}')
+            
+            # 清除相关缓存
+            self.clear_user_cache(request.user.id)
+            logger.info(f'成功清除缓存: 用户ID={request.user.id}')
+            
+            return Response({'message': '删除成功'}, status=status.HTTP_200_OK)
+        except DataFactoryRecord.DoesNotExist:
+            logger.error(f'记录不存在: ID={kwargs.get("pk")}, 用户ID={request.user.id}')
+            return Response({'error': '记录不存在'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            logger.error(f'删除记录失败: {str(e)}, ID={kwargs.get("pk")}, 用户ID={request.user.id}', exc_info=True)
+            return Response({'error': f'删除失败: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     def clear_user_cache(self, user_id):
         """清除用户相关的缓存"""
         # 清除统计信息缓存
         cache.delete(f'data_factory_statistics_{user_id}')
         # 清除标签缓存
         cache.delete(f'data_factory_tags_{user_id}')
-        # 注意：历史记录缓存使用了复杂的键（包含分页和过滤参数），
-        # LocMemCache不支持delete_pattern方法，所以这里不清除历史记录缓存
-        # 历史记录缓存会在3分钟后自动过期
+        # 清除历史记录缓存
+        try:
+            # 遍历所有缓存键，删除与当前用户相关的历史记录缓存
+            if hasattr(cache, '_cache'):
+                # 对于LocMemCache
+                keys_to_delete = []
+                for key in cache._cache:
+                    # 匹配包含 data_factory_history 和用户ID的缓存键
+                    if 'data_factory_history' in key and str(user_id) in key:
+                        keys_to_delete.append(key)
+                for key in keys_to_delete:
+                    cache.delete(key)
+            elif hasattr(cache, 'keys'):
+                # 对于支持keys()方法的缓存后端
+                for key in cache.keys():
+                    # 匹配包含 data_factory_history 和用户ID的缓存键
+                    if 'data_factory_history' in key and str(user_id) in key:
+                        cache.delete(key)
+        except Exception as e:
+            logger.error(f'清除历史记录缓存失败: {str(e)}')
+        # 历史记录缓存会在3分钟后自动过期（作为备份）
 
     def execute_tool(self, tool_name: str, tool_category: str, input_data: dict):
         """执行工具"""

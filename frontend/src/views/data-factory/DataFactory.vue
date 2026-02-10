@@ -2029,27 +2029,15 @@ const filteredCategories = () => {
 const debouncedFetchHistory = debounce(async () => {
   if (historyLoading.value) return
   
-  const cacheKey = `history_${historyCurrentPage.value}_${historyPageSize.value}`
-  
-  // 检查缓存
-  const cachedData = cache.get(cacheKey)
-  if (cachedData) {
-    historyRecords.value = cachedData.results
-    historyTotal.value = cachedData.count
-    return
-  }
-  
   historyLoading.value = true
   try {
     const response = await axios.get('/api/data-factory/', {
       params: {
         page: historyCurrentPage.value,
-        page_size: historyPageSize.value
+        page_size: historyPageSize.value,
+        _t: Date.now()
       }
     })
-    
-    // 缓存数据
-    cache.set(cacheKey, response.data, 300000) // 5分钟缓存
     
     historyRecords.value = response.data.results
     historyTotal.value = response.data.count
@@ -2062,6 +2050,28 @@ const debouncedFetchHistory = debounce(async () => {
 
 const fetchHistory = async () => {
   debouncedFetchHistory()
+}
+
+const fetchHistoryImmediate = async () => {
+  if (historyLoading.value) return
+  
+  historyLoading.value = true
+  try {
+    const response = await axios.get('/api/data-factory/', {
+      params: {
+        page: historyCurrentPage.value,
+        page_size: historyPageSize.value,
+        _t: Date.now()
+      }
+    })
+    
+    historyRecords.value = response.data.results
+    historyTotal.value = response.data.count
+  } catch (error) {
+    ElMessage.error(t('dataFactory.messages.fetchHistoryFailed'))
+  } finally {
+    historyLoading.value = false
+  }
 }
 
 const handleHistoryPageChange = (page) => {
@@ -2078,21 +2088,13 @@ const handleHistorySizeChange = (size) => {
 const fetchStatistics = async () => {
   if (statsLoading.value) return
   
-  const cacheKey = 'statistics'
-  
-  // 检查缓存
-  const cachedData = cache.get(cacheKey)
-  if (cachedData) {
-    statistics.value = cachedData
-    return
-  }
-  
   statsLoading.value = true
   try {
-    const response = await axios.get('/api/data-factory/statistics/')
-    
-    // 缓存数据
-    cache.set(cacheKey, response.data, 600000) // 10分钟缓存
+    const response = await axios.get('/api/data-factory/statistics/', {
+      params: {
+        _t: Date.now()
+      }
+    })
     
     statistics.value = response.data
   } catch (error) {
@@ -2104,23 +2106,31 @@ const fetchStatistics = async () => {
 
 const deleteRecord = async (record) => {
   try {
-    await axios.delete(`/api/data-factory/${record.id}/`)
+    console.log('Delete record:', record)
+    if (!record || !record.id) {
+      ElMessage.error('记录ID不存在')
+      return
+    }
+    const response = await axios.delete(`/api/data-factory/${record.id}/`)
     ElMessage.success(t('dataFactory.history.deleteSuccess'))
     
-    // 清除缓存
+    // 清除统计信息缓存
     cache.remove('statistics')
-    // 清除所有历史记录缓存
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key && key.startsWith('history_')) {
-        cache.remove(key)
-      }
-    }
     
-    fetchHistory()
-    fetchStatistics()
+    // 立即刷新数据，确保总数一致
+    await fetchHistoryImmediate()
+    await fetchStatistics()
   } catch (error) {
-    ElMessage.error(t('dataFactory.history.deleteFailed'))
+    console.error('Delete error:', error)
+    if (error.response && error.response.status === 404) {
+      ElMessage.error('记录不存在或已被删除')
+      // 重新获取数据
+      fetchHistory()
+    } else if (error.response && error.response.status === 403) {
+      ElMessage.error('无权删除此记录')
+    } else {
+      ElMessage.error(t('dataFactory.history.deleteFailed'))
+    }
   }
 }
 
@@ -2180,6 +2190,7 @@ watch(historyTab, (newVal) => {
 onMounted(async () => {
   await fetchCategories()
   fetchScenarios()
+  fetchStatistics()
 })
 </script>
 
