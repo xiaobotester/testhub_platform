@@ -1008,60 +1008,101 @@ class TestExecutionViewSet(viewsets.ReadOnlyModelViewSet):
             import shutil
             import time
             from pathlib import Path
-            
-            # Allure命令行工具路径 - 使用相对路径
+
+            # Allure命令行工具路径 - 使用项目根目录中的 allure
             base_dir = Path(__file__).resolve().parent.parent.parent
-            
+
             # Determine executable name based on OS
             if os.name == 'nt':
                 allure_executable = 'allure.bat'
             else:
                 allure_executable = 'allure'
-                
-            allure_cmd = str(base_dir / 'allure' / 'bin' / allure_executable)
 
-            if not os.path.exists(allure_cmd):
-                logger.warning(f"Allure command not found at: {allure_cmd}, using fallback")
-                # 尝试其他可能的路径
-                possible_paths = [
-                    base_dir / 'allure' / 'bin' / allure_executable,
-                    Path('/usr/local/bin/allure'),  # 系统安装的allure
-                    Path('/usr/bin/allure'),  # 系统安装的allure
-                ]
-                for path in possible_paths:
-                    if path.exists():
-                        allure_cmd = str(path)
-                        break
-                else:
-                    allure_cmd = None
+            # 尝试多个可能的 Allure 路径（优先级从高到低）
+            # 使用项目根目录下的 allure 文件夹
+            possible_paths = [
+                # 项目目录中的 allure（最优先）
+                base_dir / 'allure' / 'bin' / allure_executable,
+                # Docker 容器路径（如果代码复制到 /app）
+                Path('/app/allure/bin/allure'),
+                Path('/allure/bin/allure'),
+                # 系统安装的allure
+                Path('/usr/local/bin/allure'),
+                Path('/usr/bin/allure'),
+            ]
+
+            allure_cmd = None
+            for path in possible_paths:
+                # 检查文件是否存在且可执行
+                if path.exists() and os.access(str(path), os.X_OK):
+                    allure_cmd = str(path)
+                    # 获取实际文件路径（处理符号链接）
+                    try:
+                        allure_cmd = str(path.resolve())
+                    except:
+                        pass
+                    logger.info(f"✅ Found Allure at: {allure_cmd}")
+                    break
+                elif path.exists():
+                    logger.warning(f"⚠️ Found Allure file at {path} but it's not executable")
+
+            if not allure_cmd:
+                logger.warning(f"Allure command not found, tried paths: {[str(p) for p in possible_paths]}")
             
             # 确保所有目录存在
             os.makedirs(results_dir, exist_ok=True)
+            os.makedirs(report_output_dir, exist_ok=True)
+
+            # 尝试使用 Allure 命令行工具生成报告
+            allure_report_generated = False
             if allure_cmd:
-                try:
-                    for _ in range(3):  # 重试机制
-                        try:
-                            # 如果目录已存在，先清理
-                            if os.path.exists(report_output_dir):
-                                shutil.rmtree(report_output_dir)
-                            
-                            # 生成Allure报告
-                            subprocess.run([
-                                allure_cmd, 'generate',
-                                results_dir,
-                                '--clean',
-                                '--output', report_output_dir
-                            ], check=True, capture_output=True, text=True, timeout=30)
-                            break
-                        except subprocess.TimeoutExpired:
-                            if _ == 2:  # 最后一次尝试
-                                raise
-                            time.sleep(1)
-                            continue
-                except (subprocess.CalledProcessError, FileNotFoundError) as e:
-                    # 如果Allure命令失败，回退到静态文件复制方式
-                    logger.warning(f"Allure command failed: {str(e)}, falling back to static files")
-                
+                # 执行前再次验证文件存在
+                if not os.path.exists(allure_cmd):
+                    logger.error(f"❌ Allure command disappeared before execution: {allure_cmd}")
+                    allure_cmd = None
+                else:
+                    logger.info(f"🔧 Allure command exists, preparing to execute...")
+                    try:
+                        for _ in range(3):  # 重试机制
+                            try:
+                                # 如果目录已存在，先清理
+                                if os.path.exists(report_output_dir):
+                                    shutil.rmtree(report_output_dir)
+                                    os.makedirs(report_output_dir, exist_ok=True)
+
+                                # 生成Allure报告（使用 sh 执行脚本）
+                                result = subprocess.run([
+                                    'sh', allure_cmd, 'generate',
+                                    results_dir,
+                                    '--clean',
+                                    '--output', report_output_dir
+                                ], check=True, capture_output=True, text=True, encoding='utf-8', timeout=30)
+
+                                logger.info(f"🔧 Allure output: {result.stdout}")
+                                if result.stderr:
+                                    logger.warning(f"⚠️ Allure stderr: {result.stderr}")
+
+                                # 检查报告是否成功生成
+                                if os.path.exists(os.path.join(report_output_dir, 'index.html')):
+                                    allure_report_generated = True
+                                    break
+                            except subprocess.TimeoutExpired:
+                                if _ == 2:  # 最后一次尝试
+                                    raise
+                                time.sleep(1)
+                                continue
+                    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+                        # 如果Allure命令失败，回退到静态文件复制方式
+                        logger.warning(f"Allure command failed: {str(e)}, falling back to static files")
+                        if hasattr(e, 'stderr'):
+                            logger.warning(f"Allure stderr: {e.stderr}")
+                        if hasattr(e, 'stdout'):
+                            logger.info(f"Allure stdout: {e.stdout}")
+                        allure_report_generated = False
+
+            # 如果 Allure 命令未生成报告，使用回退方案
+            if not allure_report_generated:
+                # 尝试复制静态文件
                 static_dir = os.path.join(settings.MEDIA_ROOT, 'allure-static')
                 if os.path.exists(static_dir):
                     for item in os.listdir(static_dir):
@@ -1071,14 +1112,16 @@ class TestExecutionViewSet(viewsets.ReadOnlyModelViewSet):
                             shutil.copytree(source, destination, dirs_exist_ok=True)
                         else:
                             shutil.copy2(source, destination)
-                
-                # 始终确保有可用的报告
-                if not os.path.exists(os.path.join(report_output_dir, 'index.html')):
-                    # 创建回退的简单报告
-                    fallback_html = f"""
+
+            # 始终确保有可用的报告
+            os.makedirs(report_output_dir, exist_ok=True)
+            if not os.path.exists(os.path.join(report_output_dir, 'index.html')):
+                # 创建回退的简单报告
+                fallback_html = f"""
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>测试报告 - {execution.test_suite.name}</title>
 </head>
 <body>
@@ -1091,8 +1134,8 @@ class TestExecutionViewSet(viewsets.ReadOnlyModelViewSet):
 </body>
 </html>
 """
-                    with open(os.path.join(report_output_dir, 'index.html'), 'w', encoding='utf-8') as f:
-                        f.write(fallback_html)
+                with open(os.path.join(report_output_dir, 'index.html'), 'w', encoding='utf-8') as f:
+                    f.write(fallback_html)
             
             # 创建自定义的summary.html页面作为报告概览
             status_class = "status-passed" if execution.status == "COMPLETED" else "status-failed"
@@ -1361,9 +1404,17 @@ class TestExecutionViewSet(viewsets.ReadOnlyModelViewSet):
 """
             # 保存为summary.html，避免覆盖Allure生成的index.html
             summary_file = os.path.join(report_output_dir, 'summary.html')
+            logger.info(f"🔧 Writing summary.html to: {summary_file}")
+            logger.info(f"🔧 summary.html size: {len(index_content)} bytes")
             with open(summary_file, 'w', encoding='utf-8') as f:
                 f.write(index_content)
-            
+
+            # 验证文件是否成功写入
+            if os.path.exists(summary_file):
+                logger.info(f"✅ summary.html created successfully, size: {os.path.getsize(summary_file)} bytes")
+            else:
+                logger.error(f"❌ Failed to create summary.html")
+
             return Response({
                 'message': 'Allure报告生成成功',
                 'report_url': f'/media/allure-reports/execution_{execution.id}/summary.html'

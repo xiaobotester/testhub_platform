@@ -128,81 +128,157 @@ class SeleniumTestEngine:
                 raise Exception(full_error)
             if self.browser_type == 'chrome':
                 from selenium.webdriver.chrome.options import Options
-                from selenium.webdriver.chrome.service import Service
-                from webdriver_manager.chrome import ChromeDriverManager
 
-                options = Options()
-                if self.headless:
-                    options.add_argument('--headless')
-                options.add_argument('--disable-blink-features=AutomationControlled')
-                options.add_argument('--disable-gpu')
-                options.add_argument('--no-sandbox')
-                options.add_argument('--disable-dev-shm-usage')
-                options.add_argument('--window-size=1920,1080')
-                
-                # 禁用自动化特征检测
-                options.add_experimental_option('excludeSwitches', ['enable-automation'])
-                options.add_experimental_option('useAutomationExtension', False)
-                
-                # 禁用密码保存和泄露提醒（解决弹框遮挡元素的问题）
-                prefs = {
-                    'credentials_enable_service': False,  # 禁用密码保存服务
-                    'profile.password_manager_enabled': False,  # 禁用密码管理器
-                    'profile.default_content_setting_values.notifications': 2,  # 禁用通知
-                    'autofill.profile_enabled': False,  # 禁用自动填充
-                    'profile.default_content_setting_values.automatic_downloads': 1,  # 允许自动下载
-                    'password_manager_leak_detection': False,  # 禁用密码泄露检测（prefs级别）
-                    'safebrowsing.enabled': False,  # 禁用安全浏览（可能触发密码警告）
-                }
-                options.add_experimental_option('prefs', prefs)
-                
-                # 禁用密码泄露检查和其他安全警告（更全面的设置）
-                options.add_argument('--disable-features=PasswordLeakDetection')  # 禁用密码泄露检测
-                options.add_argument('--disable-features=PrivacySandboxSettings4')  # 禁用隐私沙盒
-                options.add_argument('--disable-features=TranslateUI')  # 禁用翻译提示
-                options.add_argument('--disable-infobars')  # 禁用信息栏
-                options.add_argument('--disable-save-password-bubble')  # 禁用保存密码气泡
-                options.add_argument('--disable-password-generation')  # 禁用密码生成
-                options.add_argument('--disable-password-manager-reauthentication')  # 禁用密码管理器重新认证
-                
-                # 额外的安全警告抑制
-                options.add_experimental_option('excludeSwitches', ['enable-automation', 'enable-logging'])
-                options.add_argument('--disable-popup-blocking')  # 禁用弹窗拦截（避免某些警告）
-                options.add_argument('--disable-notifications')  # 禁用所有通知
+                # 检查是否使用远程 Selenium WebDriver（优先使用 Chrome 专用配置）
+                remote_url = os.getenv('SELENIUM_CHROME_URL') or os.getenv('SELENIUM_REMOTE_URL')
 
-                # 使用缓存优先策略
-                service = Service(ChromeDriverManager().install())
-                self.driver = webdriver.Chrome(service=service, options=options)
+                if remote_url:
+                    # 使用远程 WebDriver（如 Selenium Grid 或 Standalone Chrome）
+                    logger.info(f"🔗 使用远程 Selenium WebDriver (Chrome): {remote_url}")
+                    options = Options()
+
+                    if self.headless:
+                        options.add_argument('--headless')
+                    options.add_argument('--disable-blink-features=AutomationControlled')
+                    options.add_argument('--disable-gpu')
+                    options.add_argument('--no-sandbox')
+                    options.add_argument('--disable-dev-shm-usage')
+                    options.add_argument('--window-size=1920,1080')
+
+                    # 禁用自动化特征检测
+                    options.add_experimental_option('excludeSwitches', ['enable-automation'])
+                    options.add_experimental_option('useAutomationExtension', False)
+
+                    # 禁用密码保存和泄露提醒
+                    prefs = {
+                        'credentials_enable_service': False,
+                        'profile.password_manager_enabled': False,
+                        'profile.default_content_setting_values.notifications': 2,
+                        'autofill.profile_enabled': False,
+                        'profile.default_content_setting_values.automatic_downloads': 1,
+                        'password_manager_leak_detection': False,
+                        'safebrowsing.enabled': False,
+                    }
+                    options.add_experimental_option('prefs', prefs)
+
+                    # 禁用安全警告
+                    options.add_argument('--disable-features=PasswordLeakDetection')
+                    options.add_argument('--disable-features=PrivacySandboxSettings4')
+                    options.add_argument('--disable-features=TranslateUI')
+                    options.add_argument('--disable-infobars')
+                    options.add_argument('--disable-save-password-bubble')
+                    options.add_argument('--disable-password-generation')
+                    options.add_argument('--disable-password-manager-reauthentication')
+                    options.add_experimental_option('excludeSwitches', ['enable-automation', 'enable-logging'])
+                    options.add_argument('--disable-popup-blocking')
+                    options.add_argument('--disable-notifications')
+
+                    # 连接到远程 WebDriver
+                    self.driver = webdriver.Remote(command_executor=remote_url, options=options)
+                else:
+                    # 使用本地 WebDriver（需要下载 ChromeDriver）
+                    from selenium.webdriver.chrome.service import Service
+                    from webdriver_manager.chrome import ChromeDriverManager
+
+                    options = Options()
+                    if self.headless:
+                        options.add_argument('--headless')
+                    options.add_argument('--disable-blink-features=AutomationControlled')
+                    options.add_argument('--disable-gpu')
+                    options.add_argument('--no-sandbox')
+                    options.add_argument('--disable-dev-shm-usage')
+                    options.add_argument('--window-size=1920,1080')
+
+                    # 禁用自动化特征检测
+                    options.add_experimental_option('excludeSwitches', ['enable-automation'])
+                    options.add_experimental_option('useAutomationExtension', False)
+
+                    # 禁用密码保存和泄露提醒
+                    prefs = {
+                        'credentials_enable_service': False,
+                        'profile.password_manager_enabled': False,
+                        'profile.default_content_setting_values.notifications': 2,
+                        'autofill.profile_enabled': False,
+                        'profile.default_content_setting_values.automatic_downloads': 1,
+                        'password_manager_leak_detection': False,
+                        'safebrowsing.enabled': False,
+                    }
+                    options.add_experimental_option('prefs', prefs)
+
+                    # 禁用安全警告
+                    options.add_argument('--disable-features=PasswordLeakDetection')
+                    options.add_argument('--disable-features=PrivacySandboxSettings4')
+                    options.add_argument('--disable-features=TranslateUI')
+                    options.add_argument('--disable-infobars')
+                    options.add_argument('--disable-save-password-bubble')
+                    options.add_argument('--disable-password-generation')
+                    options.add_argument('--disable-password-manager-reauthentication')
+                    options.add_experimental_option('excludeSwitches', ['enable-automation', 'enable-logging'])
+                    options.add_argument('--disable-popup-blocking')
+                    options.add_argument('--disable-notifications')
+
+                    # 使用缓存优先策略
+                    service = Service(ChromeDriverManager().install())
+                    self.driver = webdriver.Chrome(service=service, options=options)
 
             elif self.browser_type == 'firefox':
                 from selenium.webdriver.firefox.options import Options
-                from selenium.webdriver.firefox.service import Service
-                from webdriver_manager.firefox import GeckoDriverManager
 
-                options = Options()
-                if self.headless:
-                    options.add_argument('--headless')
-                options.add_argument('--width=1920')
-                options.add_argument('--height=1080')
-                
-                # 性能优化：禁用不必要的功能加快启动速度
-                options.set_preference('browser.cache.disk.enable', False)
-                options.set_preference('browser.cache.memory.enable', True)
-                options.set_preference('browser.cache.offline.enable', False)
-                options.set_preference('network.http.use-cache', False)
-                options.set_preference('browser.startup.homepage', 'about:blank')
-                options.set_preference('startup.homepage_welcome_url', 'about:blank')
-                options.set_preference('startup.homepage_welcome_url.additional', 'about:blank')
-                # 禁用自动更新检查
-                options.set_preference('app.update.auto', False)
-                options.set_preference('app.update.enabled', False)
-                # 禁用扩展和插件检查
-                options.set_preference('extensions.update.enabled', False)
-                options.set_preference('extensions.update.autoUpdateDefault', False)
+                # 检查是否使用远程 Selenium WebDriver（优先使用 Firefox 专用配置）
+                remote_url = os.getenv('SELENIUM_FIREFOX_URL') or os.getenv('SELENIUM_REMOTE_URL')
 
-                # 使用缓存优先策略
-                service = Service(GeckoDriverManager().install())
-                self.driver = webdriver.Firefox(service=service, options=options)
+                if remote_url:
+                    # 使用远程 WebDriver
+                    logger.info(f"🔗 使用远程 Selenium WebDriver (Firefox): {remote_url}")
+                    options = Options()
+
+                    if self.headless:
+                        options.add_argument('--headless')
+                    options.add_argument('--width=1920')
+                    options.add_argument('--height=1080')
+
+                    # 性能优化
+                    options.set_preference('browser.cache.disk.enable', False)
+                    options.set_preference('browser.cache.memory.enable', True)
+                    options.set_preference('browser.cache.offline.enable', False)
+                    options.set_preference('network.http.use-cache', False)
+                    options.set_preference('browser.startup.homepage', 'about:blank')
+                    options.set_preference('startup.homepage_welcome_url', 'about:blank')
+                    options.set_preference('startup.homepage_welcome_url.additional', 'about:blank')
+                    options.set_preference('app.update.auto', False)
+                    options.set_preference('app.update.enabled', False)
+                    options.set_preference('extensions.update.enabled', False)
+                    options.set_preference('extensions.update.autoUpdateDefault', False)
+
+                    # 连接到远程 WebDriver
+                    self.driver = webdriver.Remote(command_executor=remote_url, options=options)
+                else:
+                    # 使用本地 WebDriver
+                    from selenium.webdriver.firefox.service import Service
+                    from webdriver_manager.firefox import GeckoDriverManager
+
+                    options = Options()
+                    if self.headless:
+                        options.add_argument('--headless')
+                    options.add_argument('--width=1920')
+                    options.add_argument('--height=1080')
+
+                    # 性能优化
+                    options.set_preference('browser.cache.disk.enable', False)
+                    options.set_preference('browser.cache.memory.enable', True)
+                    options.set_preference('browser.cache.offline.enable', False)
+                    options.set_preference('network.http.use-cache', False)
+                    options.set_preference('browser.startup.homepage', 'about:blank')
+                    options.set_preference('startup.homepage_welcome_url', 'about:blank')
+                    options.set_preference('startup.homepage_welcome_url.additional', 'about:blank')
+                    options.set_preference('app.update.auto', False)
+                    options.set_preference('app.update.enabled', False)
+                    options.set_preference('extensions.update.enabled', False)
+                    options.set_preference('extensions.update.autoUpdateDefault', False)
+
+                    # 使用缓存优先策略
+                    service = Service(GeckoDriverManager().install())
+                    self.driver = webdriver.Firefox(service=service, options=options)
 
             elif self.browser_type == 'edge':
                 from selenium.webdriver.edge.options import Options

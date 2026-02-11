@@ -382,10 +382,15 @@ try:
 
 
     async def _patched_connect(self, cdp_url=None):
-        if cdp_url: return await _original_connect(self, cdp_url=cdp_url)
+        logger.info("🔧 [CDP Patch] Starting patched connect method...")
+
+        if cdp_url:
+            logger.info(f"🔧 [CDP Patch] Using provided CDP URL: {cdp_url[:50]}...")
+            return await _original_connect(self, cdp_url=cdp_url)
 
         browser_profile = getattr(self, 'browser_profile', None)
         if hasattr(browser_profile, 'cdp_url') and browser_profile.cdp_url:
+            logger.info(f"🔧 [CDP Patch] Using browser_profile CDP URL: {browser_profile.cdp_url[:50]}...")
             return await _original_connect(self, cdp_url=browser_profile.cdp_url)
 
         port = 9222
@@ -393,30 +398,50 @@ try:
             for arg in browser_profile.extra_chromium_args:
                 if '--remote-debugging-port=' in str(arg):
                     try:
-                        port = int(arg.split('=')[1]); break
+                        port = int(arg.split('=')[1])
+                        logger.info(f"🔧 [CDP Patch] Detected custom port: {port}")
+                        break
                     except:
                         pass
         if hasattr(browser_profile, 'remote_debugging_port'):
             port = browser_profile.remote_debugging_port
+            logger.info(f"🔧 [CDP Patch] Using remote_debugging_port: {port}")
 
         cdp_endpoint = f"http://localhost:{port}/json/version"
+        logger.info(f"🔧 [CDP Patch] Attempting to connect to CDP endpoint: {cdp_endpoint}")
 
-        for attempt in range(10): # 增加重试次数
+        # 增加重试次数和超时时间，给浏览器更多启动时间
+        for attempt in range(15):  # 从10次增加到15次
             try:
                 async with httpx.AsyncClient(timeout=10.0) as client:
+                    logger.info(f"🔧 [CDP Patch] CDP connection attempt {attempt + 1}/15...")
                     response = await client.get(cdp_endpoint)
+                    logger.info(f"🔧 [CDP Patch] Response status: {response.status_code}")
                     if response.status_code == 200 and response.text:
                         version_info = response.json()
-                        browser_profile.cdp_url = version_info['webSocketDebuggerUrl']
-                        return await _original_connect(self, cdp_url=browser_profile.cdp_url)
-            except Exception:
-                if attempt < 4: await asyncio.sleep(1.0)
+                        logger.info(f"🔧 [CDP Patch] Got version info: {version_info.get('Browser', 'Unknown')}")
+                        cdp_url = version_info.get('webSocketDebuggerUrl')
+                        if cdp_url:
+                            logger.info(f"🔧 [CDP Patch] Got WebSocket URL, saving to browser_profile...")
+                            browser_profile.cdp_url = cdp_url
+                            logger.info(f"🔧 [CDP Patch] Connecting via original method...")
+                            return await _original_connect(self, cdp_url=browser_profile.cdp_url)
+                        else:
+                            logger.warning(f"🔧 [CDP Patch] No webSocketDebuggerUrl in response")
+                    else:
+                        logger.warning(f"🔧 [CDP Patch] Empty response from CDP endpoint")
+            except Exception as e:
+                logger.warning(f"🔧 [CDP Patch] CDP connection attempt {attempt + 1} failed: {e}")
+                # 前10次尝试等待时间较短，后5次等待时间较长
+                wait_time = 1.0 if attempt < 10 else 2.0
+                await asyncio.sleep(wait_time)
 
+        logger.error(f"🔧 [CDP Patch] All CDP connection attempts failed, falling back to original method")
         return await _original_connect(self, cdp_url=cdp_url)
 
 
     BrowserSession.connect = _patched_connect
-    logger.info("✅ Successfully patched BrowserSession.connect")
+    logger.info("✅ Successfully patched BrowserSession.connect with enhanced logging")
 except Exception as e:
     logger.error(f"❌ Failed to patch BrowserSession.connect: {e}")
 
@@ -826,11 +851,11 @@ class BaseBrowserAgent:
         """Clean up any existing Chrome processes on port 9222 (Linux only)"""
         import platform
         import psutil
-        
+
         if platform.system() != 'Linux':
             return
 
-        logger.info("🧹 Cleaning up zombie Chrome processes...")
+        logger.info("🧹 Cleaning up zombie Chrome processes on port 9222...")
         cleaned_count = 0
         try:
             for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
@@ -847,9 +872,11 @@ class BaseBrowserAgent:
                     pass
         except Exception as e:
             logger.warning(f"⚠️ Failed to cleanup zombie chrome: {e}")
-        
+
         if cleaned_count > 0:
             logger.info(f"✅ Cleaned up {cleaned_count} zombie Chrome processes")
+        else:
+            logger.info("✅ No zombie Chrome processes found")
 
     def _create_browser_profile(self):
         # Default implementation, can be overridden
@@ -868,16 +895,18 @@ class BaseBrowserAgent:
                     chrome_path = p
                     break
         elif system == 'Linux':
-            # Linux 系统常见的 Chrome 路径 - 优先使用我们预装的浏览器
+            # Linux 系统常见的 Chrome 路径 - 优先使用 Playwright 官方镜像预装的浏览器
+            # Playwright 官方镜像 mcr.microsoft.com/playwright/python 的浏览器路径
             paths = [
-                # 优先使用Docker容器中预装的Chromium
+                # Playwright 1.50+ 的路径（新版）
+                '/ms-playwright/chromium-*/chrome-linux/chrome',
+                '/ms-playwright/chromium-*/chrome/chrome',
+                # Playwright 1.48- 的旧路径（兼容性）
+                '/ms-playwright/chromium/chromium-linux/chrome',
+                # 系统 Chrome/Chromium 路径
                 '/usr/bin/chromium-browser',
                 '/usr/bin/chromium',
                 '/usr/bin/google-chrome',
-                # 检查Playwright安装的浏览器
-                '/ms-playwright/chromium-*/chromium-linux/chromium',
-                '/root/.cache/ms-playwright/chromium-*/chromium-linux/chromium',
-                # 备用路径
                 '/usr/bin/google-chrome-stable',
                 '/opt/google/chrome/chrome',
                 '/snap/bin/chromium',
@@ -887,35 +916,37 @@ class BaseBrowserAgent:
                 if '*' in p:
                     import glob
                     matches = glob.glob(p)
+                    logger.info(f"🔍 尝试路径: {p}, 匹配到 {len(matches)} 个文件")
                     if matches:
                         for match in matches:
                             if os.path.exists(match) and os.access(match, os.X_OK):
                                 chrome_path = match
-                                logger.info(f"找到浏览器: {chrome_path}")
+                                logger.info(f"✅ 找到浏览器: {chrome_path}")
                                 break
                         if chrome_path:
                             break
                 elif os.path.exists(p) and os.access(p, os.X_OK):
                     chrome_path = p
-                    logger.info(f"找到浏览器: {chrome_path}")
+                    logger.info(f"✅ 找到浏览器: {chrome_path}")
                     break
-            
+
             # 如果还是没找到，尝试查找Playwright的默认路径或让browser-use自行安装
             if not chrome_path:
                 import glob
-                playwright_paths = glob.glob('/ms-playwright/**/chromium', recursive=True)
-                playwright_paths.extend(glob.glob('/root/.cache/ms-playwright/**/chromium', recursive=True))
+                # 扩展搜索范围
+                playwright_paths = glob.glob('/ms-playwright/**/chrome', recursive=True)
+                playwright_paths.extend(glob.glob('/ms-playwright/**/chrome-linux/chrome', recursive=True))
                 playwright_paths.extend(glob.glob('/ms-playwright/**/chromium-linux/chromium', recursive=True))
-                playwright_paths.extend(glob.glob('/root/.cache/ms-playwright/**/chromium-linux/chromium', recursive=True))
+                logger.info(f"🔍 扩展搜索 Playwright 路径，共找到 {len(playwright_paths)} 个可能的可执行文件")
                 for p in playwright_paths:
                     if os.path.exists(p) and os.access(p, os.X_OK):
                         chrome_path = p
-                        logger.info(f"通过Playwright找到浏览器: {chrome_path}")
+                        logger.info(f"✅ 通过 Playwright 找到浏览器: {chrome_path}")
                         break
-                
+
                 # 最后的备用方案：让browser-use自行处理浏览器安装
                 if not chrome_path:
-                    logger.info("未找到预装浏览器，将让browser-use自动安装")
+                    logger.warning("⚠️ 未找到预装浏览器，将让 browser-use 自动安装浏览器")
                     chrome_path = None  # 让browser-use处理
 
         # 基础性能优化参数
@@ -941,9 +972,13 @@ class BaseBrowserAgent:
                 '--headless=new',  # Linux 服务器使用无头模式
                 '--disable-software-rasterizer',  # 禁用软件光栅化器
                 '--remote-debugging-port=9222',  # 使用固定端口，避免随机端口导致连接失败
-                '--remote-debugging-address=0.0.0.0', # 允许远程连接，而不仅仅是 127.0.0.1
-                '--no-zygote',  # 减少进程数
-                '--single-process',  # 单进程模式，虽然不稳定但能解决某些 Docker 环境下的 PID 问题
+                '--remote-debugging-address=0.0.0.0',  # 允许远程连接
+                # 关键修复：移除 --no-zygote 和 --single-process，这些会导致 CDP 连接问题
+                # browser-use 需要正常的进程结构来建立 CDP 连接
+                '--disable-extensions',  # 禁用扩展
+                '--disable-background-networking',  # 禁用后台网络
+                '--disable-default-apps',  # 禁用默认应用
+                '--disable-sync',  # 禁用同步
             ])
         else:
             # macOS 和 Windows 使用显示模式
