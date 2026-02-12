@@ -51,7 +51,7 @@ try:
     from PIL import Image
 
     PYZBAR_AVAILABLE = True
-except ImportError:
+except (ImportError, FileNotFoundError, OSError):
     PYZBAR_AVAILABLE = False
 
 logger = logging.getLogger(__name__)

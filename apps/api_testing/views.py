@@ -952,6 +952,17 @@ class TestSuiteViewSet(viewsets.ModelViewSet):
         else:
             return data
 
+    def _resolve_variables_in_dict(self, data, resolver):
+        """递归解析字典中的动态函数占位符"""
+        if isinstance(data, dict):
+            return {k: self._resolve_variables_in_dict(v, resolver) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [self._resolve_variables_in_dict(item, resolver) for item in data]
+        elif isinstance(data, str):
+            return resolver.resolve(data)
+        else:
+            return data
+
 
 class TestSuiteRequestViewSet(viewsets.ModelViewSet):
     queryset = TestSuiteRequest.objects.all()
@@ -993,14 +1004,14 @@ class TestExecutionViewSet(viewsets.ReadOnlyModelViewSet):
         
         try:
             # 创建报告目录
-            results_dir = os.path.join(settings.MEDIA_ROOT, 'allure-results', f'execution_{execution.id}')
+            results_dir = os.path.join(settings.MEDIA_ROOT, 'api-testing', 'allure-results', f'execution_{execution.id}')
             os.makedirs(results_dir, exist_ok=True)
             
             # 生成测试结果文件
             self._generate_test_result_files(execution, results_dir)
             
             # 生成Allure报告
-            report_output_dir = os.path.join(settings.MEDIA_ROOT, 'allure-reports', f'execution_{execution.id}')
+            report_output_dir = os.path.join(settings.MEDIA_ROOT, 'api-testing', 'allure-reports', f'execution_{execution.id}')
             os.makedirs(report_output_dir, exist_ok=True)
             
             # 使用Allure命令行工具生成完整报告
@@ -1008,115 +1019,120 @@ class TestExecutionViewSet(viewsets.ReadOnlyModelViewSet):
             import shutil
             import time
             from pathlib import Path
+            
+            # 检查 Java 环境
+            java_available = self._check_java_environment()
+            if not java_available:
+                logger.warning("Java 环境未配置，将使用简单报告")
 
-            # Allure命令行工具路径 - 使用项目根目录中的 allure
+            # Allure命令行工具路径 - 使用相对路径
             base_dir = Path(__file__).resolve().parent.parent.parent
-
-            # Determine executable name based on OS
+            
+            # 根据操作系统确定可执行文件名
             if os.name == 'nt':
                 allure_executable = 'allure.bat'
             else:
                 allure_executable = 'allure'
+                
+            allure_cmd = base_dir / 'allure' / 'bin' / allure_executable
 
-            # 尝试多个可能的 Allure 路径（优先级从高到低）
-            # 使用项目根目录下的 allure 文件夹
-            possible_paths = [
-                # 项目目录中的 allure（最优先）
-                base_dir / 'allure' / 'bin' / allure_executable,
-                # Docker 容器路径（如果代码复制到 /app）
-                Path('/app/allure/bin/allure'),
-                Path('/allure/bin/allure'),
-                # 系统安装的allure
-                Path('/usr/local/bin/allure'),
-                Path('/usr/bin/allure'),
-            ]
-
-            allure_cmd = None
-            for path in possible_paths:
-                # 检查文件是否存在且可执行
-                if path.exists() and os.access(str(path), os.X_OK):
-                    allure_cmd = str(path)
-                    # 获取实际文件路径（处理符号链接）
-                    try:
-                        allure_cmd = str(path.resolve())
-                    except:
-                        pass
-                    logger.info(f"✅ Found Allure at: {allure_cmd}")
-                    break
-                elif path.exists():
-                    logger.warning(f"⚠️ Found Allure file at {path} but it's not executable")
-
-            if not allure_cmd:
-                logger.warning(f"Allure command not found, tried paths: {[str(p) for p in possible_paths]}")
+            if not allure_cmd.exists():
+                logger.warning(f"Allure command not found at: {allure_cmd}, trying system paths")
+                # 尝试其他可能的路径
+                possible_paths = [
+                    Path('/usr/local/bin/allure'),  # 系统安装的allure
+                    Path('/usr/bin/allure'),  # 系统安装的allure
+                ]
+                allure_cmd = None
+                for path in possible_paths:
+                    if path.exists():
+                        allure_cmd = path
+                        break
             
             # 确保所有目录存在
             os.makedirs(results_dir, exist_ok=True)
-            os.makedirs(report_output_dir, exist_ok=True)
 
-            # 尝试使用 Allure 命令行工具生成报告
-            allure_report_generated = False
-            if allure_cmd:
-                # 执行前再次验证文件存在
-                if not os.path.exists(allure_cmd):
-                    logger.error(f"❌ Allure command disappeared before execution: {allure_cmd}")
-                    allure_cmd = None
-                else:
-                    logger.info(f"🔧 Allure command exists, preparing to execute...")
-                    try:
-                        for _ in range(3):  # 重试机制
-                            try:
-                                # 如果目录已存在，先清理
-                                if os.path.exists(report_output_dir):
+            if allure_cmd and java_available:
+                try:
+                    for _ in range(3):  # 重试机制
+                        try:
+                            # 如果目录已存在，先清理（处理权限问题）
+                            if os.path.exists(report_output_dir):
+                                try:
                                     shutil.rmtree(report_output_dir)
-                                    os.makedirs(report_output_dir, exist_ok=True)
+                                except PermissionError as pe:
+                                    logger.warning(f"无法删除目录（权限不足）：{report_output_dir}，尝试清理内容")
+                                    # 尝试只删除内容，保留目录
+                                    for item in os.listdir(report_output_dir):
+                                        item_path = os.path.join(report_output_dir, item)
+                                        try:
+                                            if os.path.isdir(item_path):
+                                                shutil.rmtree(item_path)
+                                            else:
+                                                os.remove(item_path)
+                                        except Exception:
+                                            pass  # 跳过无法删除的文件
 
-                                # 生成Allure报告（使用 sh 执行脚本）
-                                result = subprocess.run([
-                                    'sh', allure_cmd, 'generate',
-                                    results_dir,
+                            # 构建命令行参数（路径统一使用字符串格式）
+                            if os.name == 'nt':
+                                # Windows 下通过 cmd /c 执行批处理文件
+                                cmd_list = [
+                                    'cmd', '/c',
+                                    str(allure_cmd),
+                                    'generate',
+                                    str(Path(results_dir)),
                                     '--clean',
-                                    '--output', report_output_dir
-                                ], check=True, capture_output=True, text=True, encoding='utf-8', timeout=30)
+                                    '--output', str(Path(report_output_dir))
+                                ]
+                            else:
+                                # Linux/Mac 直接执行
+                                cmd_list = [
+                                    str(allure_cmd),
+                                    'generate',
+                                    str(Path(results_dir)),
+                                    '--clean',
+                                    '--output', str(Path(report_output_dir))
+                                ]
 
-                                logger.info(f"🔧 Allure output: {result.stdout}")
-                                if result.stderr:
-                                    logger.warning(f"⚠️ Allure stderr: {result.stderr}")
+                            # 生成Allure报告
+                            result = subprocess.run(
+                                cmd_list,
+                                check=True,
+                                capture_output=True,
+                                text=True,
+                                timeout=30
+                            )
+                            logger.info(f"Allure 报告生成成功: {result.stdout}")
+                            break
+                        except subprocess.TimeoutExpired:
+                            if _ == 2:  # 最后一次尝试
+                                raise
+                            logger.warning(f"Allure 命令超时，第 {_ + 1} 次重试...")
+                            time.sleep(1)
+                            continue
+                except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
+                    # 如果Allure命令失败，记录详细错误信息
+                    error_detail = str(e)
+                    if hasattr(e, 'stderr') and e.stderr:
+                        error_detail = f"{error_detail}\nStderr: {e.stderr}"
+                    logger.error(f"Allure 命令执行失败: {error_detail}")
 
-                                # 检查报告是否成功生成
-                                if os.path.exists(os.path.join(report_output_dir, 'index.html')):
-                                    allure_report_generated = True
-                                    break
-                            except subprocess.TimeoutExpired:
-                                if _ == 2:  # 最后一次尝试
-                                    raise
-                                time.sleep(1)
-                                continue
-                    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-                        # 如果Allure命令失败，回退到静态文件复制方式
-                        logger.warning(f"Allure command failed: {str(e)}, falling back to static files")
-                        if hasattr(e, 'stderr'):
-                            logger.warning(f"Allure stderr: {e.stderr}")
-                        if hasattr(e, 'stdout'):
-                            logger.info(f"Allure stdout: {e.stdout}")
-                        allure_report_generated = False
-
-            # 如果 Allure 命令未生成报告，使用回退方案
-            if not allure_report_generated:
-                # 尝试复制静态文件
-                static_dir = os.path.join(settings.MEDIA_ROOT, 'allure-static')
-                if os.path.exists(static_dir):
-                    for item in os.listdir(static_dir):
-                        source = os.path.join(static_dir, item)
-                        destination = os.path.join(report_output_dir, item)
-                        if os.path.isdir(source):
-                            shutil.copytree(source, destination, dirs_exist_ok=True)
-                        else:
-                            shutil.copy2(source, destination)
-
-            # 始终确保有可用的报告
-            os.makedirs(report_output_dir, exist_ok=True)
-            if not os.path.exists(os.path.join(report_output_dir, 'index.html')):
-                # 创建回退的简单报告
+                    # 不再使用回退方案，直接返回错误
+                    return Response({
+                        'error': 'Allure 报告生成失败',
+                        'detail': error_detail,
+                        'suggestion': (
+                            '请检查以下项目：\n'
+                            '1. Java 是否已安装并配置（JAVA_HOME 或 java 命令可用）\n'
+                            '2. Allure 工具是否完整（项目根目录 allure/bin/ 目录）\n'
+                            '3. 目录权限是否正确\n'
+                            '4. 查看后端日志获取详细错误信息'
+                        )
+                    }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            else:
+                # 如果没有 Allure 工具或 Java 环境，生成简单的 HTML 报告
+                logger.warning("Allure 工具或 Java 环境不可用，生成简单报告")
+                os.makedirs(report_output_dir, exist_ok=True)
                 fallback_html = f"""
 <!DOCTYPE html>
 <html>
@@ -1404,20 +1420,12 @@ class TestExecutionViewSet(viewsets.ReadOnlyModelViewSet):
 """
             # 保存为summary.html，避免覆盖Allure生成的index.html
             summary_file = os.path.join(report_output_dir, 'summary.html')
-            logger.info(f"🔧 Writing summary.html to: {summary_file}")
-            logger.info(f"🔧 summary.html size: {len(index_content)} bytes")
             with open(summary_file, 'w', encoding='utf-8') as f:
                 f.write(index_content)
-
-            # 验证文件是否成功写入
-            if os.path.exists(summary_file):
-                logger.info(f"✅ summary.html created successfully, size: {os.path.getsize(summary_file)} bytes")
-            else:
-                logger.error(f"❌ Failed to create summary.html")
-
+            
             return Response({
                 'message': 'Allure报告生成成功',
-                'report_url': f'/media/allure-reports/execution_{execution.id}/summary.html'
+                'report_url': f'/media/api-testing/allure-reports/execution_{execution.id}/summary.html'
             })
         except Exception as e:
             import traceback
@@ -1429,6 +1437,35 @@ class TestExecutionViewSet(viewsets.ReadOnlyModelViewSet):
                 'detail': error_traceback
             }, status=status.HTTP_400_BAD_REQUEST)
     
+    def _check_java_environment(self):
+        """检查 Java 运行环境是否可用"""
+        try:
+            # 首先检查 JAVA_HOME 环境变量
+            java_home = os.environ.get('JAVA_HOME')
+            if java_home:
+                logger.info(f"检测到 JAVA_HOME: {java_home}")
+
+            # 尝试执行 java -version 命令
+            result = subprocess.run(
+                ['java', '-version'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+
+            if result.returncode == 0:
+                # Java 可用，记录版本信息
+                java_version = result.stderr.split('\n')[0] if result.stderr else 'Unknown'
+                logger.info(f"Java 环境可用: {java_version}")
+                return True
+            else:
+                logger.warning(f"Java 命令执行失败: {result.stderr}")
+                return False
+
+        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
+            logger.warning(f"Java 环境检查失败: {str(e)}")
+            return False
+
     def _generate_test_result_files(self, execution, report_dir):
         """生成测试结果文件"""
         try:
