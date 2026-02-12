@@ -12,6 +12,7 @@ __pycache__/
 logs/*
 !logs/.gitkeep
 # 忽略.env配置文件(但保留.env.example示例文件)
+.env
 .sql
 static_files/img/
 .bak
