@@ -1,0 +1,77 @@
+FROM mcr.microsoft.com/playwright/python:v1.50.0-noble
+# 设置环境变量
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PIP_NO_CACHE_DIR=1
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+# 设置工作目录
+WORKDIR /app
+
+# 安装系统依赖（Playwright 镜像已包含浏览器依赖，只需要编译工具）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    default-libmysqlclient-dev \
+    build-essential \
+    pkg-config \
+    gcc \
+    wget \
+    unzip \
+    curl \
+    dos2unix \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# 从 jdk-cache 复制 JDK 压缩包并解压到 /app/jdk
+COPY jdk-cache/openjdk-17.0.2_linux-x64_bin.tar.gz /tmp/
+RUN tar -xzf /tmp/openjdk-17.0.2_linux-x64_bin.tar.gz -C /app && \
+    ln -s /app/jdk-17.0.2 /app/jdk && \
+    rm -f /tmp/openjdk-17.0.2_linux-x64_bin.tar.gz && \
+    /app/jdk/bin/java -version
+
+# 设置 JAVA_HOME 和 PATH
+ENV JAVA_HOME=/app/jdk
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+
+# 先复制requirements文件（单独一层，便于缓存）
+COPY requirements.txt .
+
+# 安装Python依赖（只有requirements.txt变化时才重新安装）
+RUN pip install -r requirements.txt
+
+# 复制项目代码（放在依赖安装之后，避免代码修改导致依赖重装）
+COPY . .
+
+# 设置 allure 执行权限并转换换行符（项目中的 allure 会被复制到 /app/allure）
+RUN dos2unix /app/allure/bin/allure && \
+    chmod +x /app/allure/bin/allure
+
+# 清理构建缓存
+RUN pip cache purge || true
+
+# 收集静态文件
+RUN python manage.py collectstatic --noinput
+
+# 注意: Playwright 官方镜像已经包含浏览器，不需要挂载缓存
+# RUN mkdir -p /root/.cache/ms-playwright  # 不再需要
+
+# 创建 WebDriver 缓存目录
+RUN mkdir -p /root/.wdm
+
+# 注意: Playwright 官方镜像已经包含浏览器，不需要挂载缓存
+# Allure 工具已包含在项目源码中 (allure/ 目录)，随代码一起复制到容器
+# JDK 已包含在 Dockerfile 中，不需要额外挂载
+# WebDriver 可以从宿主机挂载来加速启动（可选）
+#
+# 启动容器时挂载（可选，用于缓存加速）:
+#   -v $(pwd)/webdriver-cache:/root/.wdm
+
+# 暴露端口
+EXPOSE 8000
+
+# 添加 Allure 到 PATH
+ENV PATH="/app/allure/bin:${PATH}"
+
+# 启动命令
+CMD ["sh", "-c", "chmod +x /app/allure/bin/allure 2>/dev/null || echo 'Warning: allure not executable' && python manage.py migrate --no-input && python manage.py init_locator_strategies && python manage.py runserver 0.0.0.0:8000"]

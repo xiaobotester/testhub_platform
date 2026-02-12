@@ -12,7 +12,6 @@ __pycache__/
 logs/*
 !logs/.gitkeep
 # 忽略.env配置文件(但保留.env.example示例文件)
-.env
 .sql
 static_files/img/
 .bak
@@ -36,11 +35,3 @@ frontend/node_modules/
 frontend/.DS_Store
 frontend/*.log
 frontend/dist/
-
-# Docker
-Dockerfile*
-docker-compose*.yml
-.dockerignore
-nginx.conf
-Makefile
-build-multiplatform.sh

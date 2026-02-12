@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+env/
+
+# Django
+*.log
+logs/
+*.db
+*.sqlite3
+db.sqlite3
+media/allure-static/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Documentation
+README.md
+*.md
+docs/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+.DS_Store
+
+# Archive files (except JDK package in jdk-cache)
+*.tar.gz
+*.zip
+*.rar
+!jdk-cache/openjdk-*.tar.gz
+
+# Allure reports and results（运行时生成，不需要打包）
+allure-results/
+allure-reports/
