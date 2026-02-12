@@ -33,6 +33,7 @@ import UiAITesting from '@/views/ui-automation/ai/AITesting.vue'
 import UiAICaseList from '@/views/ui-automation/ai/AICaseList.vue'
 import UiAIExecutionRecords from '@/views/ui-automation/ai/AIExecutionRecords.vue'
 
+/** @type {import('vue-router').RouteRecordRaw[]} */
 const routes = [
   {
     path: '/',
@@ -371,6 +372,11 @@ const routes = [
             component: () => import('@/views/configuration/UIEnvironmentConfig.vue')
           },
           {
+            path: 'app-env',
+            name: 'ConfigAppEnv',
+            component: () => import('@/views/app-automation/settings/AppSettings.vue')
+          },
+          {
             path: 'ai-mode',
             name: 'ConfigAIMode',
             component: () => import('@/views/configuration/AIIntelligentModeConfig.vue')
@@ -388,6 +394,79 @@ const routes = [
         ]
       }
     ]
+  },
+  // APP自动化测试路由
+  {
+    path: '/app-automation',
+    component: Layout,
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        redirect: 'dashboard'
+      },
+      {
+        path: 'dashboard',
+        name: 'AppAutomationDashboard',
+        component: () => import('@/views/app-automation/dashboard/Dashboard.vue')
+      },
+      {
+        path: 'projects',
+        name: 'AppProjectList',
+        component: () => import('@/views/app-automation/projects/ProjectList.vue')
+      },
+      {
+        path: 'devices',
+        name: 'AppDeviceList',
+        component: () => import('@/views/app-automation/devices/DeviceList.vue')
+      },
+      {
+        path: 'packages',
+        name: 'AppPackageList',
+        component: () => import('@/views/app-automation/packages/PackageList.vue')
+      },
+      {
+        path: 'elements',
+        name: 'AppElementList',
+        component: () => import('@/views/app-automation/elements/ElementList.vue')
+      },
+      {
+        path: 'scene-builder',
+        name: 'AppSceneBuilder',
+        component: () => import('@/views/app-automation/test-cases/SceneBuilder.vue'),
+        meta: { title: '用例编排' }
+      },
+      {
+        path: 'test-cases',
+        name: 'AppTestCaseList',
+        component: () => import('@/views/app-automation/test-cases/TestCaseList.vue')
+      },
+      {
+        path: 'test-suites',
+        name: 'AppTestSuiteList',
+        component: () => import('@/views/app-automation/suites/SuiteList.vue')
+      },
+      {
+        path: 'scheduled-tasks',
+        name: 'AppScheduledTasks',
+        component: () => import('@/views/app-automation/scheduled-tasks/ScheduledTasks.vue')
+      },
+      {
+        path: 'notification-logs',
+        name: 'AppNotificationLogs',
+        component: () => import('@/views/app-automation/notification/NotificationLogs.vue')
+      },
+      {
+        path: 'executions',
+        name: 'AppExecutionList',
+        component: () => import('@/views/app-automation/executions/ExecutionList.vue')
+      },
+      {
+        path: 'reports',
+        name: 'AppReportList',
+        component: () => import('@/views/app-automation/reports/ReportList.vue')
+      }
+    ]
   }
 ]
 
@@ -402,13 +481,13 @@ router.beforeEach(async (to, from, next) => {
   console.log('路由守卫:', {
     to: to.path,
     from: from.path,
-    hasToken: !!userStore.token,
+    hasToken: !!userStore.accessToken,
     hasUser: !!userStore.user,
     isAuthenticated: userStore.isAuthenticated
   })
 
   // 只在应用初始化或从登录页面导航时初始化认证
-  if (!userStore.user && userStore.token) {
+  if (!userStore.user && userStore.accessToken) {
     try {
       console.log('初始化认证...')
       await userStore.initAuth()

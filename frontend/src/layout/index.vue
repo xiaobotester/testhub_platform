@@ -142,6 +142,58 @@
             </el-menu-item>
           </template>
 
+          <!-- APP自动化测试模块菜单 -->
+          <template v-else-if="currentModule === 'app-automation'">
+            <el-menu-item index="/app-automation/dashboard">
+              <el-icon><Odometer /></el-icon>
+              <span>Dashboard</span>
+            </el-menu-item>
+            <el-menu-item index="/app-automation/projects">
+              <el-icon><Folder /></el-icon>
+              <span>项目管理</span>
+            </el-menu-item>
+            <el-menu-item index="/app-automation/devices">
+              <el-icon><Cellphone /></el-icon>
+              <span>设备管理</span>
+            </el-menu-item>
+            <el-menu-item index="/app-automation/packages">
+              <el-icon><Collection /></el-icon>
+              <span>包名管理</span>
+            </el-menu-item>
+            <el-menu-item index="/app-automation/elements">
+              <el-icon><Aim /></el-icon>
+              <span>元素管理</span>
+            </el-menu-item>
+            <el-menu-item index="/app-automation/scene-builder">
+              <el-icon><Connection /></el-icon>
+              <span>用例编排</span>
+            </el-menu-item>
+            <el-menu-item index="/app-automation/test-cases">
+              <el-icon><Document /></el-icon>
+              <span>测试用例</span>
+            </el-menu-item>
+            <el-menu-item index="/app-automation/test-suites">
+              <el-icon><FolderOpened /></el-icon>
+              <span>测试套件</span>
+            </el-menu-item>
+            <el-menu-item index="/app-automation/executions">
+              <el-icon><VideoPlay /></el-icon>
+              <span>执行记录</span>
+            </el-menu-item>
+            <el-menu-item index="/app-automation/reports">
+              <el-icon><DataAnalysis /></el-icon>
+              <span>测试报告</span>
+            </el-menu-item>
+            <el-menu-item index="/app-automation/scheduled-tasks">
+              <el-icon><AlarmClock /></el-icon>
+              <span>定时任务</span>
+            </el-menu-item>
+            <el-menu-item index="/app-automation/notification-logs">
+              <el-icon><Bell /></el-icon>
+              <span>通知列表</span>
+            </el-menu-item>
+          </template>
+
           <!-- AI 智能模式模块菜单 -->
           <template v-else-if="currentModule === 'ai-intelligent-mode'">
             <el-menu-item index="/ai-intelligent-mode/testing">
@@ -182,6 +234,10 @@
             <el-menu-item index="/configuration/ui-env">
               <el-icon><Monitor /></el-icon>
               <span>{{ $t('menu.uiEnvConfig') }}</span>
+            </el-menu-item>
+            <el-menu-item index="/configuration/app-env">
+              <el-icon><Cellphone /></el-icon>
+              <span>APP环境配置</span>
             </el-menu-item>
             <el-menu-item index="/configuration/ai-mode">
               <el-icon><MagicStick /></el-icon>
@@ -268,7 +324,7 @@ import { useI18n } from 'vue-i18n'
 import {
   Monitor, Folder, Document, Flag, Check, Collection, VideoPlay,
   DataAnalysis, ChatDotRound, DocumentCopy, Link, MagicStick,
-  Odometer, Timer, Setting, AlarmClock, Bell, Aim, Edit, Cpu, ArrowDown
+  Odometer, Timer, Setting, AlarmClock, Bell, Aim, Edit, Cpu, ArrowDown, Cellphone, Connection, FolderOpened
 } from '@element-plus/icons-vue'
 import logoSvg from '@/assets/images/logo.svg'
 import logoHomePng from '@/assets/images/logo_home.png'
@@ -299,6 +355,7 @@ const currentModule = computed(() => {
   if (route.path.startsWith('/ai-generation')) return 'ai-generation'
   if (route.path.startsWith('/api-testing')) return 'api-testing'
   if (route.path.startsWith('/ui-automation')) return 'ui-automation'
+  if (route.path.startsWith('/app-automation')) return 'app-automation'
   if (route.path.startsWith('/ai-intelligent-mode')) return 'ai-intelligent-mode'
   if (route.path.startsWith('/configuration')) return 'configuration'
   return ''
@@ -309,6 +366,7 @@ const moduleName = computed(() => {
     'ai-generation': t('modules.aiGeneration'),
     'api-testing': t('modules.apiTesting'),
     'ui-automation': t('modules.uiAutomation'),
+    'app-automation': 'APP自动化测试',
     'ai-intelligent-mode': t('modules.aiIntelligentMode'),
     'configuration': t('modules.configuration')
   }
@@ -352,6 +410,20 @@ const breadcrumbTitle = computed(() => {
     '/ui-automation/reports': t('menu.testReport'),
     '/ui-automation/scheduled-tasks': t('menu.scheduledTasks'),
     '/ui-automation/notification-logs': t('menu.notificationList'),
+
+    // APP自动化测试
+    '/app-automation/dashboard': 'Dashboard',
+    '/app-automation/projects': '项目管理',
+    '/app-automation/devices': '设备管理',
+    '/app-automation/packages': '包名管理',
+    '/app-automation/elements': '元素管理',
+    '/app-automation/scene-builder': '用例编排',
+    '/app-automation/test-cases': '测试用例',
+    '/app-automation/test-suites': '测试套件',
+    '/app-automation/scheduled-tasks': '定时任务',
+    '/app-automation/notification-logs': '通知列表',
+    '/app-automation/executions': '执行记录',
+    '/app-automation/reports': '测试报告',
 
     // AI 智能模式
     '/ai-intelligent-mode/testing': t('menu.aiIntelligentTesting'),

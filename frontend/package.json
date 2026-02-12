@@ -26,12 +26,13 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.0.0",
+    "@vitejs/plugin-vue": "^6.0.0",
     "@vue/eslint-config-prettier": "^8.0.0",
     "eslint": "^8.45.0",
     "eslint-plugin-vue": "^9.15.1",
     "prettier": "^3.0.0",
-    "sass": "^1.64.1",
-    "vite": "^5.4.21"
+    "sass": "^1.97.3",
+    "sass-embedded": "^1.97.3",
+    "vite": "^7.3.1"
   }
 }

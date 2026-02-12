@@ -57,7 +57,7 @@ TestHub 是一个功能强大的智能测试管理平台，集成了 **AI 需求
 - **定时任务**: 支持定时执行测试套件，邮件/Webhook 通知
 - **测试报告**: 自动生成 Allure 测试报告
 
-### 🖥️ UI 自动化测试
+### 🖥️ UI 自动化测试（Web）
 - **双引擎支持**: 支持 Selenium 和 Playwright 两种自动化引擎
 - **元素管理**: 元素库管理，支持多种定位策略（ID、XPath、CSS 等）
 - **页面对象模式**: 支持 POM 设计模式，提高脚本可维护性
@@ -71,6 +71,26 @@ TestHub 是一个功能强大的智能测试管理平台，集成了 **AI 需求
   - 支持文本模式（基于 DOM 解析）和视觉模式（基于截图识别）
   - 支持多种 AI 模型：OpenAI、Anthropic、Google Gemini、DeepSeek、硅基流动等
   - 智能任务规划和步骤自动生成
+
+### 📱 APP 自动化测试（Android）**新增** ✅ **【已完整实现】**
+- **Airtest 框架**: 基于图像识别的 Android APP 自动化测试
+- **设备管理**: 支持本地模拟器和远程设备，设备资源池管理
+- **设备锁定**: 多用户环境下的设备锁定机制，避免资源冲突
+- **ADB 集成**: 自动发现设备、连接远程设备、设备信息查询
+- **元素管理**: 支持图片元素、坐标元素、区域元素三种定位方式
+- **多分辨率适配**: 不同分辨率下的元素配置管理
+- **组件化编排**: 基础组件定义、自定义组件组合、组件包导入导出
+- **UI Flow**: JSON 格式的 UI 流程编排，支持10+ Airtest动作
+- **变量管理**: 支持 global/local/outputs 作用域，{{variable}} 语法
+- **测试执行**: Celery异步执行 + pytest + Allure 报告生成
+- **执行引擎**: AirtestBase + UiFlowRunner + AppTestExecutor 完整实现
+- **进度追踪**: 实时执行进度、步骤统计、通过率计算
+- **使用统计**: 元素使用次数追踪，优化元素管理
+- **API 完整**: 40+ RESTful API 接口，支持所有功能操作
+- **前端页面**: 7个完整页面（Dashboard/设备/元素/用例/执行记录）
+- **代码编辑器**: Monaco Editor 集成，支持 JSON 语法高亮
+- **图片上传**: 支持元素图片拖拽上传和预览
+- **实时更新**: 执行记录自动刷新，实时进度展示
 
 ### 📊 测试执行与报告
 - **测试计划**: 创建测试计划，关联项目、版本和测试用例
@@ -189,8 +209,10 @@ testhub_platform/
 ### 环境要求
 
 - **Python**: 推荐Python3.12,其他版本可能会存在兼容性问题
-- **Node.js**: 18+
-- **MySQL**: 8.0+
+- **Node.js**: 18+(开发环境必须安装Node.js用于构建前端项目,生产可不安装)
+- **MySQL**: 8.0+(必须安装MySQL客户端，用于执行数据库迁移等操作)
+- **Java**: 17+ (可选,用于运行浏览器驱动、Allure 报告生成等，否则会生成报告失败)
+- **Redis**: 6.0+ (可选,用于APP自动化测试相关)
 - **浏览器驱动**: ChromeDriver / GeckoDriver (用于 UI 自动化,建议提前下载好)
 
 ### 后端部署
@@ -246,23 +268,27 @@ python manage.py createsuperuser
 # 根目录执行
 python manage.py init_locator_strategies
 ```
+7. **初始化app自动化组件库**
+```bash
+# 根目录执行
+python manage.py load_component_pack
+```
 
-7. **启动定时任务**
+8. **启动定时任务**
 ```bash
 # 启动统一任务调度器(同时管理API和UI模块)
 python manage.py run_all_scheduled_tasks
-```
-
-8. **数据工厂初始化（从低版本升级到当前版本需要执行此步骤，新安装不需要执行此步骤）**
-```bash
-python manage.py makemigrations data_factory
-python manage.py migrate data_factory
 ```
 
 9. **启动服务**
 ```bash
 # 启动 Django 开发服务器
 python manage.py runserver
+```
+10. **启动Celery服务**
+```bash
+# 启动 Celery 开发服务(可选，用于处理APP自动化任务)
+celery -A backend worker -l info
 ```
 
 ### 数据工厂模块初始化
