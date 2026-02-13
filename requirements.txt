@@ -135,7 +135,7 @@ rpds-py==0.26.0
 rsa==4.9.1
 screeninfo==0.8.1
 selenium==4.15.2
-six==1.17.0
+six==1.16.0
 sniffio==1.3.1
 sortedcontainers==2.4.0
 soupsieve==2.8.1
@@ -183,8 +183,8 @@ Pillow==12.1.0
 
 # OCR 文字识别支持
 easyocr==1.7.2
-opencv-contrib-python==4.13.0.90
-numpy==2.4.2
+opencv-contrib-python==4.6.0.66
+numpy==1.26.4
 
 # websocket推送进度
 daphne==4.2.1
